@@ -1,0 +1,203 @@
+"""
+common/batch_sizing.py
+=======================
+Auto batch-size detection: bottom-up coarse pass through power-of-2
+candidates (64 -> 4096), stopping at the first failure, then binary-search
+refinement rounded to the nearest multiple of 8, landing within 8 of the
+true VRAM/RAM ceiling. Extracted from the determine_batch_size() /
+_probe_batch_size() pair that was duplicated across every v2 training
+script with only the model/optimizer-construction lines differing (see
+v2's mnist_soap_64.py vs mnist_adamw_64.py: identical algorithm, identical
+OOM/shared-VRAM/CPU-RAM/swap detection, differing only in whether the
+probe step uses AMP+GradScaler+gradient clipping or a plain float32
+backward with neither).
+
+Behavior preserved exactly: same candidate ladder, same VRAM/RAM
+pre-flight and per-step/post-loop checks, same refinement algorithm. The
+AMP-vs-not and gradient-clipping-vs-not branches below are exactly the
+two branches that existed, verbatim, across the v2 scripts (SOAP: no AMP,
+no clipping; every other optimizer, including the router: AMP + clip
+max_norm=1.0) — now selected by a parameter instead of being hardcoded
+per file. The AMP branch delegates to common/amp.py's amp_train_step()
+rather than repeating the autocast/GradScaler/clip/step mechanics a
+third time in this file — the batch-size probe and the real training
+loop now share the exact same mixed-precision step function, not just a
+close copy of it.
+
+Callers supply:
+  build_model()         -> a fresh, untrained nn.Module (not yet .to(device))
+  build_optimizer(params) -> an optimizer instance for those params
+  criterion              -> a loss module (e.g. nn.CrossEntropyLoss)
+everything else (candidate ladder, OOM detection, refinement) is shared.
+"""
+import subprocess
+
+import torch
+import torch.nn as nn
+
+from .telemetry import HAS_PSUTIL
+from .amp import amp_train_step, build_grad_scaler
+
+if HAS_PSUTIL:
+    import psutil
+
+RAM_RESERVE_GB = 4.0  # reserved for the OS on CPU-only runs — higher than
+                      # the GPU path's 1GB VRAM reserve since idle system
+                      # RAM usage is meaningfully higher than idle VRAM
+                      # usage on a typical desktop OS.
+
+
+def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
+                       img_size: int, num_classes: int, device: torch.device,
+                       probe_steps: int, use_amp: bool,
+                       grad_clip_norm) -> bool:
+    """
+    Runs probe_steps real training steps (forward, backward,
+    optimizer.step) at a single candidate batch size with a real
+    optimizer instance. Returns True if it fits, False if it OOMs or
+    spills to shared VRAM/system RAM.
+    """
+    _on_cuda = device.type == "cuda"
+    _candidate_swap_baseline_gb = round(psutil.swap_memory().used / 1024**3, 3) if HAS_PSUTIL else 0.0
+
+    try:
+        if _on_cuda:
+            torch.cuda.empty_cache()
+            torch.cuda.reset_peak_memory_stats()
+            _free_vram = (torch.cuda.get_device_properties(0).total_memory
+                         - torch.cuda.memory_reserved()) / 1024**3
+            if _free_vram < 1.5:
+                print(f'[Batch] Batch size {bs} — insufficient free VRAM ({_free_vram:.1f}GB free), skipping')
+                return False
+        elif HAS_PSUTIL:
+            _free_ram = psutil.virtual_memory().available / 1024**3
+            if _free_ram < RAM_RESERVE_GB:
+                print(f'[Batch] Batch size {bs} — insufficient free RAM ({_free_ram:.1f}GB free, {RAM_RESERVE_GB}GB reserved), skipping')
+                return False
+
+        model_test = build_model().to(device)
+        probe_optimizer = build_optimizer(model_test.parameters())
+        probe_scaler = build_grad_scaler(device, use_amp) if use_amp else None
+
+        dummy_x = torch.rand(bs, 1, img_size, img_size, device=device)
+        dummy_y = torch.randint(0, num_classes, (bs,), device=device)
+
+        for _step in range(probe_steps):
+            probe_optimizer.zero_grad()
+            if use_amp:
+                loss, out, _stepped = amp_train_step(
+                    model_test, dummy_x, dummy_y, criterion, probe_optimizer, probe_scaler,
+                    device, use_amp=use_amp, grad_clip_norm=grad_clip_norm,
+                )
+            else:
+                out  = model_test(dummy_x)
+                loss = criterion(out, dummy_y)
+                loss.backward()
+                if grad_clip_norm is not None:
+                    nn.utils.clip_grad_norm_(model_test.parameters(), max_norm=grad_clip_norm)
+                probe_optimizer.step()
+
+            if _on_cuda:
+                try:
+                    _smi = subprocess.check_output(
+                        ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'],
+                        timeout=3
+                    ).decode().strip()
+                    _used_mb = float(_smi.split('\n')[0].strip())
+                    _total_vram_mb = torch.cuda.get_device_properties(0).total_memory / 1024**2
+                    _vram_ceiling_mb = _total_vram_mb - 1024
+                    if _used_mb > _vram_ceiling_mb:
+                        raise RuntimeError('out of memory')
+                except subprocess.SubprocessError:
+                    _total_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+                    if torch.cuda.max_memory_allocated() / 1024**3 > (_total_vram_gb - 1.0):
+                        raise RuntimeError('out of memory')
+            elif HAS_PSUTIL:
+                _free_ram = psutil.virtual_memory().available / 1024**3
+                if _free_ram < RAM_RESERVE_GB:
+                    raise RuntimeError('out of memory')
+                if round(psutil.swap_memory().used / 1024**3, 3) > _candidate_swap_baseline_gb:
+                    raise RuntimeError("page file usage grew beyond this candidate's own baseline — treated as OOM")
+
+        del model_test, probe_optimizer, probe_scaler, dummy_x, dummy_y, out, loss
+        if _on_cuda:
+            torch.cuda.empty_cache()
+            _alloc_mb = torch.cuda.memory_allocated() / 1024**2
+            _total_mb = torch.cuda.get_device_properties(0).total_memory / 1024**2
+            if _alloc_mb > _total_mb - 1024:
+                torch.cuda.empty_cache()
+                print(f'[Batch] Batch size {bs} — spilling to shared VRAM, stepping down')
+                return False
+        elif HAS_PSUTIL:
+            _free_ram = psutil.virtual_memory().available / 1024**3
+            if _free_ram < RAM_RESERVE_GB:
+                print(f'[Batch] Batch size {bs} — RAM dropped below {RAM_RESERVE_GB}GB reserve after probe, stepping down')
+                return False
+            _swap_now = round(psutil.swap_memory().used / 1024**3, 3)
+            if _swap_now > _candidate_swap_baseline_gb:
+                print(f'[Batch] Batch size {bs} — page file usage grew beyond this '
+                      f'candidate\'s own {_candidate_swap_baseline_gb:.3f} GB baseline '
+                      f'({_swap_now:.3f} GB now) after probe, stepping down')
+                return False
+        print(f"[Batch] Batch size {bs} — OK ({probe_steps} real steps completed)")
+        return True
+    except RuntimeError as e:
+        _emsg = str(e).lower()
+        if "out of memory" in _emsg or "find was unable" in _emsg or "engine" in _emsg:
+            if _on_cuda:
+                torch.cuda.empty_cache()
+            print(f"[Batch] Batch size {bs} — failed ({type(e).__name__}), trying next")
+            return False
+        else:
+            raise
+
+
+def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
+                          num_classes: int, device: torch.device,
+                          candidates=(64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384),
+                          probe_steps: int = 5, use_amp: bool = True,
+                          grad_clip_norm=1.0) -> int:
+    """
+    Bottom-up coarse pass + binary-search refinement. See module
+    docstring for the full rationale — identical algorithm to every v2
+    training script.
+    """
+    print(f"[Batch] Auto-detecting batch size for {img_size}x{img_size} "
+          f"({probe_steps} real training steps per candidate, bottom-up "
+          f"with binary-search refinement)...")
+
+    last_working  = None
+    first_failing = None
+    for bs in candidates:
+        if _probe_batch_size(bs, build_model, build_optimizer, criterion, img_size,
+                              num_classes, device, probe_steps, use_amp, grad_clip_norm):
+            last_working = bs
+        else:
+            first_failing = bs
+            break
+
+    if last_working is None:
+        print(f"[Batch] Even the smallest candidate ({candidates[0]}) failed — "
+              f"using it anyway, training may still OOM")
+        return candidates[0]
+
+    if first_failing is None:
+        print(f"[Batch] All candidates up to {last_working} fit — "
+              f"using the largest, no refinement needed")
+        return last_working
+
+    lo, hi = last_working, first_failing
+    print(f"[Batch] Bracket found: {lo} works, {hi} fails — refining...")
+    while hi - lo > 8:
+        mid = round(((lo + hi) // 2) / 8) * 8
+        if mid <= lo or mid >= hi:
+            break
+        if _probe_batch_size(mid, build_model, build_optimizer, criterion, img_size,
+                              num_classes, device, probe_steps, use_amp, grad_clip_norm):
+            lo = mid
+        else:
+            hi = mid
+
+    print(f"[Batch] Refined to batch size {lo} (largest confirmed-working, "
+          f"within 8 of the true VRAM ceiling)")
+    return lo
