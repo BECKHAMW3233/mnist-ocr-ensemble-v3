@@ -69,6 +69,27 @@ def set_all_seeds(seed: int) -> None:
               f"environment variable)")
 
 
+def usable_cpu_count(cpu_reserve_pct: int = 25) -> int:
+    """
+    Returns the number of logical cores usable after reserving
+    cpu_reserve_pct% for the OS — the same reservation math
+    reserve_cpu_threads() uses for torch.set_num_threads(), exposed
+    standalone here (2026-07-28, per direct user follow-up) so DataLoader
+    worker counts (NUM_WORKERS in every training script) can auto-scale
+    to this machine's real core count instead of a hardcoded literal.
+
+    Deliberately NOT gated on CUDA availability the way
+    reserve_cpu_threads() is below — torch.set_num_threads() only matters
+    for CPU-bound tensor ops, which are irrelevant once CUDA is doing the
+    compute, but DataLoader worker processes (which feed the GPU via
+    prefetching) compete for CPU regardless of which device model compute
+    runs on.
+    """
+    total_cores = os.cpu_count() or 1
+    reserved = max(1, round(total_cores * cpu_reserve_pct / 100))
+    return max(1, total_cores - reserved)
+
+
 def reserve_cpu_threads(cpu_reserve_pct: int = 25) -> None:
     """
     Reserves cpu_reserve_pct% of logical cores for the OS on CPU-only
@@ -80,7 +101,4 @@ def reserve_cpu_threads(cpu_reserve_pct: int = 25) -> None:
     """
     import torch
     if not torch.cuda.is_available():
-        total_cores = os.cpu_count() or 1
-        reserved = max(1, round(total_cores * cpu_reserve_pct / 100))
-        usable = max(1, total_cores - reserved)
-        torch.set_num_threads(usable)
+        torch.set_num_threads(usable_cpu_count(cpu_reserve_pct))

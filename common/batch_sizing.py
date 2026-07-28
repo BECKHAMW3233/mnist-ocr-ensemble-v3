@@ -37,6 +37,7 @@ import torch.nn as nn
 
 from .telemetry import HAS_PSUTIL
 from .amp import amp_train_step, build_grad_scaler
+from .distributed import is_distributed, is_main_process, broadcast_int
 
 if HAS_PSUTIL:
     import psutil
@@ -58,13 +59,25 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
     spills to shared VRAM/system RAM.
     """
     _on_cuda = device.type == "cuda"
+    # Multi-GPU support (2026-07-28, per direct user follow-up): every
+    # torch.cuda.get_device_properties(...)/nvidia-smi call below used to
+    # hardcode index 0, which is wrong the moment a run is pointed at a
+    # different card via --gpu (setup_device()'s gpu_id parameter) —
+    # get_device_properties(0) always means the PHYSICAL first GPU,
+    # unlike memory_reserved()/empty_cache()/etc. below (unchanged),
+    # which correctly operate on whatever CUDA's "current device" is.
+    # Uses the actual `device` object already passed into this function
+    # (device.index) rather than querying torch.cuda.current_device()
+    # fresh, since `device` is the authoritative source of which GPU this
+    # probe is actually meant to run on.
+    _gpu_idx = (device.index if device.index is not None else torch.cuda.current_device()) if _on_cuda else 0
     _candidate_swap_baseline_gb = round(psutil.swap_memory().used / 1024**3, 3) if HAS_PSUTIL else 0.0
 
     try:
         if _on_cuda:
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
-            _free_vram = (torch.cuda.get_device_properties(0).total_memory
+            _free_vram = (torch.cuda.get_device_properties(_gpu_idx).total_memory
                          - torch.cuda.memory_reserved()) / 1024**3
             if _free_vram < 1.5:
                 print(f'[Batch] Batch size {bs} — insufficient free VRAM ({_free_vram:.1f}GB free), skipping')
@@ -100,16 +113,17 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
             if _on_cuda:
                 try:
                     _smi = subprocess.check_output(
-                        ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'],
+                        ['nvidia-smi', f'-i={_gpu_idx}', '--query-gpu=memory.used',
+                         '--format=csv,noheader,nounits'],
                         timeout=3
                     ).decode().strip()
                     _used_mb = float(_smi.split('\n')[0].strip())
-                    _total_vram_mb = torch.cuda.get_device_properties(0).total_memory / 1024**2
+                    _total_vram_mb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**2
                     _vram_ceiling_mb = _total_vram_mb - 1024
                     if _used_mb > _vram_ceiling_mb:
                         raise RuntimeError('out of memory')
                 except subprocess.SubprocessError:
-                    _total_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+                    _total_vram_gb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**3
                     if torch.cuda.max_memory_allocated() / 1024**3 > (_total_vram_gb - 1.0):
                         raise RuntimeError('out of memory')
             elif HAS_PSUTIL:
@@ -123,7 +137,7 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
         if _on_cuda:
             torch.cuda.empty_cache()
             _alloc_mb = torch.cuda.memory_allocated() / 1024**2
-            _total_mb = torch.cuda.get_device_properties(0).total_memory / 1024**2
+            _total_mb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**2
             if _alloc_mb > _total_mb - 1024:
                 torch.cuda.empty_cache()
                 print(f'[Batch] Batch size {bs} — spilling to shared VRAM, stepping down')
@@ -161,7 +175,24 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
     Bottom-up coarse pass + binary-search refinement. See module
     docstring for the full rationale — identical algorithm to every v2
     training script.
+
+    DDP note (2026-07-28, per direct user follow-up — see common/
+    distributed.py, including its "NOT YET VALIDATED against real multi-
+    GPU hardware" caveat, which applies here too): on a distributed run,
+    the actual probe loop below runs ONLY on rank 0 — every other rank
+    skips it entirely (not just the printing) and receives rank 0's
+    result via broadcast_int(). Two reasons, not one: (1) rank 0's result
+    is trusted rather than assuming every rank's independent probe would
+    land on the identical number, which is only guaranteed true if every
+    GPU in the job is genuinely identical — this codebase has no way to
+    verify that about the hardware it's run on; (2) running the full
+    probe redundantly on every rank wastes real time and VRAM churn on
+    every rank but one for no benefit once the result is just going to
+    be overwritten by a broadcast anyway.
     """
+    if is_distributed() and not is_main_process():
+        return broadcast_int(0, device)  # placeholder value; overwritten by rank 0's broadcast
+
     print(f"[Batch] Auto-detecting batch size for {img_size}x{img_size} "
           f"({probe_steps} real training steps per candidate, bottom-up "
           f"with binary-search refinement)...")
@@ -179,12 +210,12 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
     if last_working is None:
         print(f"[Batch] Even the smallest candidate ({candidates[0]}) failed — "
               f"using it anyway, training may still OOM")
-        return candidates[0]
+        return broadcast_int(candidates[0], device)
 
     if first_failing is None:
         print(f"[Batch] All candidates up to {last_working} fit — "
               f"using the largest, no refinement needed")
-        return last_working
+        return broadcast_int(last_working, device)
 
     lo, hi = last_working, first_failing
     print(f"[Batch] Bracket found: {lo} works, {hi} fails — refining...")
@@ -200,4 +231,39 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
 
     print(f"[Batch] Refined to batch size {lo} (largest confirmed-working, "
           f"within 8 of the true VRAM ceiling)")
-    return lo
+    return broadcast_int(lo, device)
+
+
+def cap_batch_size_for_min_steps(batch_size: int, dataset_size: int, min_steps: int,
+                                  world_size: int = 1) -> int:
+    """
+    Caps an already-determined batch size down so a training epoch gets
+    at least min_steps real gradient-update steps, given the real
+    training-set size.
+
+    Why this can't live inside determine_batch_size() above: the VRAM/RAM
+    probe runs against dummy random tensors, before the real dataset is
+    loaded (every caller determines batch size first, then loads its
+    dataset — see each script's run_training()) — it has no way to know
+    the real dataset size at the point it picks a batch size. This
+    function is meant to be called by the caller once the real training
+    set is loaded, right before building the train DataLoader, so a tiny
+    dataset (or a model small enough that the VRAM probe lands at the top
+    of its candidate ladder — e.g. the router at 16x16, ~62.6K params)
+    can't end up with too few batches per epoch to train on meaningfully.
+
+    Only ever lowers batch_size, never raises it — if the VRAM-probed
+    size already yields >= min_steps for this dataset, it's returned
+    unchanged.
+
+    world_size (2026-07-28, per direct user follow-up — DDP support, see
+    common/distributed.py): under distributed training, `batch_size` here
+    is the PER-RANK batch size, but every rank steps together in lockstep
+    each iteration — the real number of optimizer.step() calls per epoch
+    is dataset_size / (batch_size * world_size), not dataset_size /
+    batch_size. Defaults to 1 (unchanged formula) for every non-
+    distributed call site, which is every call site that existed before
+    this parameter was added.
+    """
+    max_batch_for_min_steps = max(1, dataset_size // (min_steps * world_size))
+    return min(batch_size, max_batch_for_min_steps)
