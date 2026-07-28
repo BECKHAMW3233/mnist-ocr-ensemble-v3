@@ -4,16 +4,22 @@ This file governs how Claude Code operates in this repository. These rules exist
 because of specific, documented incidents in past sessions. They are not
 generic caution — they are direct responses to real mistakes that cost real time.
 
-## Non-negotiable rule: you do not modify files on my computer, period
+## Non-negotiable rule: ask first, show the diff, then write locally
 
-**You never create, edit, delete, or move any file directly on my machine —
-not with approval, not without it. All work is delivered to me as a
-downloadable file, and I apply it myself. See "Delivering finished work"
-below for the full policy.**
+**You may write directly to files in this project folder — but only after you
+have shown me exactly what will change and I have explicitly said go ahead.
+No exceptions, no "small fix" carve-outs, no writing first and explaining
+after.**
 
-Before doing any work, tell me exactly what you intend to change and why, and
-wait for me to say go ahead, before you even produce the file for download.
-This includes:
+For every change, before touching any file:
+1. Tell me which file(s) you intend to change.
+2. Show me the actual diff or exact new content — not a summary of it, the
+   real text/code — so I can see precisely what will land in the file.
+3. Wait for explicit approval ("go ahead", "yes", "do it" — not silence, not
+   an unrelated reply).
+4. Only then write the change to disk, directly in this folder.
+
+This applies to everything, including:
 - Config values, hyperparameters, constants (e.g. `NUM_WORKERS`, learning rate,
   batch size, resolution, patience, seeds)
 - "Helpful" additions I did not ask for (auto-adjustment logic, extra error
@@ -24,14 +30,15 @@ This includes:
 
 If something looks broken or wrong while you're reading code, **stop and tell
 me what you found**. Do not fix it silently, even if the fix seems trivial or
-obviously correct. I decide what gets changed, and I apply every change
-myself once you've prepared it.
+obviously correct. I decide what gets changed — you write it only after I say
+so, and only after I've seen the actual diff.
 
 Exception: pure read-only investigation (viewing files, running non-mutating
-commands like `nvidia-smi`, `git status`, `git diff`, `pytest --collect-only`)
-does not need pre-approval. Anything that writes to disk or changes state does
-— and even once approved, the write happens as a delivered file, never as a
-direct edit to my working copy.
+commands like `nvidia-smi`, `git status`, `git diff`, `pytest --collect-only`,
+and fetching data from the internet — documentation, papers, package/repo
+pages, anything read-only) does not need pre-approval, ever. You may search
+and fetch web content freely and at any time, without asking first — this
+directly supports the Verification standard below and should not be gated.
 This exception does not cover actually *running* tests — see Testing section
 below, that's mine to run, always.
 
@@ -59,7 +66,9 @@ Do not repeat any of these patterns.
 
 **If there is any doubt at all, look it up online before acting or answering.
 Don't rely on training data alone for anything that could be outdated, version-
-specific, or simply misremembered.**
+specific, or simply misremembered. You never need to ask permission to search
+or fetch web content — that's covered by the read-only exception above and
+should happen freely, as often as needed, without checking in first.**
 
 - If you are not 100% certain how a library/API/function behaves — including
   things you think you already know — search for and check current
@@ -180,12 +189,9 @@ explicitly ask for that specific operation in that moment.**
 
 ## Delivering finished work
 
-**You never modify files on my computer, at any point, for any reason. Full
-stop — no exceptions, no "just this once," no in-place edits even if it seems
-more convenient in the moment.**
+**Writes happen directly in this project folder, after approval — not as
+downloads. See the opening rule for the show-diff-then-write sequence.**
 
-- All work — new files, edited files, anything — gets delivered to me as a
-  downloadable file. I download it and move/apply it on my system myself.
 - Before presenting anything to me as done, fully verify the fix or feature
   actually works — end to end, not just "the code looks right."
 - Don't tell me something is complete based on code review alone. If it needs
@@ -195,17 +201,18 @@ more convenient in the moment.**
   syntax check, a dry-run with `--collect-only`, confirming imports resolve),
   do that — but be explicit about what was and wasn't actually verified.
 - This applies to every file type without exception: code, config,
-  CHANGELOG.md, README.md, everything. Nothing gets written directly into my
-  working folder by you, ever.
+  CHANGELOG.md, README.md, everything. The diff-then-approve-then-write
+  sequence in the opening rule is never skipped, regardless of file type.
 
 ## Worktrees
 
 - If working in a worktree, do not merge, rebase, or otherwise push changes
   into `main` (or any other branch outside the worktree) without asking me
-  first and getting explicit confirmation.
-- Once a worktree change is approved, present it to me as a downloadable file
-  or diff — I will move/apply it on my system myself. You never perform the
-  merge into my main checkout, under any circumstance.
+  first and getting explicit confirmation, per the Git/GitHub rule above.
+- Once a worktree change is approved, write it directly following the same
+  show-diff-then-write sequence as any other change. You never perform a
+  merge into my main checkout, under any circumstance — merging is a git
+  operation and falls under the Git/GitHub rule, not this one.
 
 ## Hardware / execution
 
