@@ -51,6 +51,7 @@ from datetime import datetime
 
 from common.seeding import (
     apply_cublas_workspace_config, get_global_seed, set_all_seeds, reserve_cpu_threads,
+    usable_cpu_count,
 )
 
 apply_cublas_workspace_config()
@@ -66,8 +67,13 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 from torchvision import transforms
 
-from common.telemetry import get_hw_stats, setup_device, HAS_PSUTIL
-from common.batch_sizing import determine_batch_size
+from common.telemetry import HardwareMonitor, setup_device, HAS_PSUTIL
+from common.distributed import (
+    is_distributed, get_local_rank, is_main_process, setup_distributed,
+    cleanup_distributed, wrap_model_ddp, unwrap_model, all_reduce_sum, get_world_size,
+    DistributedWeightedRandomSampler,
+)
+from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps
 from common.checkpointing import EarlyStopping, save_resume_state, clear_resume_state
 from common.cli_logging import _Tee, plot_history, save_log
 from common.onnx_export import export_onnx
@@ -103,7 +109,17 @@ LEARNING_RATE    = 1e-3
 WEIGHT_DECAY     = 1e-4
 VALIDATION_SPLIT = 0.15
 PATIENCE         = 15
-NUM_WORKERS      = 10
+MIN_STEPS_PER_EPOCH = 15  # floor on real gradient-update steps per epoch — see
+                          # cap_batch_size_for_min_steps() in common/batch_sizing.py
+NUM_WORKERS      = usable_cpu_count()  # auto-scales to this machine's real
+                        # core count, leaving 25% for the OS (2026-07-28,
+                        # per direct user follow-up) — was a hardcoded 10,
+                        # which left cores idle on a many-core CPU and could
+                        # be too many workers on a small one. DataLoader
+                        # worker processes compete for CPU regardless of
+                        # whether training itself runs on GPU or CPU, so
+                        # this uses the same 25%-reserved-for-the-OS policy
+                        # already applied to CPU-only torch.set_num_threads().
 USE_AMP          = True
 
 RAM_RESERVE_GB   = 4.0
@@ -202,7 +218,10 @@ def make_dataloader(dataset, batch_size: int, shuffle: bool = False,
     _persistent = _nw > 0
     if use_weighted_sampler:
         sample_weights = get_class_weights(dataset)
-        sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
+        if is_distributed():
+            sampler = DistributedWeightedRandomSampler(sample_weights, len(sample_weights))
+        else:
+            sampler = WeightedRandomSampler(weights=sample_weights, num_samples=len(sample_weights), replacement=True)
         return DataLoader(dataset, batch_size=batch_size, sampler=sampler,
                           num_workers=_nw, pin_memory=torch.cuda.is_available(),
                           persistent_workers=_persistent, drop_last=False)
@@ -328,11 +347,27 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
     model.train()
     total_loss = total_correct = total_samples = 0
     num_batches  = len(loader)
-    midpoint_idx = num_batches // 2
-    mid_epoch_hw = None
     log_interval = max(1, round(num_batches * 0.025))
+    # Hardware telemetry (2026-07-28, per direct user follow-up): sampled
+    # at several points across the epoch, not just once at the midpoint —
+    # a single snapshot can land on an idle/eval lull (confirmed in a real
+    # run's own transcript) and misreport the epoch's real utilization.
+    # epoch_summary() below reduces the collected samples to min/avg/max
+    # per metric.
+    _hw_monitor = HardwareMonitor()
+    _hw_samples = []
+    _sample_points = {round(num_batches * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)} if num_batches else set()
+    # Data-wait vs. compute time: times the dataloader's next-batch yield
+    # separately from the training step itself, so a GPU-starved-by-data
+    # bottleneck (CPU/disk-bound) is distinguishable from a genuinely
+    # GPU-bound run — utilization% alone can't tell those apart.
+    _data_wait_s = 0.0
+    _compute_s   = 0.0
+    _t_prev = time.time()
 
     for batch_idx, (images, labels) in enumerate(loader):
+        _t_data = time.time()
+        _data_wait_s += _t_data - _t_prev
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
         optimizer.zero_grad()
@@ -342,14 +377,17 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
             use_amp=USE_AMP, grad_clip_norm=1.0,
         )
 
-        if batch_idx == midpoint_idx:
-            mid_epoch_hw = get_hw_stats()
+        _t_prev = time.time()
+        _compute_s += _t_prev - _t_data
+
+        if batch_idx in _sample_points:
+            _hw_samples.append(_hw_monitor.sample())
 
         total_loss    += loss.item() * images.size(0)
         total_correct += (logits.argmax(1) == labels).sum().item()
         total_samples += images.size(0)
 
-        if (batch_idx + 1) % log_interval == 0 or (batch_idx + 1) == num_batches:
+        if is_main_process() and ((batch_idx + 1) % log_interval == 0 or (batch_idx + 1) == num_batches):
             _running_loss = total_loss / total_samples
             _running_acc  = total_correct / total_samples
             _prefix = f"[{img_size}x{img_size}] " if img_size is not None else ""
@@ -357,9 +395,24 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
             print(f"  {_prefix}{_epoch_str}Batch {batch_idx + 1:5d}/{num_batches:5d}  "
                   f"loss: {_running_loss:.4f}  acc: {_running_acc:.4f}")
 
-    if mid_epoch_hw is None:
-        mid_epoch_hw = get_hw_stats()
-    return total_loss / total_samples, total_correct / total_samples, mid_epoch_hw
+    if not _hw_samples:
+        _hw_samples.append(_hw_monitor.sample())
+    hw_summary = HardwareMonitor.epoch_summary(_hw_samples)
+    hw_summary["data_wait_s"] = round(_data_wait_s, 2)
+    hw_summary["compute_s"]   = round(_compute_s, 2)
+    # DDP metric aggregation (2026-07-28, per direct user follow-up): each
+    # rank only sees its own shard of the training data (via
+    # DistributedWeightedRandomSampler in make_dataloader()/
+    # make_train_loader() below), so total_loss/total_correct/
+    # total_samples are LOCAL to this rank until summed across every rank
+    # — without this, a distributed run's reported train_loss/train_acc
+    # would silently reflect only one rank's slice of the epoch, not the
+    # real global numbers a single-GPU run would show. No-op passthrough
+    # when not running distributed — see common/distributed.py.
+    total_loss    = all_reduce_sum(total_loss, device)
+    total_correct = all_reduce_sum(total_correct, device)
+    total_samples = all_reduce_sum(total_samples, device)
+    return total_loss / total_samples, total_correct / total_samples, hw_summary
 
 
 @torch.no_grad()
@@ -417,9 +470,11 @@ def _batchnorm_warmup(model, optimizer, train_loader, device, n_batches: int = 5
 # 5. RUN TRAINING
 # =============================================================================
 
-def run_training(img_size: int, batch_override: int = None):
+def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
-    device = setup_device(use_amp=USE_AMP)
+    device = setup_device(use_amp=USE_AMP,
+                          gpu_id=get_local_rank() if is_distributed() else gpu_id)
+    setup_distributed(device)
 
     if batch_override is not None:
         batch_size = batch_override
@@ -445,11 +500,30 @@ def run_training(img_size: int, batch_override: int = None):
     print("=" * 60)
 
     train_ds, val_ds, test_ds, supp_ds = load_mnist(DATA_DIR, img_size)
+
+    # Minimum steps/epoch floor (2026-07-28, per direct user follow-up):
+    # the VRAM probe above tests dummy tensors before the real dataset is
+    # loaded, so it has no visibility into how many real training samples
+    # exist — a small model (e.g. the router) or a small dataset (e.g. the
+    # 16x16 USPS-only tier) can land on a batch size that gives only a
+    # handful of real gradient-update steps per epoch. Capped here, now
+    # that the real training set size is known, before the DataLoader is
+    # built — never raises the batch size, only lowers it.
+    _min_steps_batch = cap_batch_size_for_min_steps(
+        cfg["batch_size"], len(train_ds), MIN_STEPS_PER_EPOCH,
+        world_size=get_world_size(),
+    )
+    if _min_steps_batch < cfg["batch_size"]:
+        print(f"[Batch] Capping batch size {cfg['batch_size']} -> {_min_steps_batch} "
+              f"to guarantee >= {MIN_STEPS_PER_EPOCH} steps/epoch "
+              f"({len(train_ds):,} train samples)")
+        cfg["batch_size"] = _min_steps_batch
     train_loader = make_dataloader(train_ds, cfg["batch_size"], use_weighted_sampler=True)
     val_loader   = make_dataloader(val_ds,  cfg["batch_size"], num_workers_override=0)
     test_loader  = make_dataloader(test_ds, cfg["batch_size"], num_workers_override=0)
 
     model = OCRConvNetWide(NUM_CLASSES).to(device)
+    model = wrap_model_ddp(model, device)
     total = sum(p.numel() for p in model.parameters())
     print(f"\n[Model] OCRConvNetWide — {img_size}x{img_size}")
     print(f"  Parameters : {total:,}")
@@ -474,7 +548,7 @@ def run_training(img_size: int, batch_override: int = None):
         try:
             _rs = torch.load(str(resume_path), map_location=device, weights_only=False)
             _ckpt = torch.load(cfg["checkpoint_path"], map_location=device, weights_only=False)
-            model.load_state_dict(_ckpt["state_dict"] if "state_dict" in _ckpt else _ckpt)
+            unwrap_model(model).load_state_dict(_ckpt["state_dict"] if "state_dict" in _ckpt else _ckpt)
             optimizer.load_state_dict(_rs["optimizer_state"])
             scaler.load_state_dict(_rs["scaler_state"])
             early_stop.counter   = _rs["patience_counter"]
@@ -496,6 +570,13 @@ def run_training(img_size: int, batch_override: int = None):
               f"— every epoch below is checked against THIS fixed value, not a rolling one.")
 
     for epoch in range(start_epoch, 10**6):
+        # DDP epoch reshuffle (2026-07-28, per direct user follow-up):
+        # DistributedWeightedRandomSampler's weighted draw is seeded by
+        # seed + epoch (see common/distributed.py) — without telling it
+        # which epoch this is, every epoch would draw the identical
+        # weighted sample. No-op when not running distributed.
+        if is_distributed():
+            train_loader.sampler.set_epoch(epoch)
         t0 = time.time()
 
         optimizer.train()
@@ -514,19 +595,22 @@ def run_training(img_size: int, batch_override: int = None):
               f"val_loss: {val_loss:.4f}  val_acc: {val_acc:.4f}  |  "
               f"lr: {current_lr:.2e}  [{elapsed:.0f}s]  |  "
               f"VRAM {hw['vram_peak_alloc_gb']:.1f}/{hw['vram_peak_reserved_gb']:.1f}GB  "
-              f"CUDA {hw['cuda_util_pct']}%  {hw['gpu_temp_c']}°C  |  "
-              f"CPU {hw['cpu_pct']}%  RAM {hw['ram_used_gb']:.1f}/{hw['ram_total_gb']:.1f}GB")
+              f"CUDA {hw['cuda_util_pct_avg']:.0f}/{hw['cuda_util_pct_max']}%(avg/max)  "
+              f"{hw['gpu_temp_c_avg']:.0f}/{hw['gpu_temp_c_max']}°C  {hw['gpu_power_w_avg']:.0f}W  |  "
+              f"CPU {hw['cpu_pct_avg']:.0f}%  RAM {hw['ram_used_gb_avg']:.1f}/{hw['ram_total_gb']:.1f}GB  |  "
+              f"wait {hw['data_wait_s']:.1f}s/compute {hw['compute_s']:.1f}s"
+              f"{'  [THROTTLED]' if hw['gpu_throttled_any'] == 1 else ''}")
 
         for k, v in [("train_loss", train_loss), ("train_acc", train_acc),
                      ("val_loss", val_loss), ("val_acc", val_acc), ("lr", current_lr)]:
             history[k].append(v)
-        history.setdefault("vram_peak_alloc_gb",    []).append(hw["vram_peak_alloc_gb"])
-        history.setdefault("vram_peak_reserved_gb", []).append(hw["vram_peak_reserved_gb"])
-        history.setdefault("cuda_util_pct",    []).append(hw["cuda_util_pct"])
-        history.setdefault("gpu_temp_c",       []).append(hw["gpu_temp_c"])
-        history.setdefault("cpu_pct",          []).append(hw["cpu_pct"])
-        history.setdefault("ram_used_gb",      []).append(hw["ram_used_gb"])
-        history.setdefault("epoch_time_s",     []).append(round(elapsed, 1))
+        # Every HardwareMonitor.epoch_summary() key auto-populates its own
+        # history column (2026-07-28, per direct user follow-up) — the old
+        # 6-field explicit list here would silently drop any new telemetry
+        # field added to epoch_summary() without a matching edit here.
+        for hw_key, hw_val in hw.items():
+            history.setdefault(hw_key, []).append(hw_val)
+        history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
 
         if device.type == "cpu" and HAS_PSUTIL:
             _swap_used_gb = round(psutil.swap_memory().used / 1024**3, 3)
@@ -558,7 +642,7 @@ def run_training(img_size: int, batch_override: int = None):
 
     print(f"\n[Train] [{img_size}x{img_size}] Loading best checkpoint...")
     ckpt = torch.load(cfg["checkpoint_path"], map_location=device, weights_only=False)
-    model.load_state_dict(ckpt["state_dict"])
+    unwrap_model(model).load_state_dict(ckpt["state_dict"])
 
     print(f"\n[Eval] [{img_size}x{img_size}] Running per-class accuracy analysis on test set...")
     _batchnorm_warmup(model, optimizer, train_loader, device)
@@ -570,20 +654,28 @@ def run_training(img_size: int, batch_override: int = None):
 
     plot_history(history, cfg["plot_path"], img_size, title="MNIST Digit Ensemble ScheduleFree-AdamW")
     save_log(history, cfg["log_path"])
-    torch.save({"state_dict": model.state_dict()}, cfg["final_model_path"])
-    print(f"[Save] {cfg['final_model_path']}")
+    if is_main_process():
+        # unwrap_model(): see common/distributed.py — a DDP-wrapped
+        # model.state_dict() has "module."-prefixed keys, which would
+        # silently fail to load into model_cpu (a plain, never-wrapped
+        # model) a few lines below. Rank-0-only: several ranks writing
+        # the same path at once would race.
+        torch.save({"state_dict": unwrap_model(model).state_dict()}, cfg["final_model_path"])
+        print(f"[Save] {cfg['final_model_path']}")
 
-    try:
-        model_cpu = OCRConvNetWide(NUM_CLASSES)
-        model_cpu.load_state_dict(
-            torch.load(cfg["final_model_path"], map_location="cpu", weights_only=False)["state_dict"]
-        )
-        export_onnx(model_cpu, cfg["onnx_path"], img_size)
-    except Exception as e:
-        print(f"[ONNX] Export failed: {e}")
+    if is_main_process():  # rank-0-only — see the final-model save above
+        try:
+            model_cpu = OCRConvNetWide(NUM_CLASSES)
+            model_cpu.load_state_dict(
+                torch.load(cfg["final_model_path"], map_location="cpu", weights_only=False)["state_dict"]
+            )
+            export_onnx(model_cpu, cfg["onnx_path"], img_size)
+        except Exception as e:
+            print(f"[ONNX] Export failed: {e}")
 
     clear_resume_state(cfg["resume_path"])
     print(f"\n[Done] [{img_size}x{img_size}] All files saved to {OUTPUT_ROOT}")
+    cleanup_distributed()
     return test_acc
 
 
@@ -591,13 +683,13 @@ def run_training(img_size: int, batch_override: int = None):
 # 6. MAIN
 # =============================================================================
 
-def main(batch_override=None):
+def main(batch_override=None, gpu_id=None):
     print("\n" + "#" * 60)
     print(f"  MNIST DIGIT ENSEMBLE — SCHEDULEFREE-ADAMW {IMG_SIZE}x{IMG_SIZE}")
     print(f"  Seed: GLOBAL_SEED={GLOBAL_SEED} (override with MNIST_SEED env var)")
     print("#" * 60 + "\n")
 
-    acc = run_training(IMG_SIZE, batch_override=batch_override)
+    acc = run_training(IMG_SIZE, batch_override=batch_override, gpu_id=gpu_id)
 
     print("\n" + "#" * 60)
     print("  TRAINING COMPLETE — SCHEDULEFREE-ADAMW")
@@ -609,7 +701,13 @@ if __name__ == "__main__":
     _parser = argparse.ArgumentParser()
     _parser.add_argument('--batch-size', type=int, default=None,
                          help='Override auto batch detection with a fixed batch size')
+    _parser.add_argument('--gpu', type=int, default=None,
+                         help='Physical GPU index to train on (e.g. --gpu 1) — lets you '
+                              'run different scripts on different cards at once on a '
+                              'multi-GPU machine. Default: whatever CUDA already '
+                              'considers the current device (GPU 0 on most single-GPU '
+                              'machines).')
     _args = _parser.parse_args()
     OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
     sys.stdout = _Tee(OUTPUT_ROOT / f"v3_mnist_digit_adamw_{IMG_SIZE}_cli_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
-    main(batch_override=_args.batch_size)
+    main(batch_override=_args.batch_size, gpu_id=_args.gpu)

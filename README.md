@@ -63,18 +63,23 @@ script the first time it runs.
 mnist-ocr-ensemble-v3/
 ├── README.md
 ├── v3_CHANGELOG.md
+├── requirements.txt                     # pip install -r requirements.txt
+├── setup_packages.py                    # python setup_packages.py [--check]
 │
 ├── common/                              # shared INFRASTRUCTURE modules (Part 2 modularization —
 │   │                                     # optimizer algorithms are NOT here, see below)
 │   ├── __init__.py
 │   ├── seeding.py                       # GLOBAL_SEED / set_all_seeds / CPU thread reservation
-│   ├── telemetry.py                     # nvidia-smi + psutil hardware stats
+│   ├── telemetry.py                     # nvidia-smi + psutil hardware stats (power/clocks/
+│   │                                     # throttle/mem-util/fan/disk I/O, min/avg/max per epoch)
 │   ├── batch_sizing.py                  # auto batch-size detection (bottom-up + binary search)
 │   ├── checkpointing.py                 # EarlyStopping, resume save/clear helpers
 │   ├── cli_logging.py                   # _Tee transcript mirror, CSV log, training-curve plot
 │   ├── onnx_export.py                   # export_onnx()
 │   ├── scheduler.py                     # WarmupCosineScheduler
-│   └── amp.py                           # mixed-precision train step (autocast/GradScaler/clip)
+│   ├── amp.py                           # mixed-precision train step (autocast/GradScaler/clip)
+│   └── distributed.py                   # optional multi-GPU DDP support — NOT YET VALIDATED
+│                                         # against real multi-GPU hardware, see its own docstring
 │
 ├── supplementary_data.py                # shared dataset loader (extends v2's own module)
 ├── ocr_pipeline_mnist.py                # ONNX inference pipeline (router + digit ensemble)
@@ -189,6 +194,30 @@ python v3_mnist_router_ranger_64.py
 python v3_mnist_router_ranger_64.py --infer some_letter.png   # spot-check a trained checkpoint
 ```
 
+**Multi-GPU:** two independent modes — see `v3_CHANGELOG.md`'s multi-GPU
+entry for full detail and the honest caveat on which mode has been
+tested where.
+
+- **Run different models on different cards at once** (any script,
+  `--gpu N` selects a physical GPU index; default uses whatever CUDA
+  already considers current):
+  ```
+  python v3_mnist_digit_soap_64.py --gpu 0     # terminal 1
+  python v3_mnist_digit_muon_64.py --gpu 1     # terminal 2, at the same time
+  ```
+- **Split ONE model's training across multiple GPUs** (DistributedDataParallel,
+  launched via `torchrun`, one process per GPU). **⚠️ Not yet validated
+  against real multi-GPU hardware** — built and reasoned through
+  carefully (see `common/distributed.py`'s own docstring and
+  `v3_CHANGELOG.md`'s multi-GPU entry), but every real number anywhere
+  in this project came from a single GPU; confirm on real hardware
+  before trusting it for an actual multi-day run:
+  ```
+  torchrun --standalone --nproc_per_node=2 v3_mnist_digit_soap_64.py
+  ```
+  Do not also pass `--gpu` under `torchrun` — `LOCAL_RANK` (set by the
+  launcher) already picks each process's device correctly.
+
 **Run the inference pipeline** — single model, ensemble, or a whole
 directory of `.onnx` files, with or without the router pre-filter (see
 `ocr_pipeline_mnist.py`'s own module docstring for the full flag list
@@ -233,3 +262,14 @@ package needed for either, and no standalone project module either.
 `rarfile` is an optional fallback dependency for `supplementary_data.py`'s
 ARDIS auto-download (only used if none of 7-Zip/`unrar`/`unar` are found
 on `PATH`).
+
+**To install:** `requirements.txt` lists the same set above for a plain
+`pip install -r requirements.txt` (after installing `torch`/`torchvision`
+from the CUDA-specific wheel index — see the file's own header comment).
+Or run `python setup_packages.py`, which handles the CUDA wheel index
+itself and has a `--check` mode that reports what's installed/missing
+without installing anything:
+```
+python setup_packages.py --check   # verify only, installs nothing
+python setup_packages.py           # install everything
+```

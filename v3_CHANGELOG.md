@@ -648,6 +648,511 @@ and bare `{optimizer}_{res}` patterns (e.g. `adahessian_64.onnx`,
 at old-format `.onnx` files without crashing its name-parsing), not
 because any v2-named file is expected to actually be used going forward.
 
+### Dependency verification tooling added (post-delivery, per direct user follow-up)
+
+**Gap:** the initial v3 delivery had no standalone dependency file —
+only `README.md`'s "Requirements" prose section, which lists packages
+but isn't installable or scriptably checkable. User asked directly where
+the dependency file was so they could verify their own environment.
+
+**Added, both per explicit confirmation (not guessed at):**
+- `requirements.txt` — plain `pip install -r requirements.txt` list,
+  built from the same verified-against-actual-imports set already in
+  `README.md`'s Requirements section (re-confirmed via a fresh grep of
+  every top-level `import`/`from` line across all 31 `.py` files before
+  writing this, not copied from the README without re-checking). Notes
+  up front that `torch`/`torchvision` need the CUDA-specific wheel index
+  first, since a bare `pip install -r requirements.txt` would otherwise
+  silently pull a CPU-only torch build from PyPI.
+- `setup_packages.py` — a v3-native port of v2's same-named script (see
+  "File change list" — this was flagged as a known gap in the original
+  delivery and deliberately not built then, since it wasn't part of the
+  restructure's required output). Same `--check`/`--skip-torch`/`--cuda`/
+  `--skip-onnx` flag shape as v2's version, but with v3's actual package
+  list: `adabelief-pytorch` and `lion-pytorch` dropped (AdaBelief/Lion
+  aren't in the v3 roster), no entry added for Muon or Ranger (both are
+  inlined in their training scripts, no PyPI package involved for
+  either), and the Windows-only `wmi`/LibreHardwareMonitor optional
+  group removed entirely — v3's `common/telemetry.py` only ever reads
+  `nvidia-smi` + `psutil`, unlike v2's `benchmark_cudnn_speed.py` (not
+  carried into v3), which was the only v2 file that used WMI CPU-temp
+  telemetry. `onnx`'s check/install reasoning was narrowed to accurately
+  say it's needed by the 5 SOAP digit scripts' `validate=True` export
+  path specifically (confirmed via grep — only the SOAP scripts pass
+  `validate=True` to `common/onnx_export.py`'s `export_onnx()`), not "for
+  training" generally.
+
+**Verification:** both files checked against a fresh `grep` of every
+top-level import across `common/*.py` and every top-level `.py` file,
+not assumed from the README. `setup_packages.py` compiled clean via
+`python -m py_compile` and `python -m pyflakes`.
+
+### Minimum steps/epoch floor added to all 20 training scripts (post-delivery, per direct user follow-up)
+
+**Reported, with a real run's console output:** a real run of
+`v3_mnist_router_ranger_16.py` (RTX 4080) auto-detected batch size 16384
+— the top of the candidate ladder — and trained at only **5 batches per
+epoch** (81,678 combined router-training samples ÷ 16384), which is too
+few real gradient-update steps per epoch. User asked for a hard floor of
+at least 15 steps/epoch.
+
+**Root cause:** `determine_batch_size()` (`common/batch_sizing.py`)
+probes VRAM/RAM headroom using dummy random tensors, *before* the real
+dataset is loaded (every script determines batch size first, then loads
+its dataset — see each script's `run_training()`) — it has no way to
+know the real training-set size at the point it picks a batch size. A
+small model (the router, ~62.6K params) or a small dataset (16×16's
+USPS-only tier) can land on a batch size that's fine for VRAM but far
+too large relative to the actual number of training samples, without
+this ever being caught anywhere in the pipeline.
+
+**Fix:** added `cap_batch_size_for_min_steps(batch_size, dataset_size,
+min_steps)` to `common/batch_sizing.py` — a pure post-hoc cap
+(`min(batch_size, dataset_size // min_steps)`, never raises, only
+lowers). Applied identically in all 20 training scripts (15 digit + 5
+router), each with its own local `MIN_STEPS_PER_EPOCH = 15` constant
+(matching the project's existing convention of per-script hyperparameter
+constants like `PATIENCE`, not a shared value baked into `common/`) —
+inserted right after the real training dataset is loaded (`train_ds`)
+and before the train `DataLoader` is built, so `cfg["batch_size"]` (and
+therefore the LR-scaling formulas and dataloaders that read it
+downstream) reflects the capped value consistently for the rest of the
+run. Prints `[Batch] Capping batch size X -> Y ...` when the cap
+actually lowers anything, so the transcript records when and why.
+
+**Verified against the real reported case:** router at 16×16, 81,678
+train samples, `MIN_STEPS_PER_EPOCH=15` → caps 16384 down to 5,445 →
+81,678 / 5,445 ≈ 15.0 steps/epoch, confirmed by hand calculation before
+shipping.
+
+**Bug caught and fixed before shipping, not after:** the first pass at
+this edit (via a scripted regex insertion across all 20 files) produced
+an f-string with doubled curly braces (`f"...{{cfg['batch_size']}}..."`)
+— a copy-paste artifact from writing the block as a plain string
+template rather than directly as target-file Python. Doubled braces in
+an f-string are Python's own escape for a *literal* brace character, so
+this would have printed the literal text `{cfg['batch_size']}` instead
+of the real number in every script's console/transcript output. Caught
+by rereading the actual patched output (not assumed correct because the
+regex substitution count matched), fixed with a second scripted pass
+across all 20 files, and reverified via `grep` that zero double-brace
+occurrences remain.
+
+**Verification:** all 20 files (plus `common/batch_sizing.py`)
+recompiled clean via `python -m py_compile`. Confirmed via `grep` that
+`MIN_STEPS_PER_EPOCH = 15` and `cap_batch_size_for_min_steps` both
+appear in exactly the expected files, and that the fixed f-string block
+reads correctly (single braces) in every file, not just the one spot-
+checked directly.
+
+### DataLoader worker count auto-scaled to real core count (post-delivery, per direct user follow-up)
+
+**Requested directly:** auto-adjust `NUM_WORKERS` based on this
+machine's actual core/thread count, leaving 25% free, rather than the
+hardcoded `10` every script had — on a 24-thread CPU that left 14 threads
+completely idle beyond the existing 25% OS reservation; on a smaller CPU
+it could over-subscribe past the reservation entirely.
+
+**Fix:** added `usable_cpu_count(cpu_reserve_pct=25)` to
+`common/seeding.py` — the same reservation math `reserve_cpu_threads()`
+already used for `torch.set_num_threads()` (`max(1, total_cores -
+round(total_cores * cpu_reserve_pct / 100))`), factored out and exposed
+standalone, deliberately NOT gated on CUDA availability the way
+`reserve_cpu_threads()` is (DataLoader worker processes compete for CPU
+regardless of whether model compute happens on GPU or CPU).
+`reserve_cpu_threads()` itself now calls this helper internally — no
+behavior change there.
+
+Wired into all 20 training scripts, which split into two genuinely
+different existing patterns (per the same adamw/router vs. soap/muon
+sub-family structural split documented elsewhere in this changelog):
+- `v3_mnist_digit_adamw_*.py` / `v3_mnist_router_ranger_*.py` (10 files):
+  had a `NUM_WORKERS = 10` module constant — changed to
+  `NUM_WORKERS = usable_cpu_count()`.
+- `v3_mnist_digit_soap_*.py` / `v3_mnist_digit_muon_*.py` (10 files): had
+  no named constant, `num_workers=10` was hardcoded directly inline in
+  the train `DataLoader(...)` call — added a `NUM_WORKERS =
+  usable_cpu_count()` constant (matching the other 10 files' naming) and
+  updated the inline call to `num_workers=NUM_WORKERS,
+  persistent_workers=NUM_WORKERS > 0`.
+
+Val/test loaders are deliberately unaffected — they already correctly
+use `num_workers=0` everywhere (unparallelized, small enough not to need
+it), which was true before this change and stays true after.
+
+**Verification:** all 20 files recompiled clean via `python -m
+py_compile`, pyflakes-clean. Confirmed via `grep` that `usable_cpu_count`
+appears at least twice (import + usage) in every one of the 20 files.
+
+### Hardware telemetry expanded: power/clocks/throttle, memory/disk, min-avg-max sampling, data-wait timing (post-delivery, per direct user follow-up)
+
+**Requested directly, with all four proposed options selected:** more
+granular hardware telemetry per epoch. The original `get_hw_stats()`
+(GPU utilization/temp via `nvidia-smi`, VRAM peaks via `torch.cuda`,
+CPU/RAM via `psutil`) sampled exactly ONE snapshot per epoch, at the
+midpoint batch — a real run's own transcript (router, 16×16) showed this
+landing on an idle spot more than once (`CUDA 0%` at one epoch, `5%` at
+another), meaning the logged number could misrepresent the epoch's real
+utilization rather than just being coarse.
+
+**Added to `common/telemetry.py` — `HardwareMonitor` class** (kept the
+original `get_hw_stats()` untouched alongside it, for any caller that
+still just wants one cheap snapshot):
+- `.sample()` — one `nvidia-smi` call per invocation gathering
+  `utilization.gpu`, `utilization.memory` (bandwidth pressure, distinct
+  from compute utilization — the original only had compute),
+  `temperature.gpu`, `power.draw`, `clocks.sm`, `clocks.mem`,
+  `fan.speed`, and three `clocks_throttle_reasons.*` flags (hw/sw
+  thermal slowdown, hw power-brake) collapsed into one `gpu_throttled`
+  flag — all in a single subprocess call, not one call per new field,
+  since `nvidia-smi` is already called multiple times per epoch now (see
+  below) and multiplying subprocess overhead by field count would have
+  been a real cost. Plus disk I/O as a rate (MB/s), computed from the
+  delta against the instance's own previous sample divided by elapsed
+  time (`psutil.disk_io_counters()` itself only returns cumulative bytes
+  since boot, not a per-interval rate).
+- `.epoch_summary(samples)` — reduces a list of `.sample()` calls into
+  min/avg/max for the genuinely volatile metrics (utilization, temp,
+  power, CPU%, RAM used, disk throughput), avg-only for the less-volatile
+  clock speeds and fan speed, max for the throttle flag (1 if throttled
+  at ANY sampled point in the epoch, not just the last), and last-value
+  for things that don't change within a run (`ram_total_gb`) or are
+  already cumulative peaks (`vram_peak_alloc_gb`/`vram_peak_reserved_gb`,
+  unchanged semantics from the original `get_hw_stats()`). Ignores -1
+  (unknown) readings when reducing, so a field this particular card
+  doesn't expose reports -1 for min/avg/max rather than being dragged
+  down by treating -1 as a real zero.
+
+**Sampling frequency, in every `train_one_epoch()`:** replaced the
+single midpoint-only check with 5 sample points spread across the epoch
+(10/30/50/70/90% of `num_batches`), collected into `_hw_samples` and
+reduced via `epoch_summary()` at the end of the epoch — directly
+addresses the idle-spot-misrepresenting-the-epoch problem the real
+router transcript surfaced.
+
+**Data-wait vs. compute time, also in every `train_one_epoch()`:** times
+the dataloader's next-batch yield separately from the actual training
+step (`_data_wait_s` / `_compute_s`, accumulated across the epoch) —
+this is a genuinely different diagnostic than utilization%: a GPU
+sitting at low utilization because it's *starved waiting on data*
+(CPU/disk-bound) looks identical in utilization% terms to one that's
+simply not doing much work, but the wait/compute split tells them apart.
+Deliberately NOT added to `common/telemetry.py` itself — only the caller
+knows where its own "waiting for the next batch" boundary actually is,
+which differs between SOAP's plain first-order backward and every other
+optimizer's `amp_train_step()` call.
+
+**CSV schema (`common/cli_logging.py`):** `save_log()`'s hardcoded
+7-field telemetry list replaced with a new `HW_TELEMETRY_FIELDS`
+constant (33 columns: the full `epoch_summary()` output plus
+`data_wait_s`/`compute_s`) — `save_log()` now iterates this list
+generically instead of listing every field by name twice (once as a
+dict key, once in the fieldnames list), so a future telemetry field only
+needs to be added in one place.
+
+**`run_training()`'s history-recording block, all 20 scripts:** the old
+explicit 6-field `history.setdefault(...)` list — which would have
+silently dropped every new telemetry field without a matching edit here
+— replaced with `for hw_key, hw_val in hw.items(): history.setdefault(hw_key,
+[]).append(hw_val)`, so it automatically stays in sync with whatever
+`HardwareMonitor.epoch_summary()` produces.
+
+**Per-epoch console print line, all 20 scripts:** rewritten to surface
+the new headline numbers (CUDA avg/max%, temp avg/max, avg power, avg
+RAM, data-wait/compute split, a `[THROTTLED]` tag when
+`gpu_throttled_any == 1`) without dumping all 33 CSV columns into every
+console line — full detail is in the CSV, the console line stays
+scannable.
+
+**Bug caught and fixed before shipping, not after:** the first version
+of `epoch_summary()`'s min/avg/max reduction omitted `ram_used_gb`
+entirely — it was in the original `get_hw_stats()` output and was meant
+to carry forward, but got left out of the reduction field list while
+`cuda_util_pct`/`gpu_temp_c`/etc. were added around it. Caught by
+diffing the actual `epoch_summary()` output against `HW_TELEMETRY_FIELDS`
+in a standalone test (not assumed correct because both lists were
+written by the same pass) before wiring this into any of the 20 scripts,
+fixed by adding it to the reduction field list, and reverified via the
+same diff afterward.
+
+**NOTE ON VALIDATION (stated directly in `common/telemetry.py`'s own
+docstring too, not just here):** `utilization.gpu`/`temperature.gpu`
+have been confirmed working against this project's real hardware (RTX
+4080) in prior transcripts. The new fields — `power.draw`,
+`clocks.sm`/`clocks.mem`, `fan.speed`, `clocks_throttle_reasons.*`,
+`utilization.memory` — are standard, documented `nvidia-smi
+--query-gpu` fields, but have NOT yet been confirmed against a real run
+in this project (no GPU available in the environment this was built in).
+Parsing is defensive — each field independently falls back to -1 if
+missing, `"N/A"`, or the whole `nvidia-smi` call fails — so an
+unsupported field on a given card degrades to -1 rather than crashing
+the run, but the actual values these produce should be checked against
+a real run before being trusted in a report.
+
+**Verification:** `HardwareMonitor.epoch_summary()`'s reduction logic
+unit-tested standalone (mocked `torch`/sample dicts, since no GPU is
+available in this environment) against both a realistic mixed-value
+sample set and an all-unknown (-1) sample set, confirming correct
+min/avg/max exclusion of -1 readings and correct degradation when
+nothing is available. The full per-epoch print f-string dry-run tested
+standalone against both a realistic and an all-(-1) mock `hw` dict to
+confirm no `KeyError`/format crash either way before touching any of the
+20 real files. Verified byte-identical anchor text across all 20 files
+for every substitution point (train_one_epoch's setup block, sampling
+point, tail, and run_training's print/history block) before applying
+any scripted edit — one real difference was found (digit scripts vs.
+router scripts have a blank-line formatting difference in
+train_one_epoch's tail) and both variants were handled explicitly rather
+than forcing one pattern. All 20 training scripts plus
+`common/telemetry.py` and `common/cli_logging.py` recompiled clean via
+`python -m py_compile` and pyflakes-clean (aside from a pre-existing,
+already-`# noqa`-documented unused import in `ocr_pipeline_mnist.py`,
+unrelated to this change). Grepped all 20 files afterward for any
+leftover reference to the removed `mid_epoch_hw`/`midpoint_idx`/
+`get_hw_stats(` names — zero remaining.
+
+**Files changed:** `common/telemetry.py` (new `HardwareMonitor` class,
+`get_hw_stats()` kept unchanged), `common/cli_logging.py` (`save_log()`
+CSV schema), `common/seeding.py` (this entry's `usable_cpu_count()`
+addition, see above), all 20 training scripts (`train_one_epoch()`
+sampling/timing, `run_training()` print line and history recording,
+import line).
+
+### CPU core count / worker allocation was never printed on a GPU run (post-delivery, per direct user follow-up)
+
+**Reported directly:** asked where in the console output core count and
+DataLoader worker allocation are shown. Checked rather than assumed —
+answer was nowhere, on a GPU run. `setup_device()` (`common/
+telemetry.py`) only printed CPU core/reservation detail inside its
+`else:` (CPU-only) branch; the GPU branch printed only GPU name/VRAM/
+CUDA version/AMP status. Since `NUM_WORKERS` (every script, all 20,
+via the `usable_cpu_count()` addition earlier in this changelog) is
+computed and used as DataLoader worker count regardless of which device
+model compute runs on, a GPU run — the normal case on this project's own
+RTX 4080 — never told you how many cores were detected or how many
+workers were actually allocated.
+
+**Fix:** moved the core-count/reservation print out of the `else:`
+branch to run unconditionally, before the GPU/CPU branch, and reworded
+it to explicitly name the connection to `NUM_WORKERS`:
+`[CPU] {total} logical cores detected — reserving {reserved} ({pct}%)
+for the OS, {usable} usable (this machine's NUM_WORKERS = {usable}
+DataLoader workers; also the thread count torch.set_num_threads() uses
+on CPU-only runs)`. The GPU branch's existing `[Device]` line and the
+CPU branch's line are both unchanged apart from the CPU branch's line
+being shortened (no longer needs to repeat the reservation math the new
+unconditional `[CPU]` line above it already states).
+
+Single fix in `common/telemetry.py` — every one of the 20 training
+scripts calls `setup_device()` from this shared module with its default
+`cpu_reserve_pct=25` (confirmed via grep — no script passes a different
+value), so no per-script changes were needed; all 20 pick this up
+automatically.
+
+**Verification:** dry-run of the new print line's exact formatting
+against this project's real hardware numbers (24 logical cores, 25%
+reserved) confirms `[CPU] 24 logical cores detected — reserving 6 (25%)
+for the OS, 18 usable (this machine's NUM_WORKERS = 18 DataLoader
+workers...)` — matches the real `NUM_WORKERS` value every script's
+`usable_cpu_count()` call already computes, since both use the same
+reservation formula. `common/telemetry.py` recompiled clean via
+`python -m py_compile`, pyflakes-clean.
+
+**Files changed:** `common/telemetry.py` only.
+
+---
+
+### Multi-GPU support added: parallel independent runs (--gpu) + real DDP (post-delivery, per direct user follow-up)
+
+**Requested directly, with both options selected after being presented as
+genuinely different scopes:** (A) run different models on different GPUs
+at once, and (B) split ONE model's training across multiple GPUs
+(`DistributedDataParallel`).
+
+**⚠️ Part B (DDP) is NOT YET VALIDATED against real multi-GPU hardware —
+stated here, in `common/distributed.py`'s own module docstring, and in
+`README.md`.** Every real number anywhere in this changelog — every
+batch size, every VRAM figure, every accuracy, every telemetry reading —
+came from a single RTX 4080. No multi-GPU machine was available to
+confirm any of Part B against. Part A (`--gpu`, single-process,
+independent runs) is much lower-risk — it's the same code path every
+existing single-GPU run already exercises, just pointed at a different
+physical card — and is correspondingly more trustworthy, though still
+unconfirmed on a real 2-GPU box.
+
+#### Part A: `--gpu N` for parallel independent runs
+
+Every one of the 20 scripts gained a `--gpu` flag
+(`python v3_mnist_digit_soap_64.py --gpu 1`). `setup_device()` (`common/
+telemetry.py`) now calls `torch.cuda.set_device(gpu_id)` before anything
+else, prints which physical GPU was selected (`[Device] GPU 1/1: ...`),
+and warns if multiple GPUs are detected but none was explicitly chosen.
+
+**Real, pre-existing bug found and fixed while building this, not
+introduced by it:** every `nvidia-smi --query-gpu=...` call in `common/
+telemetry.py` and `common/batch_sizing.py`, and every
+`torch.cuda.get_device_properties(0)` call, hardcoded either no `-i`
+index (querying and returning a CSV row for EVERY GPU on the system) or
+literal index `0` (always the physical first GPU). On this project's own
+single-GPU dev machine this happened to parse and behave correctly by
+accident — one GPU means one CSV row and index 0 is the only real index
+— but on ANY machine with 2+ GPUs, the nvidia-smi calls would have
+returned multiple rows where the code expected one (silently mis-parsing
+the wrong values), and `get_device_properties(0)` would have reported
+GPU 0's specs even when training was actually running on GPU 1. Fixed by
+adding a `_cuda_index()` helper (`common/telemetry.py`, wraps
+`torch.cuda.current_device()`) used everywhere telemetry queries the
+GPU, and by threading the real `device.index` through `common/
+batch_sizing.py`'s probe instead of a literal `0`.
+
+#### Part B: real DDP, launched via `torchrun`
+
+New `common/distributed.py` — rank/world-size env-var helpers (matching
+`torchrun`'s `RANK`/`WORLD_SIZE`/`LOCAL_RANK` contract), process-group
+init/teardown, `wrap_model_ddp()`/`unwrap_model()`, `all_reduce_sum()`
+for aggregating per-rank metrics, `broadcast_int()` for the batch-size
+probe, and `DistributedWeightedRandomSampler` — a standard pattern (not
+a novel invention) combining every training script's existing
+class-balancing `WeightedRandomSampler` with DDP's per-rank sharding
+requirement: every rank deterministically draws the same full weighted
+sample (seeded by `seed + epoch`, no inter-process communication needed
+for this part) then takes `indices[rank::world_size]`, guaranteeing
+disjoint per-rank work with the original per-sample weights preserved in
+aggregate. Verified via pure-Python simulation (disjoint coverage, no
+duplicates, `__len__` matches real slice length including the
+not-evenly-divisible case) since no second GPU/process was available to
+verify real multi-rank behavior against.
+
+**Integration, all 20 scripts:**
+- `setup_device()`'s `gpu_id` comes from `get_local_rank()` instead of
+  `--gpu` when running distributed (the launcher already assigns each
+  process its device — don't also pass `--gpu` under `torchrun`).
+- `setup_distributed(device)` called right after device resolution.
+- Model wrapped via `wrap_model_ddp()` right after construction.
+- Train-loader's `WeightedRandomSampler` swapped for
+  `DistributedWeightedRandomSampler` when distributed; `sampler.
+  set_epoch(epoch)` called every epoch (the standard DDP sampler
+  contract — without it, every epoch draws the identical weighted
+  sample).
+- `train_one_epoch()`'s `total_loss`/`total_correct`/`total_samples`
+  all-reduced (summed across ranks) before computing the final loss/acc
+  ratios — each rank only sees its own shard, so without this a
+  distributed run's reported per-epoch numbers would silently reflect
+  one rank's slice, not the real global epoch.
+- `evaluate()` deliberately left UNCHANGED — val/test loaders are NOT
+  sharded (every rank evaluates the full val/test set independently),
+  so no all-reduce is needed there; less efficient than sharding eval
+  too, but trivially correct without any cross-rank synchronization risk.
+- `determine_batch_size()` (`common/batch_sizing.py`) now probes ONLY on
+  rank 0 under DDP and broadcasts the result to every other rank via
+  `broadcast_int()`, rather than trusting every rank's independent probe
+  to land on the same number (only guaranteed if every GPU in the job is
+  identical — unverifiable from inside this codebase) — also cuts
+  probe-time VRAM churn on every rank but one.
+- `cap_batch_size_for_min_steps()` gained a `world_size` parameter — the
+  real steps/epoch under DDP is `dataset_size / (per_rank_batch *
+  world_size)`, since every rank steps together in lockstep.
+- Router's `scaled_learning_rate()` call site now scales from the
+  GLOBAL effective batch size (`cfg["batch_size"] * get_world_size()`),
+  the standard linear-scaling-rule convention for distributed training —
+  DDP's backward-pass gradient averaging is already computed over the
+  global batch, so the LR should reflect that, not just one rank's slice.
+  The resume-file batch-size compatibility check (see
+  `common/checkpointing.py`'s own docstring on this precedent) was
+  updated to compare against this same global figure, not the per-rank
+  one — a resume where `world_size` changed between runs but the
+  per-rank batch size happened to auto-detect identically would
+  otherwise have passed the check while actually resuming optimizer/
+  scheduler state built for a different real LR.
+- All file I/O — `EarlyStopping`'s checkpoint save, `save_resume_state`/
+  `clear_resume_state`, `_Tee`'s transcript file, `save_log`,
+  `plot_history`, `export_onnx` (all in `common/`, so every one of the
+  20 scripts picks this up automatically with no call-site changes
+  needed) — gated to rank 0 only. Several ranks all writing the same
+  path at once would race; console `print()` output is NOT suppressed on
+  non-rank-0 (useful for spotting a hung/crashed rank).
+- `cleanup_distributed()` called at the end of every `run_training()`.
+
+**Real bugs found and fixed during this integration, caught by a
+deliberate line-by-line re-read of the fully-wired result before
+shipping, not assumed correct because every scripted edit's match count
+was clean:**
+1. **A genuinely broken f-string** (doubled curly braces, from an
+   earlier unrelated edit this session) would have printed literal
+   `{cfg['batch_size']}` text instead of the real number — caught and
+   fixed before this entry (see the min-steps-floor entry above), not a
+   DDP-specific bug, mentioned here only because the same
+   re-read-before-shipping discipline caught the next three, which ARE
+   DDP-specific.
+2. **`model.load_state_dict(...)` called directly on the DDP-wrapped
+   `model`** at every resume-load and best-checkpoint-reload site (2 per
+   digit script, 2 of the router's 3 — the third, inside `--infer`'s
+   `classify_image()`, loads into its own always-unwrapped model and was
+   never broken). A DDP-wrapped model's `state_dict()` keys are prefixed
+   `module.`; the checkpoint files were already being saved unwrapped
+   (correctly), so loading them back INTO the wrapped model directly
+   would have raised a key-mismatch error the first time any of this
+   ran under real `torchrun`. Fixed by routing every one of these 9
+   call sites through `unwrap_model(model).load_state_dict(...)` —
+   applied uniformly, including the one inside `classify_image()`,
+   since `unwrap_model()` is a provably safe identity no-op on a model
+   that was never DDP-wrapped in the first place.
+3. **The final-model `.pt` save used raw `model.state_dict()`** (same
+   `module.`-prefix problem as #2, in the opposite direction — this
+   file gets read back into `model_cpu`, a fresh NEVER-wrapped model,  a
+   few lines later for ONNX export) **and wasn't rank-gated at all** —
+   every rank would have written the same path simultaneously. Fixed:
+   `unwrap_model(model).state_dict()`, wrapped in `if is_main_process():`.
+   The `unwrap_model` import itself had also been missed entirely when
+   the import list was first built — caught by the same read-through,
+   confirmed via a project-wide grep showing zero prior occurrences.
+4. **The ONNX-export reload block (`model_cpu.load_state_dict(torch.load(
+   cfg["final_model_path"], ...))`) ran on every rank**, but — after
+   fixing #3 — only rank 0 actually writes that file: every other rank
+   would have hit a missing-file error, or raced rank 0's write on a
+   from-scratch run. Fixed by wrapping the entire `try/except` block in
+   `if is_main_process():` too, not just the save that precedes it.
+
+**Known, accepted limitation, documented rather than engineered around:**
+Schedule-Free AdamW's `_batchnorm_warmup()` reads from the now-sharded
+`train_loader` under DDP, so each rank warms up its BatchNorm running
+stats on only its own data slice, not the full batch — a statistical
+imprecision (each rank's BN stats can differ slightly), not a crash or a
+silently-wrong metric. Full cross-rank BatchNorm-stat synchronization
+(`torch.nn.SyncBatchNorm`) is real, separate PyTorch functionality this
+integration does not add — out of scope for what a multi-GPU follow-up
+request reasonably calls for; noted here for whoever next touches this,
+same as this project's other documented-not-fixed scope boundaries.
+
+**Verification:** `common/distributed.py`'s pure-Python logic (env-var
+rank/world-size detection, `unwrap_model()`, the non-distributed
+passthrough behavior of `all_reduce_sum()`/`broadcast_int()`, and the
+sampler's disjoint-sharding slice math) unit-tested standalone with a
+mocked `torch` module, since no real `torch` or GPU is available in this
+environment. Every scripted multi-file edit in this whole integration
+used the same anchor-verification-before-transform discipline as every
+other change in this changelog (exact match counts checked per file
+before writing, mismatches reported rather than silently skipped or
+force-applied). All 20 training scripts plus `common/distributed.py`,
+`common/telemetry.py`, `common/batch_sizing.py`, `common/checkpointing.py`,
+`common/cli_logging.py`, and `common/onnx_export.py` recompiled clean via
+`python -m py_compile` and pyflakes-clean after every stage. **Real
+multi-GPU behavior (process-group init actually succeeding, NCCL
+actually working, gradients actually syncing correctly, the sampler's
+disjoint-sharding holding up across real ranks) remains unconfirmed —
+this needs to be run on real 2+ GPU hardware before being trusted for
+an actual multi-day training run.**
+
+**Files changed:** `common/distributed.py` (new), `common/telemetry.py`
+(`_cuda_index()`, GPU-index-aware nvidia-smi calls, `setup_device()`'s
+`gpu_id` parameter), `common/batch_sizing.py` (GPU-index-aware probe,
+rank-0-only + broadcast batch-size determination, `world_size`-aware
+min-steps cap), `common/checkpointing.py`/`common/cli_logging.py`/
+`common/onnx_export.py` (rank-0 gating), all 20 training scripts
+(`--gpu` flag, DDP wiring throughout `run_training()`/`train_one_epoch()`,
+router's global-batch LR scaling and resume check). `README.md` updated
+with both usage modes.
+
 ---
 
 ## Standard settings record — all 15 digit models + the router
@@ -807,14 +1312,13 @@ carried into v3 in any form):**
 `mnist_adahessian_128.py`, `mnist_lion_32.py`, `mnist_lion_64.py`,
 `mnist_lion_128.py`, `mnist_sgd_32.py`, `mnist_sgd_64.py`,
 `mnist_sgd_128.py`, `mnist_digit_gate.py` (superseded by the 4 router
-scripts above — see "Router wiring decision"). `setup_packages.py` and
-`01_install_cuda.bat` were not part of this restructure's required
-output set and were not rebuilt; a v3 setup script would need its
-package list updated (`adabelief-pytorch`/`lion-pytorch` dropped, no new
-package needed for Muon or Ranger since both are implemented directly in
-this project rather than pulled from PyPI) — noted here as a gap for
-whoever next touches installation tooling, not fixed as part of this
-restructure since it wasn't in scope.
+scripts above — see "Router wiring decision"). `01_install_cuda.bat`
+(NVIDIA driver/CUDA/interpreter layer, not Python packages) was not part
+of this restructure's required output set and was not rebuilt — v3's
+package list is unaffected by it either way. `setup_packages.py` was
+initially left out for the same reason, then added afterward — see
+"Dependency verification tooling added" below.
 
 **New documentation (never existed in v2 — see each file's own header):**
-`v3_CHANGELOG.md` (this file), `README.md`
+`v3_CHANGELOG.md` (this file), `README.md`, `requirements.txt`,
+`setup_packages.py`
