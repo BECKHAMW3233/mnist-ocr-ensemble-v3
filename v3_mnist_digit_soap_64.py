@@ -3,9 +3,10 @@ v3_mnist_digit_soap_64.py
 ====================
 MNIST digit ensemble — OCRConvNetTriplePyramid, SOAP optimizer, 64x64
 Pure PyTorch — Triple-width channels + Multi-Scale feature pyramid fusion.
-Adapted from v2's mnist_soap_64.py (32/64/128 tiers) — the
-16x16 tier is new for v3, no v2 counterpart. See v3_CHANGELOG.md for the
-full v3 restructure (optimizer roster change, modularization, naming).
+Adapted from v2's mnist_soap_64.py (32/64/128 tiers) — the 16x16 and
+28x28 tiers are both new for v3, no v2 counterpart. See v3_CHANGELOG.md
+for the full v3 restructure (optimizer roster change, modularization,
+naming).
 
 Architecture — OCRConvNetTriplePyramid (unchanged from v2):
   Channel progression: 96→192→384→768
@@ -13,7 +14,7 @@ Architecture — OCRConvNetTriplePyramid (unchanged from v2):
   Classifier head: 1344→1024→512→256→128→10 (5 layers, GELU)
   SE reduction: 16, drop_path=0.05, dropout=0.35 (first classifier layer)
   label_smoothing=0.05
-  ~4.6M parameters
+  ~7.6M parameters
 
 Install: pip install pytorch_optimizer psutil
 
@@ -28,7 +29,8 @@ SGD, and AdaHessian were dropped.
   500-step linear warmup before cosine decay (common/scheduler.py)
   PATIENCE=20
   Standard first-order backward — no create_graph needed.
-  AMP disabled — Kronecker eigendecomposition requires float32.
+  AMP kept disabled for SOAP, per v2 practice — not independently
+    re-verified against pytorch_optimizer's current internals.
 
 Digit sources at this resolution tier: see
 supplementary_data.digit_sources_for_tier() — USPS is the ENTIRE
@@ -36,7 +38,7 @@ training spine at 16x16 (via load_base_usps(), not load_base_mnist() —
 see load_mnist() below), since it's USPS's own native resolution and the
 only source in that tier's ladder; MNIST/EMNIST Digits/SVHN/ARDIS IV
 (every source except USPS) at 28x28; every source including USPS at
-32/64/128. See Part 1 of the v3 restructure / v3_CHANGELOG.md for why there
+32/64/128. See v3_CHANGELOG.md's Resolution ladder split section for why there
 are 5 resolution-tagged files per optimizer (16/28/32/64/128), not 4.
 
 Augmentation: rotation ±5°, affine, color jitter, light blur — unchanged
@@ -368,8 +370,9 @@ def build_soap(params):
 
 def train_one_epoch(model, loader, criterion, optimizer, scheduler, device,
                     epoch: int = None, img_size: int = None) -> tuple:
-    """No AMP/GradScaler and no gradient clipping — SOAP's Kronecker
-    eigendecomposition requires float32, and clipping was never part of
+    """No AMP/GradScaler and no gradient clipping — AMP kept disabled
+    for SOAP per v2 practice, not independently re-verified against
+    pytorch_optimizer's current internals; clipping was never part of
     this optimizer's configuration here. Standard first-order backward."""
     model.train()
     total_loss = total_correct = total_samples = 0

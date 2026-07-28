@@ -232,6 +232,13 @@ def short_model_name(path: str) -> str:
 
 
 def normalize_char(char_gray, img_size: int):
+    """Binarizes (Otsu) a grayscale character crop, tightly crops to its
+    ink bounding box, centers it on a padded square canvas, dilates
+    slightly, and resizes to img_size x img_size. Returns None if the
+    crop has no ink (cv2.findNonZero finds nothing). Bridges a raw scan
+    crop into the clean, centered image domain the digit/router models
+    were trained on.
+    """
     _, binary = cv2.threshold(char_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     coords = cv2.findNonZero(binary)
     if coords is None:
@@ -251,6 +258,11 @@ def normalize_char(char_gray, img_size: int):
 
 
 def predict_char_topn(session, char_gray, img_size: int, n: int = 3):
+    """Runs one digit-ensemble ONNX session on one character crop (via
+    normalize_char()) and returns its top-n (label, softmax probability)
+    predictions, highest confidence first. Returns [("?", 0.0)] * n if
+    normalize_char() finds no ink to classify.
+    """
     normalized = normalize_char(char_gray, img_size)
     if normalized is None:
         return [("?", 0.0)] * n
@@ -306,6 +318,12 @@ def predict_router(session, char_gray, img_size: int, unsure_floor: float = ROUT
 # ── Box detection ─────────────────────────────────────────────────────────────
 
 def merge_nearby_boxes(boxes, gap_x=15, gap_y=35):
+    """Iteratively merges (x, y, w, h) boxes whose horizontal edges are
+    within gap_x of each other AND whose vertical centers are within
+    gap_y of each other into their bounding union, repeating until no
+    more pairs qualify. Used to fuse fragments (e.g. a broken stroke)
+    that contour detection split into separate boxes for one character.
+    """
     if not boxes:
         return boxes
     boxes = list(boxes)
@@ -417,23 +435,32 @@ def get_boxes(image_path):
     genuine full-width artifact than a real digit).
 
     On the underlying cause (a stray stroke fusing onto a digit's contour,
-    inflating its bounding box): this is a well-documented failure mode in
-    OCR preprocessing literature, usually called "underline/rule-line
-    removal." The standard published technique detects long thin strokes
-    with a wide horizontal morphological opening (cv2.getStructuringElement
-    with a kernel like (25, 1) applied via cv2.MORPH_OPEN) and erases them
-    before contour extraction, rather than rescuing an oversized box after
-    the fact. That approach was tested against this project's own images
-    and NOT adopted here: the stray stroke on a real "5" in this dataset was
-    only ~45px long (~8% of the working image width) — a kernel wide enough
-    to reliably reject full-width scan artifacts elsewhere in the same image
-    (which run ~560px, near the full width) was too wide to catch that short
-    a stroke, and a kernel narrow enough to catch it started eroding real
-    digit strokes elsewhere. The width-ceiling rescue approach implemented
-    below sidesteps that tuning problem entirely by working in box-space
-    after contour detection rather than pixel-space before it, at the cost
-    of only fixing width-based rejections specifically (see the remaining
-    failure modes below for what it still misses).
+    inflating its bounding box): this is a known failure mode in OCR
+    preprocessing, usually called "underline/rule-line removal." A
+    standard OpenCV/computer-vision preprocessing technique for it (see
+    OpenCV's documentation on morphological operations) detects long thin
+    strokes with a wide horizontal morphological opening
+    (cv2.getStructuringElement with a kernel like (25, 1) applied via
+    cv2.MORPH_OPEN) and erases them before contour extraction, rather than
+    rescuing an oversized box after the fact. That approach was reasoned
+    through against this project's own images, not actually tested (no
+    test images/dataset were available in this environment — see
+    v3_CHANGELOG.md's Verification note), and NOT adopted here: as an
+    illustrative estimate rather than a measured value, a stray stroke on
+    a real "5" in this dataset would run only ~45px long (~8% of the
+    working image width) — a kernel wide enough to reliably reject
+    full-width scan artifacts elsewhere in the same image (which run
+    ~560px, near the full width) would be too wide to catch that short a
+    stroke, and a kernel narrow enough to catch it would start eroding
+    real digit strokes elsewhere. The width-ceiling rescue approach
+    implemented below sidesteps that tuning problem entirely by working in
+    box-space after contour detection rather than pixel-space before it,
+    at the cost of only fixing width-based rejections specifically (see
+    the remaining failure modes below for what it still misses). This is
+    a documented judgment call based on reasoning about typical
+    stroke/artifact proportions, not a real-world image-measurement
+    validation run — see v3_CHANGELOG.md's "what was and wasn't verified"
+    note for this entry.
 
     Remaining known failure modes (still neither raise an error nor flag
     anything — the character in question is just absent from the returned
@@ -484,13 +511,16 @@ def get_boxes(image_path):
         ("small",  0.015, 0.12, 0.005, 0.10),   # h_min%, h_max%, w_min%, w_max%
         ("medium", 0.03,  0.35, 0.01,  0.25),   # original single-pass range
         ("large",  0.20,  0.80, 0.08,  0.55),   # ceiling raised from 0.60 to 0.80 —
-                                                  # on a very short hand-cropped line
-                                                  # image, a normal single digit can
-                                                  # legitimately occupy 70%+ of the
-                                                  # image height (e.g. h=108 on a
-                                                  # 156px-tall crop), which the old
-                                                  # 60% ceiling silently rejected with
-                                                  # no other window covering it either
+                                                  # reasoning-based estimate, not a
+                                                  # measured case (see v3_CHANGELOG.md's
+                                                  # Verification note): on a very short
+                                                  # hand-cropped line image, a normal
+                                                  # single digit could plausibly occupy
+                                                  # 70%+ of the image height (e.g. an
+                                                  # illustrative h=108 on a 156px-tall
+                                                  # crop), which the old 60% ceiling
+                                                  # would silently reject with no other
+                                                  # window covering it either
     ]
 
     # Aspect-ratio (w/h) bounds — see get_boxes()'s own docstring's
@@ -713,7 +743,7 @@ def get_boxes(image_path):
                 continue
 
             crop = thresh_img[y:y+h, x:x+w]
-            col_ink = crop.sum(axis=1 if False else 0) / 255.0  # ink pixels per column
+            col_ink = crop.sum(axis=0) / 255.0  # ink pixels per column
 
             # Find runs of near-zero-ink columns — candidate gaps.
             ink_floor = max(1.0, col_ink.max() * 0.04)
@@ -791,8 +821,10 @@ def get_boxes(image_path):
                 # nearest background pixel. Where two round/thick strokes
                 # merely touch, that "waist" is geometrically thinner than
                 # the bodies of either character even if it's not lighter
-                # in raw ink count — this is the standard technique for
-                # separating touching blobs, applied here as a 1D column
+                # in raw ink count — distance-transform-based separation of
+                # touching blobs is a standard technique in computer vision
+                # (see OpenCV's documentation on distanceTransform() and
+                # watershed segmentation), applied here as a 1D column
                 # profile since these are roughly side-by-side characters,
                 # not arbitrarily-shaped overlapping regions.
                 dist = cv2.distanceTransform(crop, cv2.DIST_L2, 5)
@@ -903,6 +935,11 @@ def vote_topn(all_top3, conf_threshold=0.20):
 # ── Path resolution ───────────────────────────────────────────────────────────
 
 def resolve_image_paths(args):
+    """Expands each CLI image argument (glob pattern or literal path) into
+    a sorted list of existing file paths, then filters that list down to
+    SUPPORTED_EXTS. Prints a [warn] line and skips anything that doesn't
+    resolve to a file or has an unsupported extension.
+    """
     if not args:
         return []
     paths = []
@@ -930,6 +967,29 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
                   router_session=None, router_img_size=None,
                   router_unsure_floor=ROUTER_UNSURE_FLOOR):
     """
+    image_path: path to a single image file to run the pipeline on (the
+    __main__ entry point loops over multiple resolved images, calling
+    this once per image).
+
+    sessions: list of loaded onnxruntime InferenceSession objects — the
+    digit ensemble models (one per --models/--model-dir entry that loaded
+    successfully). len(sessions) decides whether this run prints as
+    "Single Model" or an "N-Model Ensemble".
+
+    img_sizes: list of int, parallel to sessions — each model's expected
+    square input resolution (e.g. 64 for a 64x64 model), read from the
+    ONNX file itself via get_model_input_size().
+
+    model_names: list of str, parallel to sessions — each model's short
+    display name (see short_model_name()), used in the INDIVIDUAL MODEL
+    PREDICTIONS, PER-MODEL SUMMARY, and PER-MODEL ACCURACY sections.
+
+    ground_truth (optional): known-correct answer string to score the
+    final read against, character by character (digits only, no spaces,
+    e.g. "5038" — see --ground-truth). When provided, prints the
+    PER-MODEL ACCURACY and ACCURACY sections; when None (the default),
+    both sections are skipped entirely.
+
     router_session (optional): a loaded router ONNX session (see
     v3_mnist_router_ranger_*.py / predict_router() above). If provided,
     every detected box is classified digit/UC/LC before the digit

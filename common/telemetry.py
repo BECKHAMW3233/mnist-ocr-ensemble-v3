@@ -308,8 +308,10 @@ def print_vram_baseline() -> None:
               f"before this script has allocated anything")
         if _used_mb > 500:
             try:
-                # --query-compute-apps has no per-GPU -i filter in older
-                # nvidia-smi builds on some systems — queried across all
+                # observed (not independently verified, unlike the WDDM
+                # claim above): --query-compute-apps appears to have no
+                # per-GPU -i filter in older nvidia-smi builds on some
+                # systems — queried across all
                 # GPUs and left unfiltered by index; on a multi-GPU
                 # machine this list may include processes on OTHER cards
                 # too, not just the one this run selected. Still useful

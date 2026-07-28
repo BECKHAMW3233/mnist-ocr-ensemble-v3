@@ -65,6 +65,8 @@ mnist-ocr-ensemble-v3/
 ├── v3_CHANGELOG.md
 ├── requirements.txt                     # pip install -r requirements.txt
 ├── setup_packages.py                    # python setup_packages.py [--check]
+├── run_all_training.ps1                 # runs all 20 training scripts in sequence, skips
+│                                         # already-completed ones — see the script's own header
 │
 ├── common/                              # shared INFRASTRUCTURE modules (Part 2 modularization —
 │   │                                     # optimizer algorithms are NOT here, see below)
@@ -153,8 +155,12 @@ mnist-ocr-ensemble-v3/
 
 The tree above is the full *projected* layout once every model has been
 trained. Below is what's actually on disk right now, confirmed via a
-recursive directory listing rather than assumed — source and
-documentation files only; no training run has produced output yet:
+recursive directory listing rather than assumed. **4 of the 20 models
+have completed a full run** (checkpoints + ONNX export + logs, all on
+current code); **1 is mid-run** (checkpoint + resume file, no final
+export yet); **5 have an empty output directory** (a prior run attempt,
+since cleared); the remaining **10 have never been run at all** — no
+directory exists for them yet:
 
 ```
 mnist-ocr-ensemble-v3/
@@ -163,6 +169,7 @@ mnist-ocr-ensemble-v3/
 ├── v3_CHANGELOG.md
 ├── requirements.txt
 ├── setup_packages.py
+├── run_all_training.ps1               # runs all 20 scripts in sequence, skips completed ones
 ├── ocr_pipeline_mnist.py
 ├── supplementary_data.py
 │
@@ -181,35 +188,55 @@ mnist-ocr-ensemble-v3/
 ├── historical_data/
 │   └── claude_code_prompt.md          # archived prompt from an earlier session — kept for reference only
 │
-├── v3_mnist_digit_soap_16.py          # ── digit models, source only (no output dirs generated yet) ──
-├── v3_mnist_digit_soap_28.py
-├── v3_mnist_digit_soap_32.py
-├── v3_mnist_digit_soap_64.py
-├── v3_mnist_digit_soap_128.py
-├── v3_mnist_digit_adamw_16.py
-├── v3_mnist_digit_adamw_28.py
-├── v3_mnist_digit_adamw_32.py
+├── v3_mnist_digit_soap_16.py           # ── COMPLETE — full run + ONNX export ──
+├── v3_mnist_digit_soap_16/
+│   ├── v3_mnist_digit_soap_16_best.pt
+│   ├── v3_mnist_digit_soap_16_final.pt
+│   ├── v3_mnist_digit_soap_16.onnx
+│   ├── v3_mnist_digit_soap_16_log.csv
+│   ├── v3_mnist_digit_soap_16_curves.png
+│   └── v3_mnist_digit_soap_16_cli_20260728_025105.txt
+├── v3_mnist_digit_soap_28.py           # ── IN PROGRESS — checkpoint + resume, no final export yet ──
+├── v3_mnist_digit_soap_28/
+│   ├── v3_mnist_digit_soap_28_best.pt
+│   ├── v3_mnist_digit_soap_28_resume.pt
+│   └── v3_mnist_digit_soap_28_cli_20260728_030120.txt
+├── v3_mnist_digit_soap_32.py            # ── never run — source only, no directory ──
+├── v3_mnist_digit_soap_64.py           # ── run attempted, output cleared — empty dir exists ──
+├── v3_mnist_digit_soap_64/              # (empty)
+├── v3_mnist_digit_soap_128.py           # ── never run — source only, no directory ──
+│
+├── v3_mnist_digit_adamw_16.py          # ── COMPLETE — full run + ONNX export ──
+├── v3_mnist_digit_adamw_16/              # (same file set as soap_16 above, adamw_16 naming)
+├── v3_mnist_digit_adamw_28.py           # ── run attempted, output cleared — empty dir exists ──
+├── v3_mnist_digit_adamw_28/              # (empty)
+├── v3_mnist_digit_adamw_32.py           # ── never run — source only, no directory ──
 ├── v3_mnist_digit_adamw_64.py
 ├── v3_mnist_digit_adamw_128.py
-├── v3_mnist_digit_muon_16.py
-├── v3_mnist_digit_muon_28.py
-├── v3_mnist_digit_muon_32.py
+│
+├── v3_mnist_digit_muon_16.py           # ── COMPLETE — full run + ONNX export ──
+├── v3_mnist_digit_muon_16/               # (same file set as soap_16 above, muon_16 naming)
+├── v3_mnist_digit_muon_28.py           # ── run attempted, output cleared — empty dir exists ──
+├── v3_mnist_digit_muon_28/               # (empty)
+├── v3_mnist_digit_muon_32.py            # ── never run — source only, no directory ──
 ├── v3_mnist_digit_muon_64.py
 ├── v3_mnist_digit_muon_128.py
 │
-├── v3_mnist_router_ranger_16.py
-├── v3_mnist_router_ranger_16/          # exists, currently empty — no run has produced output yet
-├── v3_mnist_router_ranger_28.py
-├── v3_mnist_router_ranger_28/          # exists, currently empty — same as above
-├── v3_mnist_router_ranger_32.py
-├── v3_mnist_router_ranger_64.py
-└── v3_mnist_router_ranger_128.py
+├── v3_mnist_router_ranger_16.py        # ── COMPLETE — full run + ONNX export ──
+├── v3_mnist_router_ranger_16/            # (same file set as soap_16 above, router_ranger_16 naming)
+├── v3_mnist_router_ranger_28.py        # ── run attempted, output cleared — empty dir exists ──
+├── v3_mnist_router_ranger_28/            # (empty)
+├── v3_mnist_router_ranger_32.py         # ── never run — source only, no directory ──
+├── v3_mnist_router_ranger_64.py        # ── run attempted, output cleared — empty dir exists ──
+├── v3_mnist_router_ranger_64/            # (empty)
+└── v3_mnist_router_ranger_128.py        # ── never run — source only, no directory ──
 ```
 
-`__pycache__/` directories under the repo root and under `common/` (10
-`.pyc` files total) are intentionally omitted from this tree —
-auto-generated bytecode cache, not source, regenerated automatically on
-every run.
+`__pycache__/` directories under the repo root and under `common/`,
+`.claude/settings.local.json`, and `.vscode/settings.json` (Claude Code's
+and VS Code's own local session/workspace settings, not project content)
+are intentionally omitted from this tree — auto-generated tooling
+artifacts, not source.
 
 ### External data locations (not part of the repo)
 

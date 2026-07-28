@@ -22,6 +22,10 @@ class WarmupCosineScheduler:
         self.optimizer    = optimizer
         self.warmup_steps = max(1, warmup_steps)
         self.total_steps  = total_steps
+        # eta_min here is a FRACTION of each group's own base LR, not an
+        # absolute LR floor like PyTorch's CosineAnnealingLR(eta_min=...) —
+        # the real floor is base_lr * eta_min (e.g. eta_min=1e-6 with
+        # base_lr=1e-3 bottoms out at 1e-9, not 1e-6).
         self.eta_min      = eta_min
         self.base_lrs     = [pg["lr"] for pg in optimizer.param_groups]
         self.step_count   = 0

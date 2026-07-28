@@ -5,7 +5,7 @@ MNIST digit ensemble — OCRConvNetMuon, Muon optimizer, 128x128
 Pure PyTorch. New for v3 — Muon replaces Lion in the optimizer roster
 (see v3_CHANGELOG.md's roster-change entry: Lion showed a reproducible
 ~20-point real-world accuracy gap at 128x128 in prior validation, an
-unresolved failure mode; Muon is added based on 2025 independent
+unresolved failure mode; Muon is added based on 2025-2026 independent
 benchmarks showing it reliably outperforms AdamW-class optimizers across
 multiple domains at lower per-step compute cost than SOAP).
 
@@ -32,7 +32,7 @@ fallback "within the Muon training script"):
   directly in this file, see section 2b below).
     Muon group   : lr=0.02, momentum=0.95, nesterov=True, ns_steps=5, weight_decay=0.01
     AdamW fallback group: lr=3e-4, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.01
-  500-step-equivalent linear warmup before cosine decay (common/scheduler.py,
+  300-step linear warmup before cosine decay (common/scheduler.py,
   WARMUP_STEPS=300 — see v3_CHANGELOG.md for why this differs from SOAP's 500)
   PATIENCE=15
   AMP enabled + gradient clipping max_norm=1.0 (matches this project's
@@ -46,7 +46,7 @@ training spine at 16x16 (via load_base_usps(), not load_base_mnist() —
 see load_mnist() below), since it's USPS's own native resolution and the
 only source in that tier's ladder; MNIST/EMNIST Digits/SVHN/ARDIS IV
 (every source except USPS) at 28x28; every source including USPS at
-32/64/128. See Part 1 of the v3 restructure / v3_CHANGELOG.md for why there
+32/64/128. See v3_CHANGELOG.md's Resolution ladder split section for why there
 are 5 resolution-tagged files per optimizer (16/28/32/64/128), not 4.
 
 Output: ./v3_mnist_digit_muon_128/  (created next to this script)

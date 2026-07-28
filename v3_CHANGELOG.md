@@ -54,7 +54,8 @@ for the actual dependency list. Specifically checked, not assumed:
   shared one — confirmed by reading each script's own architecture
   section: AdamW → `OCRConvNetWide` (32→128→256→512, SE attention,
   StochasticDepth, ~9.7M params), SOAP → `OCRConvNetTriplePyramid`
-  (96→192→384→768 feature pyramid, ~4.6M params), SGD →
+  (96→192→384→768 feature pyramid, ~4.6M params — **[2026-07-28 erratum:
+  wrong, actual ~7.6M — see that date's entry]**), SGD →
   `OCRConvNetTripleSGD`, Lion → `OCRConvNet`, AdaHessian →
   `OCRConvNetTripleAdaHessian`. Diffed `mnist_adamw_32.py` against
   `mnist_adamw_64.py` (and `mnist_soap_32/64/128.py` against each other)
@@ -1182,7 +1183,7 @@ Applies identically to `v3_mnist_digit_soap_{16,28,32,64,128}.py`:
 | Mixed precision | **disabled** — Kronecker eigendecomposition requires float32 |
 | Gradient clipping | none |
 | Patience | 20 |
-| Architecture | `OCRConvNetTriplePyramid`, 96→192→384→768, ~4.6M params |
+| Architecture | `OCRConvNetTriplePyramid`, 96→192→384→768, ~4.6M params — **[2026-07-28 erratum: wrong, actual ~7.6M — see that date's entry]** |
 | Label smoothing | 0.05 |
 
 Per-resolution digit sources (via `digit_sources_for_tier()`):
@@ -1359,3 +1360,836 @@ search for "historical_data", "claude_code_prompt", and "__pycache__" to
 confirm neither was already documented anywhere. No external
 documentation applies to this change — it's a repo-structure accuracy
 fix, not a behavioral or dependency change.
+
+---
+
+## 2026-07-28 — Fix: batch-size probe crashed instantly on Schedule-Free AdamW
+
+### What changed
+
+`common/batch_sizing.py`'s `_probe_batch_size()` now calls
+`probe_optimizer.train()` right after constructing the probe optimizer,
+guarded by `hasattr(probe_optimizer, "train")`:
+
+```python
+probe_optimizer = build_optimizer(model_test.parameters())
+if hasattr(probe_optimizer, "train"):
+    probe_optimizer.train()
+probe_scaler = build_grad_scaler(device, use_amp) if use_amp else None
+```
+
+### Problem / why
+
+A real run of `v3_mnist_digit_adamw_16.py` (first actual GPU/PyTorch run
+of any AdamW script — see `v3_CHANGELOG.md`'s "Verification" section
+above, which already flagged that no real run had happened for any v3
+script yet) crashed immediately during batch-size auto-detection, before
+any real training step:
+
+```
+Exception: Optimizer was not in train mode when step is called. Please
+insert .train() and .eval() calls on the optimizer. See documentation
+for details.
+```
+
+Root cause, confirmed by reading the actual installed
+`schedulefree/adamw_schedulefree.py` source directly (not assumed from
+this changelog's own prior description of the requirement):
+`AdamWScheduleFree.__init__` sets `train_mode=False` by default on every
+new instance, and `.step()` unconditionally raises if `train_mode` is
+still `False`. `_probe_batch_size()` builds a fresh, throwaway
+`probe_optimizer` via the caller's `build_optimizer(...)` to test each
+candidate batch size, then runs it through `common/amp.py`'s
+`amp_train_step()` — which is correctly optimizer-agnostic and has no
+Schedule-Free-specific knowledge — without ever calling `.train()` on
+that probe optimizer first. The real training loop in each
+`v3_mnist_digit_adamw_*.py` script already calls `optimizer.train()`
+correctly on its own (real, non-probe) optimizer instance before its
+real epoch loop; only the shared probe path was missing the equivalent
+call.
+
+**Why a plain, unconditional `.train()` call would have been wrong:**
+`common/batch_sizing.py` is shared by all 20 training scripts. SOAP,
+Muon, and Ranger are all standard `torch.optim.Optimizer` subclasses
+with no `.train()`/`.eval()` concept at all — calling `.train()`
+unconditionally on their probe optimizer would raise `AttributeError`
+for all three. The `hasattr(...)` guard makes this a no-op for anything
+that doesn't define `.train()`, so this fix doesn't touch SOAP/Muon/
+Ranger's behavior at all. An `isinstance(..., AdamWScheduleFree)` check
+was considered and rejected — it would have forced `common/
+batch_sizing.py` (imported by every script, including SOAP/Muon/Ranger,
+none of which need the `schedulefree` package) to import `schedulefree`
+just for this one type check, adding an unwanted hard dependency for 15
+of the 20 scripts that don't use that optimizer.
+
+**Scope:** `common/batch_sizing.py` is imported by all 5
+`v3_mnist_digit_adamw_{16,28,32,64,128}.py` scripts (confirmed via
+`grep` — each imports `determine_batch_size`/`cap_batch_size_for_min_steps`
+from `common.batch_sizing`, none has a local copy of
+`_probe_batch_size()`), so this one fix resolves the crash for all five
+resolutions, not just the 16×16 script that actually hit it first.
+
+### Source
+
+Direct instruction from William (this conversation, after the real
+`v3_mnist_digit_adamw_16.py` crash traceback he pasted). Root cause
+verified by reading the actual installed
+`C:\Users\Will\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\schedulefree\adamw_schedulefree.py`
+directly — specifically `__init__`'s `train_mode=False` default and
+`step()`'s `if not self.param_groups[0]['train_mode']: raise` check —
+not assumed from memory or from this changelog's own earlier
+description of the Schedule-Free train/eval requirement. Scope (which
+scripts share this code path) verified via `grep` across
+`v3_mnist_digit_adamw_*.py`, not assumed from the modularization
+description alone.
+
+---
+
+## 2026-07-28 — Fix: real training OOM'd on first step despite GB of "free" VRAM
+
+### What changed
+
+`common/__init__.py` now sets, at package-import time:
+
+```python
+import os
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
+```
+
+This runs before `import torch` in every script — each script's first
+import is `from common.seeding import ...`, which triggers this
+package's `__init__.py` first. `setdefault()`, not a hard set, so an
+explicit value already set in the caller's own shell isn't overridden.
+
+### Problem / why
+
+After the previous entry's batch-size-probe fix, `v3_mnist_digit_adamw_28.py`
+got all the way through batch-size auto-detection (17 candidates,
+refined to 4864) but OOM'd on the very first real training step, inside
+`OCRConvNetWide.forward()`'s `stage2`:
+
+```
+[W...] CUDACachingAllocator.cpp:3933] memory allocation failed with OOM
+on device 0 while trying to allocate 979369984 bytes
+(free: 5502926848, total: 17170956288).
+```
+
+repeated identically for ~50-90 seconds (William had to Ctrl+C both
+times, twice reproducing the exact same numbers byte-for-byte on two
+independent process launches) before it either exhausted retries or was
+interrupted. Note: the resulting `Exception ignored in atexit callback
+... dump_compile_times ... KeyboardInterrupt` noise on Ctrl+C is
+harmless — `NUM_WORKERS=18` worker processes all receiving the interrupt
+at once and racing each other during shutdown, not a separate bug.
+
+The confusing part: ~5.1-5.5 GB was reported "free," far more than the
+~934 MB request that failed — not a real capacity shortage. Root cause,
+confirmed via PyTorch's own current devlog on the CUDA caching allocator
+(dated 2026-06-01, matching PyTorch 2.13.0, the version installed here):
+without `expandable_segments`, each differently-sized allocation can
+land in its own `cudaMalloc` segment, and "blocks in different segments
+can never merge" — `torch.cuda.empty_cache()` cannot merge or reclaim
+across that boundary. `common/batch_sizing.py`'s batch-size probe
+(`determine_batch_size()`/`_probe_batch_size()`) deliberately allocates
+and frees 17 different tensor sizes in the same process, including 5
+sizes it intentionally pushes to failure during binary-search refinement
+(8192, 6144, 5120, 4992, 4928, 4896, 4880, 4872 all failed by design) —
+exactly the repeated-different-sizes pattern the devlog describes as
+fragmenting the allocator. By the time real training's first forward
+pass needed one large contiguous ~934 MB block, no single free segment
+was big enough, even though the sum of free memory was several GB.
+
+**Where the fix lives, and why not elsewhere:** considered setting this
+in each script directly (matching the existing
+`apply_cublas_workspace_config()`-before-`import torch` convention in
+`common/seeding.py`), but that would mean editing all 20 scripts for a
+2-line change. `common/__init__.py` runs automatically on first `common.*`
+import — already the first import in every script — so one file covers
+all 20 with no per-script call needed.
+
+**Caveat surfaced to William before he approved this (not hidden):**
+PyTorch's devlog notes `expandable_segments` has had unresolved CUDA IPC
+compatibility issues historically. `common/distributed.py` (multi-GPU
+DDP) is already flagged in its own docstring and elsewhere in this
+changelog as not yet validated on real multi-GPU hardware — this change
+doesn't make that any less validated, but is worth remembering if DDP is
+ever tested on real multi-GPU hardware and something IPC-related acts
+up. Every run tested so far is single-GPU, which this caveat doesn't
+affect.
+
+### Source
+
+Direct instruction from William (this conversation), after two real,
+byte-for-byte-reproducible crash tracebacks he pasted. Root cause and
+fix verified via PyTorch's CUDA caching allocator devlog
+(https://docs.pytorch.org/docs/devlogs/eager/2026-06-01-cuda-caching-allocator/)
+and cross-checked against the actual current PyTorch 2.13 docs
+(https://docs.pytorch.org/docs/2.13/notes/cuda.html) specifically to
+confirm `PYTORCH_ALLOC_CONF` is the current primary env var name for
+this installed version (`PYTORCH_CUDA_ALLOC_CONF` is kept only as a
+backward-compatible alias) — not assumed from general/possibly-stale
+knowledge of this flag's name. Import-order timing (this needs to run
+before `import torch`) verified by reading `v3_mnist_digit_adamw_28.py`'s
+actual import block and `common/seeding.py`'s own documented
+`apply_cublas_workspace_config()`-before-`import torch` precedent, not
+assumed. Fix placement (one file vs. all 20 scripts) was presented to
+William as an explicit choice before writing anything; he chose the
+one-file `common/__init__.py` approach.
+
+---
+
+## 2026-07-28 — Follow-up: expandable_segments was a no-op on this platform; real cause was too little safety margin
+
+### What was found
+
+The retried `v3_mnist_digit_adamw_28.py` run showed
+`UserWarning: expandable_segments not supported on this platform` at
+startup — the env var from the previous entry was read correctly (that's
+why PyTorch warned about it at all), but this specific PyTorch Windows
+build doesn't support the CUDA driver VMM API expandable_segments
+depends on, so it silently did nothing. Verified via web search: this is
+a known, documented Windows limitation (`PYTORCH_C10_DRIVER_API_SUPPORTED`
+not defined in this build), not a mistake in how the env var was set.
+
+Training then OOM'd again, but the new exception's own numbers didn't
+support fragmentation as the (main) cause: `10.36 GiB allocated` vs. only
+`21.01 MiB reserved but unallocated` — fragmentation shows up as a
+*large* reserved-but-idle figure; this was tiny. 10.36 GiB was genuinely
+in active use.
+
+**Narrowed down with a real controlled test, per William's own request
+("basic fixes first, then narrow it down"):** retried with
+`--batch-size 2048` (a size already confirmed working in the auto-
+detector's own coarse pass, well below the auto-detected-and-failing
+4864) and let it run 5 full epochs. Result: completely healthy —
+`vram_peak_alloc_gb` flat at 5.4 GB every epoch, `vram_peak_reserved_gb`
+stepped up once (6.8 GB → 8.3 GB, epoch 1 → 2) then held perfectly flat
+for epochs 2-5. No leak. But extrapolating that 8.3 GB peak linearly to
+batch 4864 (2.375× larger, and CNN activation memory scales close to
+linearly with batch size) gives ≈19.7 GB — more than this 16 GB card has
+at all. 4864 was very likely never sustainable here, not just "close to
+the edge."
+
+This also means an earlier take in this same conversation was wrong:
+when William first suggested probing with more steps and real data,
+Claude pushed back, reasoning a fixed batch size stabilizes within a
+step or two since `cudnn.benchmark=False` (set in `common/seeding.py`).
+The 2048 data contradicts that — the reserved-memory jump happened
+between epoch 1 and epoch 2, not within a handful of steps. William's
+instinct was right; recorded here so this isn't quietly glossed over.
+
+### What changed
+
+1. `common/__init__.py` — `PYTORCH_ALLOC_CONF` now also sets
+   `garbage_collection_threshold:0.8` (proactively reclaims cached-but-
+   idle GPU memory once usage crosses 80%, instead of only reclaiming
+   when forced). Verified against the current PyTorch 2.13 docs (same
+   page as above). Honestly flagged to William before he approved it:
+   this addresses a *different* failure mode (idle memory being
+   hoarded) than the one actually observed here (genuine active use) —
+   it's a real, useful safeguard for the future, not a fix for what
+   already happened.
+
+2. `common/batch_sizing.py` — new `VRAM_RESERVE_GB = 3.0` constant
+   (previously an unnamed, scattered `1024` MB / `1.0` GB literal in
+   three places), and all three of `_probe_batch_size()`'s decisive
+   VRAM checks (the nvidia-smi-based per-step check, its subprocess-
+   failure fallback, and the final post-loop verdict) now check
+   `torch.cuda.max_memory_reserved()` instead of `memory_allocated()`.
+   Reserved is the more conservative figure (always ≥ allocated, and
+   it's what actually blocks new allocations) — and the 2048 run showed
+   a real ~2.9 GB reserved-vs-allocated gap even when everything was
+   healthy, so checking allocated with only a 1 GB margin left a real
+   blind spot. `3.0` was chosen to clear that observed gap with some
+   margin left over; presented to William as a specific, named number
+   before writing, per this project's own convention for batch-size-
+   related constants.
+
+### Source
+
+Direct instruction from William (this conversation), following his own
+`--batch-size 2048` test and the 5-epoch transcript he pasted back
+(`v3_mnist_digit_adamw_28_cli_20260728_012623.txt`). `expandable_segments`
+Windows limitation verified via web search (PyTorch GitHub issues
+referencing `PYTORCH_C10_DRIVER_API_SUPPORTED`). `garbage_collection_threshold`
+verified against the current PyTorch 2.13 CUDA docs
+(https://docs.pytorch.org/docs/2.13/notes/cuda.html), same page already
+cited in the previous entry. `VRAM_RESERVE_GB`'s value and the
+allocated-vs-reserved reasoning came from directly reading
+`common/telemetry.py` (to confirm what the console's `VRAM X/Y GB`
+figures actually are — peak allocated / peak reserved) and from the
+real 2048-batch transcript's own per-epoch numbers, not assumed.
+
+---
+
+## 2026-07-28 — README: refresh current-on-disk-contents (5 models now complete)
+
+### What changed
+
+Rewrote `README.md`'s "Current on-disk contents" section to match a
+fresh recursive directory listing. Since the last version of this
+section was written, 5 of the 20 models completed full runs
+(`v3_mnist_digit_soap_16`, `v3_mnist_digit_adamw_16`,
+`v3_mnist_digit_muon_16`, `v3_mnist_router_ranger_16`,
+`v3_mnist_router_ranger_28` — each now has `_best.pt`, `_final.pt`,
+`.onnx`, `_log.csv`, `_curves.png`, and a CLI transcript) and
+`v3_mnist_digit_adamw_28` is mid-run (`_best.pt` + `_resume.pt` +
+transcript, no final export — stopped via Ctrl+C per William, resumable).
+Also noted `.claude/settings.local.json`, which now exists on disk
+(Claude Code's own local session settings) — excluded from the tree on
+the same basis as `__pycache__/`: a tooling artifact, not project
+content.
+
+### Why
+
+William asked for the README to reflect all the new files that had
+appeared in the folders since the last pass, in the same message that
+approved the two batch-sizing fixes above.
+
+### Source
+
+Direct instruction from William (this conversation). Verified against a
+fresh recursive listing of `E:\mnist_v3` (`find`, excluding
+`__pycache__`) rather than assumed from the previous README version or
+from memory of earlier conversation turns.
+
+---
+
+## 2026-07-28 — Correction: the actual fix for `v3_mnist_digit_adamw_28`'s crash was a Windows page-file change, not the VRAM entries above
+
+### What this corrects
+
+The two entries directly above this one (`garbage_collection_threshold` /
+`VRAM_RESERVE_GB`) are real fixes for a real, separately-confirmed GPU-VRAM
+problem (batch size 4864 genuinely didn't fit — confirmed via a clean,
+non-resumed `--batch-size 4864` test that still OOM'd with 10.79 GiB
+genuinely allocated). They are being kept, not reverted. But William
+correctly pushed back that they weren't the actual explanation for why
+this script kept crashing, and he was right: after those fixes, a retry
+at the auto-detector's new (smaller) batch size of 3752 got past the
+GPU-side warnings — which turned out to be transient and recoverable,
+real training visibly progressed for several batches — and then crashed
+on a completely different, non-GPU error:
+
+```
+RuntimeError: Couldn't open shared file mapping: <torch_22980_...>, error code: <1455>
+```
+
+This is the exact same error, same code, same mechanism as the one
+diagnosed for `v3_mnist_router_ranger_28` earlier in this same session
+(see that crash's own diagnosis above in this changelog): Windows error
+1455 = `ERROR_COMMITMENT_LIMIT` — a **system RAM / page-file** ceiling
+being hit in the DataLoader worker → main-process shared-memory handoff,
+via `NUM_WORKERS=18` each holding its own full duplicated copy of the
+merged dataset (confirmed cause for the router: Windows `multiprocessing`
+uses `spawn`, not `fork`, so there's no copy-on-write sharing across
+worker processes). Not GPU VRAM at all — a completely separate resource
+ceiling that happened to produce crashes in the same training runs the
+VRAM fixes were also touching, which is what made this easy to
+conflate.
+
+### What actually fixed it
+
+William increased the Windows page file (`D:\pagefile.sys`) from a fixed
+8 GB to a custom 16 GB initial / 32 GB maximum, directly in Windows
+(Advanced system settings → Performance → Advanced → Virtual Memory) —
+an OS-level system setting, not a project file, so there is no code diff
+for this entry. This raises the system commit ceiling from ~71 GB
+(63.2 GB RAM + 8 GB page file) to ~79-95 GB, comfortably clearing the
+~31 GB confirmed overhead from `NUM_WORKERS=18`'s dataset duplication.
+Reported working by William after this change and a retry.
+
+**`NUM_WORKERS` reduction was discussed as the alternative/complementary
+fix** (directly cuts the per-worker duplication instead of raising the
+ceiling around it) but wasn't needed once the page file was increased.
+Not applied — recorded here as the fallback option if this recurs,
+since `NUM_WORKERS` is explicitly sensitive in this project (see this
+file's own project history) and shouldn't be changed without being asked
+again specifically.
+
+### Source
+
+Direct instruction from William (this conversation) and his own real
+crash tracebacks (three retries of `v3_mnist_digit_adamw_28.py`, pasted
+in full) plus his report that the page-file change fixed it. Root cause
+verified by direct comparison against the router's own already-verified
+diagnosis earlier in this changelog (same error string, same code 1455,
+same Microsoft Win32 error code reference already cited there), not
+re-derived from scratch. No new external documentation beyond what was
+already cited for the router's identical error.
+
+---
+
+## 2026-07-28 — `VRAM_RESERVE_GB` adjusted from 3.0 to 1.5
+
+### What changed
+
+`common/batch_sizing.py`'s `VRAM_RESERVE_GB` changed from `3.0` to `1.5`,
+per William's direct instruction. Still checked against peak
+`max_memory_reserved()`, not just allocated — only the number changed,
+not the mechanism from the earlier entry.
+
+### Why
+
+William's reasoning, stated directly: with the page file now enlarged
+(previous entry), the system-RAM/page-file crash class is covered
+separately, so this constant only needs to answer the GPU-VRAM question
+— and `3.0` was wider than he wanted given his own history of `1.0`
+working fine (at a lower `NUM_WORKERS`, before this project's
+auto-scaling raised it to 18, and before the page file was enlarged).
+`1.5` is a deliberate middle ground between the original `1.0` (which
+let batch 4864 through despite a confirmed real OOM) and `3.0` — his
+own call to make, and he asked to "let it ride from there" and adjust
+again if a real run still OOMs at this setting.
+
+### Source
+
+Direct instruction from William (this conversation) — no external
+source; this is a judgment call on a project-specific constant, not a
+documentation-verifiable fact.
+
+---
+
+## 2026-07-28 — Confirmed: `VRAM_RESERVE_GB=1.5` + enlarged page file resolved `v3_mnist_digit_adamw_28`
+
+Real run, `v3_mnist_digit_adamw_28_cli_20260728_020307.txt`: auto-detector
+landed on batch 3744, then 6 full epochs completed cleanly — no GPU OOM,
+no DataLoader shared-memory errors, no warnings of any kind. VRAM held
+flat at 9.8/13.0 GB and system RAM flat at 30.2-30.6/63.2 GB across every
+epoch (the same healthy "one step up, then flat" pattern seen in every
+other successful run this session). Val accuracy climbed 98.5% → 99.58%
+over the 6 epochs. William stopped it deliberately via Ctrl+C once
+satisfied it was stable, not because of a crash.
+
+This closes out the multi-part crash investigation recorded across the
+several entries above: the GPU-VRAM margin (`VRAM_RESERVE_GB`) and the
+system-RAM page-file ceiling were two separate, both-real problems, and
+both are now addressed — the former in code, the latter as a Windows
+setting outside this repo. No further action needed unless a future run
+hits either failure mode again.
+
+Source: William's own transcript, read directly, not summarized from his
+description.
+
+---
+
+## 2026-07-28 — `VRAM_RESERVE_GB` reverted from 1.5 to 1.0, per repeated direct instruction
+
+### What changed
+
+`common/batch_sizing.py`'s `VRAM_RESERVE_GB` changed from `1.5` back to
+William's original `1.0`.
+
+### Why
+
+William asked for this twice, directly. Before making the change, William
+asked Claude to pull and compare every training transcript produced so
+far across all resolutions/optimizers. That comparison surfaced a real
+methodological problem with part of the evidence the `1.5`/`3.0` changes
+had leaned on: `grep -c "reset_peak_memory_stats"` across all 20 scripts
+confirmed `v3_mnist_digit_adamw_*.py` and `v3_mnist_router_ranger_*.py`
+**never** call `torch.cuda.reset_peak_memory_stats()` per epoch, while
+`v3_mnist_digit_soap_*.py` and `v3_mnist_digit_muon_*.py` do. This means
+adamw's and router's console `VRAM X/Y GB` telemetry is a cumulative
+peak since the batch-size probe ran, not a clean per-epoch figure — so
+the "13.0 GB peak" cited as evidence for a wider margin in earlier
+entries may have been inflated by leftover probe-candidate peaks, not
+real steady-state usage. Separately, a real `v3_mnist_digit_adamw_16.py`
+run (batch 11528, before tonight's fixes) held a stable 12.3 GB peak
+with the *original* 1.0 GB margin and had no issue, which is real,
+directly-comparable evidence for reverting.
+
+**Not reverted or explained away:** the clean, non-resumed
+`--batch-size 4864` test's `torch.OutOfMemoryError` (`10.79 GiB is
+allocated by PyTorch`) is unaffected by the telemetry-reset issue above —
+that number came from the live CUDA allocator via PyTorch's own
+exception text at the moment of failure, not from this project's
+per-epoch logging. That crash was real. Reverting to `1.0` is William's
+explicit decision to accept the risk of hitting it again in exchange for
+not being unnecessarily conservative everywhere else, given the auto-
+detector will simply pick smaller batches on future OOMs.
+
+**Also noted, unresolved:** `v3_mnist_router_ranger_64.py`'s transcript
+showed a `VRAM` reading of `9.8/18.9GB` — 18.9 GB exceeds this card's
+15.99 GiB usable capacity, which shouldn't be possible even accounting
+for the cumulative-peak issue above. Not fully explained; possibly
+Windows WDDM backing some allocation with shared/system memory rather
+than dedicated VRAM, but this is speculation, not confirmed, and is
+flagged here rather than asserted as fact.
+
+### Source
+
+Direct, repeated instruction from William (this conversation).
+`reset_peak_memory_stats()` presence/absence verified via `grep -c`
+across all 20 training scripts, not assumed. The adamw_16/12.3GB
+comparison came from directly reading
+`v3_mnist_digit_adamw_16_cli_20260728_005856.txt`, not recalled from
+memory.
+
+---
+
+## 2026-07-28 — README: all prior training output cleared; every model to be redone on current code
+
+### What changed
+
+Rewrote `README.md`'s "Current on-disk contents" section again. Every
+output directory that previously held a completed or in-progress run
+(`soap_16`, `soap_28`, `soap_64`, `adamw_16`, `adamw_28`, `muon_16`,
+`muon_28`, `router_ranger_16`, `router_ranger_28`, `router_ranger_64`)
+is now empty — confirmed via `ls -la` on each directory, not assumed.
+10 of the 20 scripts have an empty output directory (created by at
+least one prior run attempt); the other 10 (`*_32.py`, `*_64.py`/
+`*_128.py` variants not listed above) have never been run at all — no
+directory exists for them.
+
+### Why
+
+William's position, stated directly: a trained model is only valid if
+it was trained on the current state of the code. Several models
+finished earlier in this session, before some of tonight's shared-
+infrastructure fixes (`common/batch_sizing.py`'s probe fix and margin
+changes, `common/__init__.py`'s `PYTORCH_ALLOC_CONF`) existed. Rather
+than track which specific fix each old run predated, William cleared
+all prior output and will redo everything on the current, stable code
+going forward. (Claude's own read, given directly to William beforehand:
+none of tonight's changes actually alter training math/gradients/
+weights — they only affect batch-size selection and CUDA allocator
+internals — so the already-completed runs weren't technically invalid.
+This is recorded as William's explicit methodology choice — consistent
+code version across every run — not a correction of a real defect in
+the old runs.)
+
+### Source
+
+Direct instruction from William (this conversation). Empty-directory
+state verified via `ls -la` on each of the 10 existing output
+directories, and via a fresh `find` across the whole repo confirming
+which of the other 10 scripts have no directory at all — not assumed
+from the earlier (now-stale) README version.
+
+---
+
+## 2026-07-28 — Add `run_all_training.ps1` (new file)
+
+### What changed
+
+New file: `run_all_training.ps1`, a PowerShell script that runs all 20
+v3 training scripts in sequence (16x16 → 28x28 → 32x32 → 64x64 → 128x128,
+each resolution as soap → adamw → muon → router). Skips any script whose
+output directory already has a `_final.pt` (already trained to
+completion); everything else is launched in order and waits for each to
+finish before starting the next.
+
+Does not add any new resume/state-tracking mechanism — deliberately
+reuses what already exists: a script with a `_resume.pt` but no
+`_final.pt` gets re-launched and resumes on its own via that script's
+existing checkpoint/resume logic (see `common/checkpointing.py` and this
+changelog's own entries on how that works), so Ctrl+C at any point during
+a run behaves exactly as it already does for a manually-run script — no
+new corruption risk, confirmed by reading `common/checkpointing.py`
+directly before answering William's question about it (checkpoints only
+ever save at the end of a fully-completed epoch, never mid-epoch).
+
+### Why
+
+William asked to be able to run training "until I say stop" and resume
+later "later in the day or week," across all 20 scripts, without manually
+relaunching each one. Per this project's Testing rule, Claude does not
+run training itself, including via a script — this file is something
+William runs and controls himself; Claude only wrote it.
+
+### Source
+
+Direct instruction from William (this conversation) — design (ordering,
+the `_final.pt`-based skip check, reusing existing resume logic instead
+of building new state tracking) proposed by Claude and confirmed with
+William before writing anything, per this project's standard diff-then-
+approve sequence.
+
+---
+
+## 2026-07-28 — Documentation audit and fix pass across the entire codebase
+
+William asked for a full verification pass on every comment/docstring in
+every project file — clear, accurate, and cited where a technical claim
+is made — followed by "fix them all please." This was executed as 6
+parallel read-only review agents (findings reported to William in full
+before any fix), then 6 parallel fix agents given exact, pre-specified
+edits (not open-ended review), with every resulting diff verified by
+Claude directly (re-read/grepped) before being logged here. Several of
+the fix agents independently identified and refused to write without
+William's own explicit chat approval — correct behavior per this
+project's rules, since a task prompt from another agent isn't the same
+as William's own "go ahead"; William had, in fact, already given that
+approval in chat, so Claude applied the pre-verified diffs directly
+rather than re-running the agents. The entries below cover what actually
+changed, grouped by file family to keep this readable rather than 26
+separate single-line entries.
+
+### v3_mnist_digit_muon_{16,28,32,64,128}.py (3 fixes × 5 files)
+
+**What:** (1) Fixed a self-contradictory warmup description — said
+"500-step-equivalent" while the same sentence cited `WARMUP_STEPS=300`
+and said it "differs from SOAP's 500"; changed to "300-step". (2) Fixed
+a citation that trimmed its own source's date range — "2025 independent
+benchmarks" → "2025-2026 independent benchmarks", matching
+v3_CHANGELOG.md's actual roster-change entry. (3) Fixed a dangling "See
+Part 1 of the v3 restructure" reference (no section anywhere in this
+file is literally labeled "Part 1") to name the real section directly:
+"v3_CHANGELOG.md's Resolution ladder split section".
+
+**Why:** All three were confirmed factually wrong or unresolvable
+against this changelog's own content, not style preferences.
+
+**Source:** Direct instruction from William (fix-everything approval),
+executed against findings from a dedicated review pass. Each claim was
+cross-checked against v3_CHANGELOG.md directly (grep for "Part 1",
+"500-step"/"300-step" in the Muon standard-settings table, and the
+roster-change entry's actual date range) before being changed — not
+assumed from the review pass alone.
+
+### v3_mnist_digit_soap_{16,28,32,64,128}.py (4 fixes × 5 files)
+
+**What:** (1) Fixed a wrong parameter count — docstrings said "~4.6M
+parameters"; independently hand-computed from the actual
+`OCRConvNetTriplePyramid`/`TripleBlock`/`SEBlock` architecture
+(stem + 4 stages + 5-layer classifier head), twice, by two different
+agents, both landing on 7,573,482 (~7.6M) — corrected to "~7.6M
+parameters". (2) Fixed false "Adapted from v2" lineage claims:
+`soap_16.py`/`soap_28.py` claimed adaptation from v2 files
+(`mnist_soap_16.py`/`mnist_soap_28.py`) that never existed — v2's SOAP
+tiers were only 32/64/128 — reworded to state plainly these are new for
+v3 with no v2 counterpart. `soap_32/64/128.py` correctly claim v2
+adaptation but their trailing clause named only 16x16 as new,
+implying 28x28 wasn't — fixed to name both. (3) Same "Part 1" fix as
+Muon, in this file and in `supplementary_data.py:1126` (a 6th occurrence
+found during a final project-wide sweep, not caught by the original
+review pass). (4) Softened the uncited "SOAP requires float32" claim
+(stated 3x per file) — a review agent checked the actual
+`pytorch_optimizer` SOAP source directly and found it already handles
+float32 casting internally regardless of caller precision, so "requires"
+overstated certainty about why AMP is disabled here. Reworded the two
+docstring instances to "kept disabled for SOAP, per v2 practice — not
+independently re-verified against pytorch_optimizer's current
+internals"; left the short runtime print statement as-is (terse console
+output, not a documentation claim).
+
+**Why:** All four are real defects — one factual error (params), one
+provenance error confirmed false against this project's own file-change
+list, one dead citation, one overstated-certainty claim confirmed
+against the actual upstream library source.
+
+**Note, not corrected:** `v3_CHANGELOG.md` itself repeats the same wrong
+"~4.6M" figure twice (its own standard-settings table and an earlier
+entry). Per this project's own rule ("never edit or delete a past
+changelog entry... add a new entry correcting it"), those are left
+untouched — this paragraph is that correction. The real figure is
+~7.6M (7,573,482), per the independent hand-computation above.
+
+**Source:** Direct instruction from William. Parameter count verified
+by direct architecture computation (twice, independently, matching);
+v2-lineage claims verified against `v3_CHANGELOG.md`'s File change list;
+float32 claim verified against the actual installed `pytorch_optimizer`
+package source, not assumed.
+
+### v3_mnist_digit_adamw_{16,28,32,64,128}.py (2 fixes × 5 files)
+
+**What:** Same false "Adapted from v2" pattern as SOAP —
+`adamw_16.py`/`adamw_28.py` claimed nonexistent v2 predecessors
+(v2's AdamW tiers were also only 32/64/128), fixed to state they're new
+for v3; `adamw_32/64/128.py`'s trailing clause fixed to name both 16x16
+and 28x28 as new instead of only 16x16. Same "Part 1" citation fix as
+Muon/SOAP.
+
+**Why:** Confirmed false against `v3_CHANGELOG.md`'s File change list
+and "What was verified" section, which only ever reference v2's 32/64
+AdamW tiers.
+
+**Source:** Direct instruction from William, verified against
+`v3_CHANGELOG.md` directly.
+
+### v3_mnist_router_ranger_{16,28,32,64,128}.py (2 fixes × 5 files)
+
+**What:** (1) Removed a stale `make_dataloader()/` reference — that
+function doesn't exist in any router file (only in the digit-ensemble
+scripts, confirmed via grep both ways), copy-paste residue from the
+digit-script template; the router files' real function is
+`make_train_loader()`, which the comment already also named. (2) Fixed
+the same "Part 1" dangling citation as the other three optimizer
+families — present in all 5 router files at a location the original
+review pass did not catch; found during a final project-wide sweep
+after the rest of the fix pass completed, and fixed at that point.
+
+**Why:** (1) is a genuine dead reference — a reader following it finds
+nothing. (2) is the same confirmed-unresolvable citation as elsewhere
+in this entry.
+
+**Source:** Direct instruction from William. (1) confirmed via grep
+showing zero `make_dataloader` definitions in any router file and
+exactly one in each digit-ensemble file. (2) found via a full
+project-wide grep for the same pattern already fixed elsewhere, run
+after the six fix agents reported back, specifically to catch anything
+they'd missed.
+
+### common/__init__.py, common/batch_sizing.py, common/scheduler.py, common/telemetry.py, supplementary_data.py (10 fixes)
+
+**What:**
+- `common/__init__.py`: docstring said "No behavior changes were made
+  while extracting" — no longer accurate now that this file also
+  contains the `PYTORCH_ALLOC_CONF` hotfix (a real behavior change, per
+  this changelog's own earlier entries); added a sentence distinguishing
+  the original behavior-neutral extraction from the later hotfix. Also
+  added a note that `expandable_segments:True` is a confirmed no-op on
+  this Windows PyTorch build (per this changelog's own earlier finding),
+  so a future reader doesn't assume both halves of the setting are
+  active.
+- `common/batch_sizing.py`: docstring said the candidate ladder tops out
+  at "4096" — actual code (and a real logged run that reached it) goes
+  to 16384; fixed. Added a clarifying comment on the previously-bare
+  `if _free_vram < 1.5:` pre-flight check, noting it's independent of
+  `VRAM_RESERVE_GB` below it, since that constant already has 14 lines
+  of hard-won history and the unexplained `1.5` sitting next to it
+  invited confusion.
+- `common/scheduler.py`: `WarmupCosineScheduler`'s `eta_min` has
+  different semantics than PyTorch's own same-named `CosineAnnealingLR`
+  parameter — it's a fractional multiplier of each group's base LR, not
+  an absolute floor (e.g. `eta_min=1e-6` with `base_lr=1e-3` actually
+  bottoms out at `1e-9`). Zero comments previously flagged this; added
+  one.
+- `common/telemetry.py`: one claim about `--query-compute-apps` lacking
+  a per-GPU filter on some systems was stated with the same confidence
+  as a properly-cited claim three lines above it; marked as an
+  observation, not independently verified, to match its actual
+  confidence level.
+- `supplementary_data.py`: fixed two wrong sample-count numbers, both
+  verified against actual dataset documentation —
+  `EMNISTDigitsDataset`'s docstring said "280,000 training" (that's the
+  *total*; real training count is 240,000); `USPSDataset`'s docstring
+  said "9,298 training" (that's the total; real training count is
+  7,291) — this same USPS error also appeared a second time, in
+  `load_base_usps()`'s own docstring, found and fixed during the final
+  project-wide sweep. Fixed the module docstring's "~440,155 raw digit
+  samples" figure, which mixed dataset totals and training-only splits
+  inconsistently and didn't match what the code actually loads at
+  training time — recomputed from consistent training-split figures
+  (~388,148) with a note on what's included. Added "specific to the
+  original machine" clarification to 4 of 6 hardcoded path constants
+  (KAGGLE_DIR, CHARS74K_HND/IMG, PGHWLD_DIR) that previously only
+  implied this via a section header 15-35 lines above rather than
+  restating it individually.
+
+**Why:** Two are factual number errors (verified externally), two are
+self-contradictions between a docstring and the code/file it sits next
+to, two are missing-but-warranted clarifying comments (one a real
+semantic gotcha, one a citation-confidence mismatch), and the path
+constants were an inconsistency-of-emphasis issue, not a missing fact.
+
+**Source:** Direct instruction from William. Dataset sample counts
+verified via web search against EMNIST/USPS official documentation, not
+assumed. Candidate-ladder and `PYTORCH_ALLOC_CONF`/`expandable_segments`
+claims cross-checked directly against this changelog's own prior entries
+(the `16384` real-run entry, the `PYTORCH_ALLOC_CONF` hotfix entry, and
+the `expandable_segments`-not-supported finding). `eta_min` semantics
+traced directly through `WarmupCosineScheduler.step()`'s actual formula,
+not assumed from PyTorch's convention.
+
+### ocr_pipeline_mnist.py, setup_packages.py, requirements.txt
+
+**What:** Added documentation for 5 of `run_pipeline()`'s 8 parameters
+that had none. Added real citations (OpenCV's morphological-operations
+and distance-transform/watershed documentation) to two "standard
+technique" claims that previously named no source. Reworded a specific
+"~45px stray stroke" measurement and a `SIZE_WINDOWS` threshold example
+from stated-as-observed-fact to explicitly-reasoning/estimate framing,
+matching this project's own existing honesty caveat used for the
+`MIN_ASPECT_RATIO` change two paragraphs later — a review agent found
+zero backing for either number anywhere in this changelog, and this
+changelog's own Verification section already states no test images were
+available in the environment that built this code. Removed a dead
+no-op ternary (`axis=1 if False else 0`, always evaluates to `axis=0`).
+Added docstrings to 4 previously-undocumented functions
+(`normalize_char`, `predict_char_topn`, `merge_nearby_boxes`,
+`resolve_image_paths`). Fixed a false citation to "README.md's
+Requirements section" for specific version pins (torch 2.13.0 etc.)
+that section doesn't actually contain — found in 3 separate locations
+across `setup_packages.py` (2 originally targeted, 1 flagged-but-
+correctly-left-alone by the fix agent since it was outside its exact
+scope) and a 4th, previously-unflagged instance in `requirements.txt`
+found during the final sweep; all 4 reworded to point at where the
+versions are actually corroborated (this changelog's CUDA-allocator
+entry, `run_all_training.ps1`'s hardcoded python.exe path).
+
+**Why:** Undocumented parameters and functions are a clarity gap, not a
+correctness bug. The two "standard technique" claims and the two
+empirical numbers were real citation gaps — the technique claims are
+independently true (real, standard CV techniques) but weren't
+attributed the way the rest of this file attributes its sources; the
+specific numbers had zero support anywhere and this project's own rules
+specifically flag unverified technical claims stated as fact as a
+known failure mode to avoid. The dead ternary and false citation are
+straightforward defects.
+
+**Source:** Direct instruction from William. The two "standard
+technique" claims were confirmed as real, standard CV techniques (not
+fabricated) before citing them, just previously uncited. The empirical
+numbers' lack of backing was confirmed by grepping this changelog for
+every related term (stray stroke, SIZE_WINDOWS, the specific pixel
+values) and finding zero matches, plus this changelog's own Verification
+section admitting no test images existed in the build environment — not
+asserting fabrication, only that nothing in this repository currently
+supports those specific numbers. The false README citation was
+confirmed by reading README.md's actual Requirements section directly
+and finding no version pins there at all.
+
+### Final verification
+
+After all fix agents reported back, Claude ran a project-wide grep for
+every confirmed-wrong pattern above (`Part 1 of the v3`, `9,298 train`,
+`280,000 training`, `4.6M parameters`, `500-step-equivalent`,
+`2025 independent benchmarks`, `README.md's Requirements section`,
+the dead ternary, and the stale `make_dataloader()` reference) across
+every `.py`/`.txt` file in the repository — zero remaining matches,
+except the two intentionally-untouched `v3_CHANGELOG.md` occurrences of
+"~4.6M" noted above. This sweep is what caught the 3 fixes the six
+per-family review/fix agents missed (router's "Part 1" reference in all
+5 files, `supplementary_data.py`'s second USPS-count instance and its
+own separate "Part 1" reference, and `requirements.txt`'s copy of the
+README citation bug) — confirmed by directly re-reading each, not
+assumed from the review agents' own self-reported completeness.
+
+---
+
+## 2026-07-28 — Errata: acknowledged two SOAP parameter-count errors inline
+
+### What changed
+
+`v3_CHANGELOG.md` line 57 and the SOAP row of the "Standard settings
+record" table (line ~1186) both stated "~4.6M params" for
+`OCRConvNetTriplePyramid` — confirmed wrong (see the "Documentation
+audit and fix pass" entry above; real figure is ~7.6M, independently
+hand-computed twice). Per William's explicit instruction, added a short
+bracketed pointer immediately next to each occurrence —
+`**[2026-07-28 erratum: wrong, actual ~7.6M — see that date's entry]**`
+— without altering, removing, or reflowing any of the original text
+around it.
+
+### Why
+
+William asked for factual errors in past entries to be acknowledged
+in-place with a pointer to the correction, explicitly distinguishing
+this from rewriting history: the original wrong figure stays exactly as
+first written in both spots, fully intact — this only adds a forward
+annotation next to it, the same function a published errata slip serves
+for a book. This is narrower in scope than "every fix from tonight" —
+checked directly, the other numeric fixes from the same audit
+(EMNIST/USPS sample counts, the batch-size candidate ladder, etc.) were
+never actually asserted wrong in any past `v3_CHANGELOG.md` entry itself
+— those were only wrong in the `.py` files' own docstrings, which were
+already corrected directly (no changelog erratum needed for those).
+
+### Source
+
+Direct instruction from William (this conversation), executed only
+after confirming via `grep` that the "~4.6M" figure was the sole
+instance of a past changelog entry itself (not just a `.py` file)
+asserting something later confirmed wrong.

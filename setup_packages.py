@@ -18,7 +18,8 @@ PyTorch only — no TensorFlow, no Keras, nothing outside the PyTorch
 ecosystem is installed by this script.
 
 Confirmed against this project's actual working environment (see
-README.md's Requirements section):
+v3_CHANGELOG.md's CUDA-allocator entry and run_all_training.ps1's
+python.exe path):
     Python 3.14, torch==2.13.0+cu130, torchvision==0.28.0
 
 Scope note: this script installs Python packages via pip only. It does
@@ -132,7 +133,8 @@ def install_torch(cuda_tag: str):
     """
     Installs torch + torchvision from PyTorch's own wheel index for the
     given CUDA build tag (e.g. 'cu130', matching this project's confirmed
-    working version — see README.md). Uses --index-url as primary, per
+    working version — see v3_CHANGELOG.md and run_all_training.ps1's
+    python.exe path). Uses --index-url as primary, per
     PyTorch's own documented install instructions; if that fails due to a
     missing dependency mirror (a known, documented issue for some CUDA
     tags), retry with --extra-index-url instead, which several real users
@@ -171,8 +173,9 @@ def main():
                         help="Skip torch/torchvision install (use if already installed)")
     parser.add_argument("--cuda", default="cu130",
                         help="CUDA wheel tag for torch (default: cu130, matching this "
-                             "project's confirmed working environment — see README.md). "
-                             "Use 'cpu' for a CPU-only install.")
+                             "project's confirmed working environment — see "
+                             "v3_CHANGELOG.md and run_all_training.ps1's python.exe "
+                             "path). Use 'cpu' for a CPU-only install.")
     parser.add_argument("--skip-onnx", action="store_true",
                         help="Skip onnxruntime-gpu/onnx/opencv. WARNING: onnx is required by "
                              "the 5 SOAP digit scripts' export-validation path, and "

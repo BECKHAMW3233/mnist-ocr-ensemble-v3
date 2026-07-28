@@ -3,9 +3,9 @@ v3_mnist_digit_adamw_16.py
 ====================
 MNIST digit ensemble — OCRConvNetWide, Schedule-Free AdamW, 16x16
 Pure PyTorch — Wider architecture with Squeeze-Excitation attention blocks.
-Adapted from v2's mnist_adamw_16.py (32/64/128 tiers) — the
-16x16 tier is new for v3, no v2 counterpart. See v3_CHANGELOG.md for the
-full v3 restructure (optimizer roster change, modularization, naming).
+New for v3 — no v2 counterpart (v2's AdamW tiers were 32/64/128
+only). See v3_CHANGELOG.md's File change list for the full
+v3-to-v2 adaptation mapping.
 
 Architecture — OCRConvNetWide (unchanged from v2):
   Filter progression: 32→128→256→512
@@ -33,7 +33,7 @@ training spine at 16x16 (via load_base_usps(), not load_base_mnist() —
 see load_mnist() below), since it's USPS's own native resolution and the
 only source in that tier's ladder; MNIST/EMNIST Digits/SVHN/ARDIS IV
 (every source except USPS) at 28x28; every source including USPS at
-32/64/128. See Part 1 of the v3 restructure / v3_CHANGELOG.md for why there
+32/64/128. See v3_CHANGELOG.md's Resolution ladder split section for why there
 are 5 resolution-tagged files per optimizer (16/28/32/64/128), not 4.
 
 Output: ./v3_mnist_digit_adamw_16/  (created next to this script)

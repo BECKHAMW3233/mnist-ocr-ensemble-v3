@@ -10,7 +10,8 @@
 # ...or just run `python setup_packages.py`, which does both steps and
 # has a --check mode to verify what's already installed.
 #
-# Confirmed working combination (see README.md's Requirements section):
+# Confirmed working combination (see v3_CHANGELOG.md and
+# run_all_training.ps1's python.exe path):
 #   Python 3.14, torch==2.13.0+cu130, torchvision==0.28.0
 
 torch

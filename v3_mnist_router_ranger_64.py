@@ -82,8 +82,8 @@ than assumed unchanged, and what alternatives were considered).
 
 Resolution: matches the digit ensemble's own per-source ladder split —
 16/28/32/64/128 (USPS alone at 16x16; MNIST/EMNIST/SVHN/ARDIS at 28x28;
-every source including USPS at 32/64/128) — see Part 1 of the v3
-restructure / v3_CHANGELOG.md and supplementary_data.digit_sources_for_tier().
+every source including USPS at 32/64/128) — see v3_CHANGELOG.md's
+Resolution ladder split section and supplementary_data.digit_sources_for_tier().
 
 Box detection compatibility: get_boxes() in ocr_pipeline_mnist.py was
 checked against realistic letter bounding-box shapes (ascender/descender
@@ -709,7 +709,7 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device, schedul
     hw_summary["compute_s"]   = round(_compute_s, 2)
     # DDP metric aggregation (2026-07-28, per direct user follow-up): each
     # rank only sees its own shard of the training data (via
-    # DistributedWeightedRandomSampler in make_dataloader()/
+    # DistributedWeightedRandomSampler in
     # make_train_loader() below), so total_loss/total_correct/
     # total_samples are LOCAL to this rank until summed across every rank
     # — without this, a distributed run's reported train_loss/train_acc

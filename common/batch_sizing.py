@@ -2,7 +2,7 @@
 common/batch_sizing.py
 =======================
 Auto batch-size detection: bottom-up coarse pass through power-of-2
-candidates (64 -> 4096), stopping at the first failure, then binary-search
+candidates (64 -> 16384), stopping at the first failure, then binary-search
 refinement rounded to the nearest multiple of 8, landing within 8 of the
 true VRAM/RAM ceiling. Extracted from the determine_batch_size() /
 _probe_batch_size() pair that was duplicated across every v2 training
@@ -43,9 +43,24 @@ if HAS_PSUTIL:
     import psutil
 
 RAM_RESERVE_GB = 4.0  # reserved for the OS on CPU-only runs — higher than
-                      # the GPU path's 1GB VRAM reserve since idle system
-                      # RAM usage is meaningfully higher than idle VRAM
-                      # usage on a typical desktop OS.
+                      # the GPU path's VRAM_RESERVE_GB below since idle
+                      # system RAM usage is meaningfully higher than idle
+                      # VRAM usage on a typical desktop OS.
+
+VRAM_RESERVE_GB = 1.0  # reverted to William's original 1.0 (2026-07-28,
+                       # per direct, repeated user instruction). Contributing
+                       # factor: adamw_*.py/router_ranger_*.py never call
+                       # torch.cuda.reset_peak_memory_stats() per epoch
+                       # (unlike soap_*.py/muon_*.py, which do), so their
+                       # console VRAM telemetry is a cumulative peak since
+                       # the batch-size probe ran, not a clean per-epoch
+                       # reading — weakening the telemetry-based case for
+                       # a wider margin. The one piece of evidence NOT
+                       # affected by that (batch 4864's real OOM exception,
+                       # read live from CUDA at the moment of failure, not
+                       # from this project's own telemetry) still stands —
+                       # William's call to accept that risk. See
+                       # v3_CHANGELOG.md.
 
 
 def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
@@ -79,6 +94,9 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
             torch.cuda.reset_peak_memory_stats()
             _free_vram = (torch.cuda.get_device_properties(_gpu_idx).total_memory
                          - torch.cuda.memory_reserved()) / 1024**3
+            # separate, cheap pre-flight check (not tied to VRAM_RESERVE_GB
+            # below) — just decides whether this candidate is even worth
+            # attempting
             if _free_vram < 1.5:
                 print(f'[Batch] Batch size {bs} — insufficient free VRAM ({_free_vram:.1f}GB free), skipping')
                 return False
@@ -90,6 +108,10 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
 
         model_test = build_model().to(device)
         probe_optimizer = build_optimizer(model_test.parameters())
+        if hasattr(probe_optimizer, "train"):
+            probe_optimizer.train()  # Schedule-Free-style optimizers (e.g. AdamWScheduleFree)
+                                     # require this before step(); absent on standard
+                                     # torch.optim.Optimizer subclasses (SOAP, Muon, Ranger)
         probe_scaler = build_grad_scaler(device, use_amp) if use_amp else None
 
         dummy_x = torch.rand(bs, 1, img_size, img_size, device=device)
@@ -119,12 +141,12 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
                     ).decode().strip()
                     _used_mb = float(_smi.split('\n')[0].strip())
                     _total_vram_mb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**2
-                    _vram_ceiling_mb = _total_vram_mb - 1024
+                    _vram_ceiling_mb = _total_vram_mb - (VRAM_RESERVE_GB * 1024)
                     if _used_mb > _vram_ceiling_mb:
                         raise RuntimeError('out of memory')
                 except subprocess.SubprocessError:
                     _total_vram_gb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**3
-                    if torch.cuda.max_memory_allocated() / 1024**3 > (_total_vram_gb - 1.0):
+                    if torch.cuda.max_memory_reserved() / 1024**3 > (_total_vram_gb - VRAM_RESERVE_GB):
                         raise RuntimeError('out of memory')
             elif HAS_PSUTIL:
                 _free_ram = psutil.virtual_memory().available / 1024**3
@@ -136,9 +158,9 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
         del model_test, probe_optimizer, probe_scaler, dummy_x, dummy_y, out, loss
         if _on_cuda:
             torch.cuda.empty_cache()
-            _alloc_mb = torch.cuda.memory_allocated() / 1024**2
+            _reserved_mb = torch.cuda.max_memory_reserved() / 1024**2
             _total_mb = torch.cuda.get_device_properties(_gpu_idx).total_memory / 1024**2
-            if _alloc_mb > _total_mb - 1024:
+            if _reserved_mb > _total_mb - (VRAM_RESERVE_GB * 1024):
                 torch.cuda.empty_cache()
                 print(f'[Batch] Batch size {bs} — spilling to shared VRAM, stepping down')
                 return False

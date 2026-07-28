@@ -72,7 +72,11 @@ router does its own 3-class digit/UC/LC weighting, see
 v3_mnist_router_ranger_*.py):
     DIGIT_BOOST=1.0 (neutral). Weighting is pure inverse frequency across 10 classes.
 
-    Raw digit samples:  ~440,155  (EMNIST Digits + MNIST + USPS + SVHN + ARDIS IV)
+    Raw digit samples (training-time total): ~388,148 (EMNIST Digits
+    train 240,000 + MNIST train 60,000 + USPS train 7,291 + SVHN train
+    73,257 + ARDIS IV 7,600 — train-split counts, not published dataset
+    totals; see EMNISTDigitsDataset/USPSDataset docstrings for the
+    corrected per-source splits).
     All sources map to class indices 0-9 directly.
 """
 
@@ -115,7 +119,9 @@ DATA_DIR      = Path(r"E:\CSC-114\emnist-model\datasets\pytorch")
 # NOT used by the digit ensemble (use_kaggle=False everywhere it's
 # called) or by the v3 router (which uses EMNIST Balanced instead — see
 # module docstring) — safe to leave pointed at a nonexistent path unless
-# you specifically opt into this as a supplementary letter source.
+# you specifically opt into this as a supplementary letter source, in
+# which case note the path below is specific to the original machine
+# and will need changing.
 KAGGLE_DIR    = Path(r"E:\CSC-114\emnist-model\datasets\kaggle")
 KAGGLE_IMGS   = KAGGLE_DIR / "az_images.npy"
 KAGGLE_LBLS   = KAGGLE_DIR / "az_labels.npy"
@@ -123,7 +129,8 @@ KAGGLE_LBLS   = KAGGLE_DIR / "az_labels.npy"
 # CHARS74K_HND / CHARS74K_IMG: Chars74K handwritten/image letter datasets.
 # Also NOT used by the digit ensemble or the v3 router by default — same
 # as above, safe to leave as-is unless you opt into this as a
-# supplementary letter source.
+# supplementary letter source — both paths below are specific to the
+# original machine and will need changing if you do.
 CHARS74K_HND  = Path(r"E:\CSC-114\emnist-model\datasets\EnglishHnd\English\Hnd\Img")
 CHARS74K_IMG  = Path(r"E:\CSC-114\emnist-model\datasets\EnglishImg\English\Img\GoodImg\Bmp")
 
@@ -139,7 +146,8 @@ ARDIS_LBLS    = ARDIS_DIR / "ardis_labels.npy"
 # PGHWLD_DIR: Pashto handwritten letters dataset. NOT used by the digit
 # ensemble or the v3 router by default (use_pghwld=False everywhere) —
 # safe to leave as-is unless you opt into this as a supplementary letter
-# source.
+# source, in which case the path below is specific to the original
+# machine and will need changing.
 PGHWLD_DIR    = Path(r"E:\CSC-114\emnist-model\datasets\pg_hwld")
 
 NUM_CLASSES = 10
@@ -190,7 +198,7 @@ DIGIT_TO_BYCLASS    = {i: i for i in range(10)}
 
 class EMNISTDigitsDataset(Dataset):
     """
-    EMNIST Digits split — 280,000 training + 40,000 test samples, digits 0-9.
+    EMNIST Digits split — 240,000 training + 40,000 test samples, digits 0-9.
     Digits 0-9 map directly to byclass indices 0-9.
     """
     def __init__(self, train: bool = True, transform=None):
@@ -249,7 +257,7 @@ class MNISTDataset(Dataset):
 
 class USPSDataset(Dataset):
     """
-    USPS — 9,298 training + 2,007 test samples, digits 0-9.
+    USPS — 7,291 training + 2,007 test samples, digits 0-9.
     Scanned from US Postal Service envelopes — real-world handwriting,
     different stroke characteristics than EMNIST/MNIST. Native resolution
     16x16 — see digit_sources_for_tier() below for why this source is
@@ -1109,13 +1117,13 @@ def load_base_usps(data_dir: Path, train_transform, val_transform, test_transfor
                     validation_split: float = 0.15, split_seed: int = 42,
                     return_train_targets: bool = False):
     """
-    Loads the base USPS dataset (9,298 train + 2,007 test samples,
+    Loads the base USPS dataset (7,291 train + 2,007 test samples,
     digits 0-9, native 16x16 resolution) and splits the training set
     into train/val — the USPS-tier equivalent of load_base_mnist(),
     used as the digit ensemble's/router's entire training spine at the
     16x16 resolution tier instead of load_base_mnist() +
     load_supplementary(): at 16x16, USPS is the ONLY source in the
-    ladder (see Part 1 of the v3 restructure / v3_CHANGELOG.md), so there's
+    ladder (see v3_CHANGELOG.md's Resolution ladder split section), so there's
     no separate "base spine" + "supplementary sources" split the way
     there is for the 28/32/64/128 tiers — USPS's own train/test split
     serves both roles directly.
