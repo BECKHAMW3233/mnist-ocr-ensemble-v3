@@ -162,6 +162,31 @@ def all_reduce_sum(value: float, device: torch.device) -> float:
     return tensor.item()
 
 
+def all_reduce_min(value, device: torch.device):
+    """
+    Takes the minimum of `value` across every rank and returns the same
+    minimum to all of them — used for the auto-detected batch size
+    (2026-08-02, per direct user follow-up): rather than trusting rank
+    0's probe alone (which silently assumed every rank's GPU had
+    equivalent free VRAM — see broadcast_int()'s own docstring for the
+    original reasoning, and why that assumption doesn't hold on a
+    shared/contended compute node, where another tenant's job can leave
+    one rank's GPU with meaningfully less free VRAM than another's even
+    on identical hardware), every rank now probes its own device
+    independently (see determine_batch_size() in common/batch_sizing.py)
+    and this takes the minimum across all of them, so every rank trains
+    at a batch size that's safe for the rank with the LEAST available
+    VRAM, not just whatever rank 0 happened to have free. No-op
+    passthrough (returns value unchanged) when not running distributed.
+    """
+    if not is_distributed():
+        return value
+    import torch.distributed as dist
+    tensor = torch.tensor(value, dtype=torch.int64, device=device)
+    dist.all_reduce(tensor, op=dist.ReduceOp.MIN)
+    return int(tensor.item())
+
+
 def broadcast_int(value: int, device: torch.device, src: int = 0) -> int:
     """
     Broadcasts an integer FROM rank `src` (default rank 0) to every

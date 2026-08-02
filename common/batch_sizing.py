@@ -1,8 +1,8 @@
 """
 common/batch_sizing.py
 =======================
-Auto batch-size detection: bottom-up coarse pass through power-of-2
-candidates (64 -> 16384), stopping at the first failure, then binary-search
+Auto batch-size detection: bottom-up coarse pass through the CANDIDATES
+ladder below, stopping at the first failure, then binary-search
 refinement rounded to the nearest multiple of 8, landing within 8 of the
 true VRAM/RAM ceiling. Extracted from the determine_batch_size() /
 _probe_batch_size() pair that was duplicated across every v2 training
@@ -11,6 +11,29 @@ v2's mnist_soap_64.py vs mnist_adamw_64.py: identical algorithm, identical
 OOM/shared-VRAM/CPU-RAM/swap detection, differing only in whether the
 probe step uses AMP+GradScaler+gradient clipping or a plain float32
 backward with neither).
+
+Candidate ladder (2026-08-02, per direct user follow-up — future-proofing
+for hardware beyond the current RTX 4080 16GB, up to a 300GB-VRAM-per-
+device ceiling — the highest currently on the market as of this writing
+is 288GB, NVIDIA B300/AMD MI350X/MI355X; see v3_CHANGELOG.md for sources):
+doubles 64 -> 2048 (6 candidates), then steps by a constant +1536 up to
+306176, capped with one final point at 307200 (= 300 x 1024, mirroring
+the same "round GB boundary" convention used at 98304 = 96 x 1024
+earlier in the ladder) — 205 candidates total. This is a no-op ceiling
+on today's 16GB card (the coarse pass below stops at the FIRST candidate
+that fails, so a long tail of never-reached candidates costs nothing) —
+the same file needs no further edits if/when bigger hardware (a better
+single GPU, a cloud instance, or a compute-cluster node with more VRAM
+per device) becomes available; it'll just naturally probe further up
+this same ladder. Whether the ladder's top is ever reached in practice
+still depends heavily on image resolution — per-sample activation memory
+grows with img_size far more than with available VRAM, so the smaller
+resolution tiers (e.g. 16x16) are far more likely to approach the top of
+this ladder than 64x64/128x128 will on any single device. Note this
+probes PER-DEVICE VRAM (torch.cuda.get_device_properties(gpu_idx).total_memory
+on whichever single GPU the process is bound to) — a cluster's aggregate
+memory across many GPUs doesn't raise this ceiling unless a single
+device itself has more VRAM.
 
 Behavior preserved exactly: same candidate ladder, same VRAM/RAM
 pre-flight and per-step/post-loop checks, same refinement algorithm. The
@@ -37,7 +60,7 @@ import torch.nn as nn
 
 from .telemetry import HAS_PSUTIL
 from .amp import amp_train_step, build_grad_scaler
-from .distributed import is_distributed, is_main_process, broadcast_int
+from .distributed import all_reduce_min
 
 if HAS_PSUTIL:
     import psutil
@@ -190,7 +213,34 @@ def _probe_batch_size(bs: int, build_model, build_optimizer, criterion,
 
 def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
                           num_classes: int, device: torch.device,
-                          candidates=(64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384),
+                          candidates=(64, 128, 256, 512, 1024, 2048, 3584, 5120, 6656, 8192,
+                                      9728, 11264, 12800, 14336, 15872, 17408, 18944, 20480,
+                                      22016, 23552, 25088, 26624, 28160, 29696, 31232, 32768,
+                                      34304, 35840, 37376, 38912, 40448, 41984, 43520, 45056,
+                                      46592, 48128, 49664, 51200, 52736, 54272, 55808, 57344,
+                                      58880, 60416, 61952, 63488, 65024, 66560, 68096, 69632,
+                                      71168, 72704, 74240, 75776, 77312, 78848, 80384, 81920,
+                                      83456, 84992, 86528, 88064, 89600, 91136, 92672, 94208,
+                                      95744, 97280, 98816, 100352, 101888, 103424, 104960,
+                                      106496, 108032, 109568, 111104, 112640, 114176, 115712,
+                                      117248, 118784, 120320, 121856, 123392, 124928, 126464,
+                                      128000, 129536, 131072, 132608, 134144, 135680, 137216,
+                                      138752, 140288, 141824, 143360, 144896, 146432, 147968,
+                                      149504, 151040, 152576, 154112, 155648, 157184, 158720,
+                                      160256, 161792, 163328, 164864, 166400, 167936, 169472,
+                                      171008, 172544, 174080, 175616, 177152, 178688, 180224,
+                                      181760, 183296, 184832, 186368, 187904, 189440, 190976,
+                                      192512, 194048, 195584, 197120, 198656, 200192, 201728,
+                                      203264, 204800, 206336, 207872, 209408, 210944, 212480,
+                                      214016, 215552, 217088, 218624, 220160, 221696, 223232,
+                                      224768, 226304, 227840, 229376, 230912, 232448, 233984,
+                                      235520, 237056, 238592, 240128, 241664, 243200, 244736,
+                                      246272, 247808, 249344, 250880, 252416, 253952, 255488,
+                                      257024, 258560, 260096, 261632, 263168, 264704, 266240,
+                                      267776, 269312, 270848, 272384, 273920, 275456, 276992,
+                                      278528, 280064, 281600, 283136, 284672, 286208, 287744,
+                                      289280, 290816, 292352, 293888, 295424, 296960, 298496,
+                                      300032, 301568, 303104, 304640, 306176, 307200),
                           probe_steps: int = 5, use_amp: bool = True,
                           grad_clip_norm=1.0) -> int:
     """
@@ -198,23 +248,21 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
     docstring for the full rationale — identical algorithm to every v2
     training script.
 
-    DDP note (2026-07-28, per direct user follow-up — see common/
+    DDP note (2026-08-02, per direct user follow-up — see common/
     distributed.py, including its "NOT YET VALIDATED against real multi-
     GPU hardware" caveat, which applies here too): on a distributed run,
-    the actual probe loop below runs ONLY on rank 0 — every other rank
-    skips it entirely (not just the printing) and receives rank 0's
-    result via broadcast_int(). Two reasons, not one: (1) rank 0's result
-    is trusted rather than assuming every rank's independent probe would
-    land on the identical number, which is only guaranteed true if every
-    GPU in the job is genuinely identical — this codebase has no way to
-    verify that about the hardware it's run on; (2) running the full
-    probe redundantly on every rank wastes real time and VRAM churn on
-    every rank but one for no benefit once the result is just going to
-    be overwritten by a broadcast anyway.
+    EVERY rank now runs the full probe independently against its own
+    device, and the final result is the MINIMUM across all ranks (via
+    all_reduce_min()), not rank 0's value alone. Supersedes the original
+    2026-07-28 design (rank 0 probes, broadcasts to everyone), which
+    silently assumed every rank's GPU had equivalent free VRAM — true on
+    a dedicated/exclusive multi-GPU box, but not on a shared/contended
+    compute node where another tenant's job can leave one rank's GPU
+    with meaningfully less free VRAM than another's even on identical
+    hardware. Costs every rank its own probe's time and VRAM churn
+    (previously only rank 0 paid that cost) — the correct trade-off once
+    ranks can no longer be assumed identical.
     """
-    if is_distributed() and not is_main_process():
-        return broadcast_int(0, device)  # placeholder value; overwritten by rank 0's broadcast
-
     print(f"[Batch] Auto-detecting batch size for {img_size}x{img_size} "
           f"({probe_steps} real training steps per candidate, bottom-up "
           f"with binary-search refinement)...")
@@ -232,12 +280,12 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
     if last_working is None:
         print(f"[Batch] Even the smallest candidate ({candidates[0]}) failed — "
               f"using it anyway, training may still OOM")
-        return broadcast_int(candidates[0], device)
+        return all_reduce_min(candidates[0], device)
 
     if first_failing is None:
         print(f"[Batch] All candidates up to {last_working} fit — "
               f"using the largest, no refinement needed")
-        return broadcast_int(last_working, device)
+        return all_reduce_min(last_working, device)
 
     lo, hi = last_working, first_failing
     print(f"[Batch] Bracket found: {lo} works, {hi} fails — refining...")
@@ -253,7 +301,7 @@ def determine_batch_size(build_model, build_optimizer, criterion, img_size: int,
 
     print(f"[Batch] Refined to batch size {lo} (largest confirmed-working, "
           f"within 8 of the true VRAM ceiling)")
-    return broadcast_int(lo, device)
+    return all_reduce_min(lo, device)
 
 
 def cap_batch_size_for_min_steps(batch_size: int, dataset_size: int, min_steps: int,
