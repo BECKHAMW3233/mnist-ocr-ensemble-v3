@@ -3,8 +3,10 @@
 v3 of a multi-optimizer PyTorch OCR ensemble for handwritten digits.
 Optimizers: SOAP, AdamW, Muon (Lion, SGD, AdaHessian dropped for weaker
 real-world performance). Adds a case-classifying router (digit/
-uppercase/lowercase/unknown) ahead of planned letter-reading models. No
-post-processing — raw output only.
+uppercase/lowercase/unknown) and 24 uppercase/lowercase letter-identity
+models (EMNIST ByClass, 26 classes each, no digit mixing) that read the
+actual letter once the router calls a box UC or LC. No post-processing —
+raw output only.
 
 ## Overview
 
@@ -14,9 +16,11 @@ accuracy alone, on consumer-grade hardware (RTX 4080, no cloud compute).
 v3 trains 15 digit models (3 optimizers — SOAP, AdamW, Muon — across 5
 per-source resolution tiers, 16/28/32/64/128) plus a 5-resolution router
 that classifies each detected character box as digit / uppercase /
-lowercase / unknown before handing digit boxes to the ensemble. There is
-no post-processing anywhere in this pipeline: if a model can't read
-something, that's the result.
+lowercase / unknown before handing digit boxes to the ensemble, plus 24
+letter-identity models (same 3 optimizers × 4 resolutions — 28/32/64/128,
+no 16×16 tier — × uppercase/lowercase) that read the actual letter for
+boxes the router calls UC or LC. There is no post-processing anywhere in
+this pipeline: if a model can't read something, that's the result.
 
 ## What changed in v3
 
@@ -36,9 +40,8 @@ Full detail, reasoning, and a per-model settings table are in
   source is included.
 - **Router added:** the v2 binary digit/not-digit gate (AdaBelief) is
   replaced — not run alongside — by a 4-verdict router (digit / UC / LC
-  / `[UNK]`, Ranger optimizer) ahead of a planned, not-yet-built letter-
-  reading phase. `[UNK]` is a confidence-threshold call, not a trained
-  class.
+  / `[UNK]`, Ranger optimizer) ahead of the letter-identity models (see
+  below). `[UNK]` is a confidence-threshold call, not a trained class.
 - **Modularized (infrastructure only):** batch-size auto-detection,
   checkpoint/resume, telemetry, seeding, CLI logging, ONNX export, mixed
   precision, and LR scheduling all moved into a shared `common/` package,
@@ -50,14 +53,28 @@ Full detail, reasoning, and a per-model settings table are in
 - **Renamed:** every model file now follows
   `v3_mnist_digit_{optimizer}_{resolution}` /
   `v3_mnist_router_ranger_{resolution}`.
+- **Letter-identity models added (2026-08-02):** 24 new scripts
+  (`v3_mnist_letter_{uc,lc}_{soap,adamw,muon}_{28,32,64,128}.py`) read the
+  actual letter once the router calls a box UC or LC — 26-class
+  uppercase/lowercase classifiers, same architectures/hyperparameters as
+  the digit ensemble, trained on EMNIST ByClass only (no digit mixing, no
+  16×16 tier). A real, still-open torchvision `EMNIST` orientation bug was
+  found and fixed along the way — `EMNISTDigitsDataset`,
+  `BalancedEMNISTDataset`, and the new `EMNISTByClassDataset` all now
+  correct for it. See `v3_CHANGELOG.md`'s 2026-08-02 entries for the full
+  rationale.
 
 ## Repository structure
 
-The tree below is the full projected layout once every model has been
-trained and exported — right after cloning, only the `.py` files, this
-README, and `v3_CHANGELOG.md` exist; every directory below a training
+**Reorganized 2026-08-02** into four per-model-type folders — see
+`v3_CHANGELOG.md`'s "Project reorganized into model-type folders" entry
+for the full rationale and the import-path fix this required in every
+moved script. The tree below is the full projected layout once every
+model has been trained and exported; every directory below a training
 script (checkpoints, ONNX exports, logs, plots) is created by that
-script the first time it runs.
+script the first time it runs, next to the script itself (each script's
+`OUTPUT_ROOT` is computed relative to its own file location, so it
+stays correct regardless of which subfolder the script lives in).
 
 ```
 mnist-ocr-ensemble-v3/
@@ -65,7 +82,7 @@ mnist-ocr-ensemble-v3/
 ├── v3_CHANGELOG.md
 ├── requirements.txt                     # pip install -r requirements.txt
 ├── setup_packages.py                    # python setup_packages.py [--check]
-├── run_all_training.ps1                 # runs all 20 training scripts in sequence, skips
+├── run_all_training.ps1                 # runs all 44 training scripts in sequence, skips
 │                                         # already-completed ones — see the script's own header
 │
 ├── common/                              # shared INFRASTRUCTURE modules (Part 2 modularization —
@@ -84,84 +101,144 @@ mnist-ocr-ensemble-v3/
 │                                         # against real multi-GPU hardware, see its own docstring
 │
 ├── supplementary_data.py                # shared dataset loader (extends v2's own module)
-├── ocr_pipeline_mnist.py                # ONNX inference pipeline (router + digit ensemble)
+├── ocr_pipeline_mnist.py                # ONNX inference pipeline (router + digit + letter ensembles)
 │                                         # NOTE: Muon and Ranger have NO standalone file — each
 │                                         # optimizer is implemented directly inside the training
-│                                         # script(s) that use it (v3_mnist_digit_muon_*.py /
-│                                         # v3_mnist_router_ranger_*.py), not a shared module —
-│                                         # see v3_CHANGELOG.md.
+│                                         # script(s) that use it, not a shared module — see v3_CHANGELOG.md.
 │
-├── v3_mnist_digit_soap_16.py             # ── SOAP digit models (5 resolutions) ──
-├── v3_mnist_digit_soap_16/                # 16x16 = USPS only (load_base_usps())
-│   ├── v3_mnist_digit_soap_16_best.pt
-│   ├── v3_mnist_digit_soap_16_final.pt
-│   ├── v3_mnist_digit_soap_16.onnx
-│   ├── v3_mnist_digit_soap_16_log.csv
-│   ├── v3_mnist_digit_soap_16_curves.png
-│   └── v3_mnist_digit_soap_16_cli_<timestamp>.txt
-├── v3_mnist_digit_soap_28.py
-├── v3_mnist_digit_soap_28/               # (same file set as above, _28 suffix)
-├── v3_mnist_digit_soap_32.py
-├── v3_mnist_digit_soap_32/               # (same file set as above, _32 suffix)
-├── v3_mnist_digit_soap_64.py
-├── v3_mnist_digit_soap_64/               # (same file set as above, _64 suffix)
-├── v3_mnist_digit_soap_128.py
-├── v3_mnist_digit_soap_128/              # (same file set as above, _128 suffix)
+├── digit_models/                        # 15 scripts: SOAP/AdamW/Muon x 5 resolutions (16/28/32/64/128).
+│   │                                     # Each script's own sys.path fix finds common/ and
+│   │                                     # supplementary_data.py one level up at the project root.
+│   ├── v3_mnist_digit_soap_16.py         # 16x16 = USPS only (load_base_usps())
+│   ├── v3_mnist_digit_soap_16/
+│   │   ├── v3_mnist_digit_soap_16_best.pt
+│   │   ├── v3_mnist_digit_soap_16_final.pt
+│   │   ├── v3_mnist_digit_soap_16.onnx
+│   │   ├── v3_mnist_digit_soap_16_log.csv
+│   │   ├── v3_mnist_digit_soap_16_curves.png
+│   │   └── v3_mnist_digit_soap_16_cli_<timestamp>.txt
+│   ├── v3_mnist_digit_soap_28.py         # (same file set per script as soap_16 above)
+│   ├── v3_mnist_digit_soap_28/
+│   ├── v3_mnist_digit_soap_32.py
+│   ├── v3_mnist_digit_soap_32/
+│   ├── v3_mnist_digit_soap_64.py
+│   ├── v3_mnist_digit_soap_64/
+│   ├── v3_mnist_digit_soap_128.py
+│   ├── v3_mnist_digit_soap_128/
+│   ├── v3_mnist_digit_adamw_16.py
+│   ├── v3_mnist_digit_adamw_16/
+│   ├── v3_mnist_digit_adamw_28.py
+│   ├── v3_mnist_digit_adamw_28/
+│   ├── v3_mnist_digit_adamw_32.py
+│   ├── v3_mnist_digit_adamw_32/
+│   ├── v3_mnist_digit_adamw_64.py
+│   ├── v3_mnist_digit_adamw_64/
+│   ├── v3_mnist_digit_adamw_128.py
+│   ├── v3_mnist_digit_adamw_128/
+│   ├── v3_mnist_digit_muon_16.py
+│   ├── v3_mnist_digit_muon_16/
+│   ├── v3_mnist_digit_muon_28.py
+│   ├── v3_mnist_digit_muon_28/
+│   ├── v3_mnist_digit_muon_32.py
+│   ├── v3_mnist_digit_muon_32/
+│   ├── v3_mnist_digit_muon_64.py
+│   ├── v3_mnist_digit_muon_64/
+│   ├── v3_mnist_digit_muon_128.py
+│   └── v3_mnist_digit_muon_128/
 │
-├── v3_mnist_digit_adamw_16.py            # ── AdamW digit models (5 resolutions) ──
-├── v3_mnist_digit_adamw_16/               # 16x16 = USPS only
-├── v3_mnist_digit_adamw_28.py
-├── v3_mnist_digit_adamw_28/
-├── v3_mnist_digit_adamw_32.py
-├── v3_mnist_digit_adamw_32/
-├── v3_mnist_digit_adamw_64.py
-├── v3_mnist_digit_adamw_64/
-├── v3_mnist_digit_adamw_128.py
-├── v3_mnist_digit_adamw_128/
+├── router_models/                       # 5 scripts: Ranger optimizer x 5 resolutions
+│   ├── v3_mnist_router_ranger_16.py      # 16x16 digit class = USPS only
+│   ├── v3_mnist_router_ranger_16/
+│   │   ├── v3_mnist_router_ranger_16_best.pt
+│   │   ├── v3_mnist_router_ranger_16_final.pt
+│   │   ├── v3_mnist_router_ranger_16.onnx
+│   │   ├── v3_mnist_router_ranger_16_log.csv
+│   │   ├── v3_mnist_router_ranger_16_curves.png
+│   │   └── v3_mnist_router_ranger_16_cli_<timestamp>.txt
+│   ├── v3_mnist_router_ranger_28.py
+│   ├── v3_mnist_router_ranger_28/
+│   ├── v3_mnist_router_ranger_32.py
+│   ├── v3_mnist_router_ranger_32/
+│   ├── v3_mnist_router_ranger_64.py
+│   ├── v3_mnist_router_ranger_64/
+│   ├── v3_mnist_router_ranger_128.py
+│   └── v3_mnist_router_ranger_128/
 │
-├── v3_mnist_digit_muon_16.py             # ── Muon digit models (5 resolutions) ──
-├── v3_mnist_digit_muon_16/                # 16x16 = USPS only
-├── v3_mnist_digit_muon_28.py
-├── v3_mnist_digit_muon_28/
-├── v3_mnist_digit_muon_32.py
-├── v3_mnist_digit_muon_32/
-├── v3_mnist_digit_muon_64.py
-├── v3_mnist_digit_muon_64/
-├── v3_mnist_digit_muon_128.py
-├── v3_mnist_digit_muon_128/
+├── uppercase_models/                    # 12 scripts: SOAP/AdamW/Muon x 4 resolutions (28/32/64/128,
+│   │                                     # no 16x16 tier); EMNIST ByClass only, no digit mixing
+│   ├── v3_mnist_letter_uc_soap_28.py
+│   ├── v3_mnist_letter_uc_soap_28/
+│   │   ├── v3_mnist_letter_uc_soap_28_best.pt
+│   │   ├── v3_mnist_letter_uc_soap_28_final.pt
+│   │   ├── v3_mnist_letter_uc_soap_28.onnx
+│   │   ├── v3_mnist_letter_uc_soap_28_log.csv
+│   │   ├── v3_mnist_letter_uc_soap_28_curves.png
+│   │   └── v3_mnist_letter_uc_soap_28_cli_<timestamp>.txt
+│   ├── v3_mnist_letter_uc_soap_32.py
+│   ├── v3_mnist_letter_uc_soap_32/
+│   ├── v3_mnist_letter_uc_soap_64.py
+│   ├── v3_mnist_letter_uc_soap_64/
+│   ├── v3_mnist_letter_uc_soap_128.py
+│   ├── v3_mnist_letter_uc_soap_128/
+│   ├── v3_mnist_letter_uc_adamw_28.py
+│   ├── v3_mnist_letter_uc_adamw_28/
+│   ├── v3_mnist_letter_uc_adamw_32.py
+│   ├── v3_mnist_letter_uc_adamw_32/
+│   ├── v3_mnist_letter_uc_adamw_64.py
+│   ├── v3_mnist_letter_uc_adamw_64/
+│   ├── v3_mnist_letter_uc_adamw_128.py
+│   ├── v3_mnist_letter_uc_adamw_128/
+│   ├── v3_mnist_letter_uc_muon_28.py
+│   ├── v3_mnist_letter_uc_muon_28/
+│   ├── v3_mnist_letter_uc_muon_32.py
+│   ├── v3_mnist_letter_uc_muon_32/
+│   ├── v3_mnist_letter_uc_muon_64.py
+│   ├── v3_mnist_letter_uc_muon_64/
+│   ├── v3_mnist_letter_uc_muon_128.py
+│   └── v3_mnist_letter_uc_muon_128/
 │
-├── v3_mnist_router_ranger_16.py          # ── Router models (5 resolutions) ──
-├── v3_mnist_router_ranger_16/             # 16x16 digit class = USPS only
-│   ├── v3_mnist_router_ranger_16_best.pt
-│   ├── v3_mnist_router_ranger_16_final.pt
-│   ├── v3_mnist_router_ranger_16.onnx
-│   ├── v3_mnist_router_ranger_16_log.csv
-│   ├── v3_mnist_router_ranger_16_curves.png
-│   └── v3_mnist_router_ranger_16_cli_<timestamp>.txt
-├── v3_mnist_router_ranger_28.py
-├── v3_mnist_router_ranger_28/
-├── v3_mnist_router_ranger_32.py
-├── v3_mnist_router_ranger_32/
-├── v3_mnist_router_ranger_64.py
-├── v3_mnist_router_ranger_64/
-├── v3_mnist_router_ranger_128.py
-├── v3_mnist_router_ranger_128/
+├── lowercase_models/                    # 12 scripts, same shape as uppercase_models/ above
+│   ├── v3_mnist_letter_lc_soap_28.py
+│   ├── v3_mnist_letter_lc_soap_28/
+│   ├── v3_mnist_letter_lc_soap_32.py
+│   ├── v3_mnist_letter_lc_soap_32/
+│   ├── v3_mnist_letter_lc_soap_64.py
+│   ├── v3_mnist_letter_lc_soap_64/
+│   ├── v3_mnist_letter_lc_soap_128.py
+│   ├── v3_mnist_letter_lc_soap_128/
+│   ├── v3_mnist_letter_lc_adamw_28.py
+│   ├── v3_mnist_letter_lc_adamw_28/
+│   ├── v3_mnist_letter_lc_adamw_32.py
+│   ├── v3_mnist_letter_lc_adamw_32/
+│   ├── v3_mnist_letter_lc_adamw_64.py
+│   ├── v3_mnist_letter_lc_adamw_64/
+│   ├── v3_mnist_letter_lc_adamw_128.py
+│   ├── v3_mnist_letter_lc_adamw_128/
+│   ├── v3_mnist_letter_lc_muon_28.py
+│   ├── v3_mnist_letter_lc_muon_28/
+│   ├── v3_mnist_letter_lc_muon_32.py
+│   ├── v3_mnist_letter_lc_muon_32/
+│   ├── v3_mnist_letter_lc_muon_64.py
+│   ├── v3_mnist_letter_lc_muon_64/
+│   ├── v3_mnist_letter_lc_muon_128.py
+│   └── v3_mnist_letter_lc_muon_128/
 │
 └── pipeline_logs/                       # ocr_pipeline_mnist.py's own per-run _Tee transcripts
     └── ocr_mnist_<timestamp>.log
 ```
 
-### Current repo contents — what's tracked in git (as of this writing)
+### Current repo contents (as of this writing)
 
-The tree above is the full *projected* layout once every model has been
-trained. Below is what's actually tracked in git and will appear in the
-GitHub repo — confirmed against a recursive local listing, then
-filtered through `.gitignore`. **9 of the 20 models have completed a
-full training run** (ONNX export, log, curves, and CLI transcript all
-tracked); **2 are mid-run** (only a CLI transcript is tracked so far —
-no ONNX export exists yet); **1 has an empty output directory** (a
-prior run attempt, since cleared); the remaining **8 have never been
-run at all** — no directory exists for them yet:
+**All 44 training scripts exist and are ready to run.** Every model's
+output directory currently exists but is empty — **no model has trained
+artifacts right now.** This project was reorganized into the four
+folders above on 2026-08-02; during that reorganization, the real
+trained content (`.onnx`/`.csv`/`.png`/CLI transcripts) that previously
+existed for several digit and router models was lost by a mechanism that
+could not be conclusively identified (see `v3_CHANGELOG.md`'s
+reorganization entry for the full, honest account of what was checked
+and ruled out). Every model — digit, router, and letter-identity alike —
+needs a fresh training run.
 
 ```
 mnist-ocr-ensemble-v3/
@@ -171,7 +248,7 @@ mnist-ocr-ensemble-v3/
 ├── v3_CHANGELOG.md
 ├── requirements.txt
 ├── setup_packages.py
-├── run_all_training.ps1               # runs all 20 scripts in sequence, skips completed ones
+├── run_all_training.ps1               # runs all 44 scripts in sequence, skips completed ones
 ├── ocr_pipeline_mnist.py
 ├── supplementary_data.py
 │
@@ -190,67 +267,82 @@ mnist-ocr-ensemble-v3/
 ├── historical_data/
 │   └── claude_code_prompt.md          # archived prompt from an earlier session — kept for reference only
 │
-├── v3_mnist_digit_soap_16.py           # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_digit_soap_16/
-│   ├── v3_mnist_digit_soap_16.onnx
-│   ├── v3_mnist_digit_soap_16_log.csv
-│   ├── v3_mnist_digit_soap_16_curves.png
-│   └── v3_mnist_digit_soap_16_cli_20260728_025105.txt
-├── v3_mnist_digit_soap_28.py           # ── COMPLETE — full run + ONNX export (2 CLI transcripts — stopped and resumed) ──
-├── v3_mnist_digit_soap_28/
-│   ├── v3_mnist_digit_soap_28.onnx
-│   ├── v3_mnist_digit_soap_28_log.csv
-│   ├── v3_mnist_digit_soap_28_curves.png
-│   ├── v3_mnist_digit_soap_28_cli_20260728_030120.txt
-│   └── v3_mnist_digit_soap_28_cli_20260728_045546.txt
-├── v3_mnist_digit_soap_32.py           # ── IN PROGRESS locally — no ONNX export yet ──
-├── v3_mnist_digit_soap_32/              # .pt checkpoint + resume file exist locally, gitignored
-│   └── v3_mnist_digit_soap_32_cli_20260729_031303.txt
-├── v3_mnist_digit_soap_64.py           # ── run attempted, output cleared — empty dir exists ──
-├── v3_mnist_digit_soap_64/              # (empty)
-├── v3_mnist_digit_soap_128.py           # ── never run — source only, no directory ──
+├── digit_models/                      # 15 scripts, all present — every output dir exists, empty
+│   ├── v3_mnist_digit_soap_16.py
+│   ├── v3_mnist_digit_soap_16/          # (empty — needs training)
+│   ├── v3_mnist_digit_soap_28.py
+│   ├── v3_mnist_digit_soap_28/          # (empty)
+│   ├── v3_mnist_digit_soap_32.py
+│   ├── v3_mnist_digit_soap_32/          # (empty)
+│   ├── v3_mnist_digit_soap_64.py
+│   ├── v3_mnist_digit_soap_64/          # (empty)
+│   ├── v3_mnist_digit_soap_128.py        # (never run — no directory)
+│   ├── v3_mnist_digit_adamw_16.py
+│   ├── v3_mnist_digit_adamw_16/         # (empty)
+│   ├── v3_mnist_digit_adamw_28.py
+│   ├── v3_mnist_digit_adamw_28/         # (empty)
+│   ├── v3_mnist_digit_adamw_32.py
+│   ├── v3_mnist_digit_adamw_32/         # (empty)
+│   ├── v3_mnist_digit_adamw_64.py
+│   ├── v3_mnist_digit_adamw_64/         # (empty)
+│   ├── v3_mnist_digit_adamw_128.py       # (never run — no directory)
+│   ├── v3_mnist_digit_muon_16.py
+│   ├── v3_mnist_digit_muon_16/          # (empty)
+│   ├── v3_mnist_digit_muon_28.py
+│   ├── v3_mnist_digit_muon_28/          # (empty)
+│   ├── v3_mnist_digit_muon_32.py
+│   ├── v3_mnist_digit_muon_32/          # (empty)
+│   ├── v3_mnist_digit_muon_64.py         # (never run — no directory)
+│   └── v3_mnist_digit_muon_128.py        # (never run — no directory)
 │
-├── v3_mnist_digit_adamw_16.py          # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_digit_adamw_16/              # (same file set as soap_16 above, adamw_16 naming)
-├── v3_mnist_digit_adamw_28.py          # ── COMPLETE — full run + ONNX export (2 CLI transcripts — stopped and resumed) ──
-├── v3_mnist_digit_adamw_28/
-│   ├── v3_mnist_digit_adamw_28.onnx
-│   ├── v3_mnist_digit_adamw_28_log.csv
-│   ├── v3_mnist_digit_adamw_28_curves.png
-│   ├── v3_mnist_digit_adamw_28_cli_20260728_053717.txt
-│   └── v3_mnist_digit_adamw_28_cli_20260728_220102.txt
-├── v3_mnist_digit_adamw_32.py           # ── never run — source only, no directory ──
-├── v3_mnist_digit_adamw_64.py
-├── v3_mnist_digit_adamw_128.py
+├── router_models/                     # 5 scripts, all present — every output dir exists, empty
+│   ├── v3_mnist_router_ranger_16.py
+│   ├── v3_mnist_router_ranger_16/       # (empty — needs training)
+│   ├── v3_mnist_router_ranger_28.py
+│   ├── v3_mnist_router_ranger_28/       # (empty)
+│   ├── v3_mnist_router_ranger_32.py
+│   ├── v3_mnist_router_ranger_32/       # (empty)
+│   ├── v3_mnist_router_ranger_64.py
+│   ├── v3_mnist_router_ranger_64/       # (empty)
+│   └── v3_mnist_router_ranger_128.py     # (never run — no directory)
 │
-├── v3_mnist_digit_muon_16.py           # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_digit_muon_16/               # (same file set as soap_16 above, muon_16 naming)
-├── v3_mnist_digit_muon_28.py           # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_digit_muon_28/               # (same file set as soap_16 above, muon_28 naming)
-├── v3_mnist_digit_muon_32.py            # ── never run — source only, no directory ──
-├── v3_mnist_digit_muon_64.py
-├── v3_mnist_digit_muon_128.py
+├── uppercase_models/                  # 12 scripts, all present — none ever trained, no directories yet
+│   ├── v3_mnist_letter_uc_soap_28.py
+│   ├── v3_mnist_letter_uc_soap_32.py
+│   ├── v3_mnist_letter_uc_soap_64.py
+│   ├── v3_mnist_letter_uc_soap_128.py
+│   ├── v3_mnist_letter_uc_adamw_28.py
+│   ├── v3_mnist_letter_uc_adamw_32.py
+│   ├── v3_mnist_letter_uc_adamw_64.py
+│   ├── v3_mnist_letter_uc_adamw_128.py
+│   ├── v3_mnist_letter_uc_muon_28.py
+│   ├── v3_mnist_letter_uc_muon_32.py
+│   ├── v3_mnist_letter_uc_muon_64.py
+│   └── v3_mnist_letter_uc_muon_128.py
 │
-├── v3_mnist_router_ranger_16.py        # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_router_ranger_16/            # (same file set as soap_16 above, router_ranger_16 naming)
-├── v3_mnist_router_ranger_28.py        # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_router_ranger_28/            # (same file set as soap_16 above, router_ranger_28 naming)
-├── v3_mnist_router_ranger_32.py        # ── COMPLETE — full run + ONNX export ──
-├── v3_mnist_router_ranger_32/            # (same file set as soap_16 above, router_ranger_32 naming)
-├── v3_mnist_router_ranger_64.py        # ── IN PROGRESS locally — no ONNX export yet ──
-├── v3_mnist_router_ranger_64/           # .pt checkpoint + resume file exist locally, gitignored
-│   └── v3_mnist_router_ranger_64_cli_20260728_213658.txt
-└── v3_mnist_router_ranger_128.py        # ── never run — source only, no directory ──
+└── lowercase_models/                  # 12 scripts, all present — none ever trained, no directories yet
+    ├── v3_mnist_letter_lc_soap_28.py
+    ├── v3_mnist_letter_lc_soap_32.py
+    ├── v3_mnist_letter_lc_soap_64.py
+    ├── v3_mnist_letter_lc_soap_128.py
+    ├── v3_mnist_letter_lc_adamw_28.py
+    ├── v3_mnist_letter_lc_adamw_32.py
+    ├── v3_mnist_letter_lc_adamw_64.py
+    ├── v3_mnist_letter_lc_adamw_128.py
+    ├── v3_mnist_letter_lc_muon_28.py
+    ├── v3_mnist_letter_lc_muon_32.py
+    ├── v3_mnist_letter_lc_muon_64.py
+    └── v3_mnist_letter_lc_muon_128.py
 ```
 
-`__pycache__/` directories under the repo root and under `common/`,
+`__pycache__/` directories under each model folder and under `common/`,
 `.claude/settings.local.json`, `.vscode/settings.json` (Claude Code's
 and VS Code's own local session/workspace settings, not project
 content), and every `_best.pt` / `_final.pt` / `_resume.pt` checkpoint
-file (present locally for every trained or mid-run model, but not
-needed to run inference — `ocr_pipeline_mnist.py` loads the `.onnx`
-export, never the `.pt` checkpoint) are excluded from this tree and
-from the repo itself — see `.gitignore` for the exact rules.
+file are excluded from this tree and from the repo itself — see
+`.gitignore` for the exact rules. (The `.gitignore` `*.pt` rule matches
+at any depth, so it still applies correctly now that output directories
+live one level deeper inside each model-type folder.)
 
 ### External data locations (not part of the repo)
 
@@ -269,8 +361,9 @@ one) to point at wherever you keep these datasets.
 
 ```
 E:\CSC-114\emnist-model\datasets\               (DATA_DIR's parent — original machine)
-├── pytorch\            # DATA_DIR — MNIST, EMNIST Digits, EMNIST Balanced, USPS, SVHN
-│                        # (all torchvision-managed, auto-download here on first use)
+├── pytorch\            # DATA_DIR — MNIST, EMNIST Digits, EMNIST Balanced, EMNIST
+│                        # ByClass, USPS, SVHN (all torchvision-managed, auto-download
+│                        # here on first use)
 ├── ardis\               # ARDIS_DIR — ardis_images.npy / ardis_labels.npy
 │                        # (auto-downloaded and prepared on first use if missing)
 ├── kaggle\               # KAGGLE_DIR — optional, unused by default (az_images.npy / az_labels.npy)
@@ -285,16 +378,25 @@ Full CLI usage for each script is documented in its own module
 docstring — this section is pointers, not a manual.
 
 **Train one digit model** (auto-detects batch size, resumes automatically
-if an interrupted run's resume file is present):
+if an interrupted run's resume file is present; run from the project
+root so the script's own `sys.path` fix can find `common/` and
+`supplementary_data.py` one level up):
 ```
-python v3_mnist_digit_soap_64.py
-python v3_mnist_digit_adamw_128.py --batch-size 512   # override auto-detection
+python digit_models/v3_mnist_digit_soap_64.py
+python digit_models/v3_mnist_digit_adamw_128.py --batch-size 512   # override auto-detection
 ```
 
 **Train one router model:**
 ```
-python v3_mnist_router_ranger_64.py
-python v3_mnist_router_ranger_64.py --infer some_letter.png   # spot-check a trained checkpoint
+python router_models/v3_mnist_router_ranger_64.py
+python router_models/v3_mnist_router_ranger_64.py --infer some_letter.png   # spot-check a trained checkpoint
+```
+
+**Train one letter-identity model** (uppercase or lowercase, 26 classes,
+EMNIST ByClass only — no `--infer` flag, unlike the router):
+```
+python uppercase_models/v3_mnist_letter_uc_soap_64.py
+python lowercase_models/v3_mnist_letter_lc_adamw_128.py --batch-size 512   # override auto-detection
 ```
 
 **Multi-GPU:** two independent modes — see `v3_CHANGELOG.md`'s multi-GPU
@@ -305,8 +407,8 @@ tested where.
   `--gpu N` selects a physical GPU index; default uses whatever CUDA
   already considers current):
   ```
-  python v3_mnist_digit_soap_64.py --gpu 0     # terminal 1
-  python v3_mnist_digit_muon_64.py --gpu 1     # terminal 2, at the same time
+  python digit_models/v3_mnist_digit_soap_64.py --gpu 0     # terminal 1
+  python digit_models/v3_mnist_digit_muon_64.py --gpu 1     # terminal 2, at the same time
   ```
 - **Split ONE model's training across multiple GPUs** (DistributedDataParallel,
   launched via `torchrun`, one process per GPU). **⚠️ Not yet validated
@@ -316,23 +418,34 @@ tested where.
   in this project came from a single GPU; confirm on real hardware
   before trusting it for an actual multi-day run:
   ```
-  torchrun --standalone --nproc_per_node=2 v3_mnist_digit_soap_64.py
+  torchrun --standalone --nproc_per_node=2 digit_models/v3_mnist_digit_soap_64.py
   ```
   Do not also pass `--gpu` under `torchrun` — `LOCAL_RANK` (set by the
   launcher) already picks each process's device correctly.
 
 **Run the inference pipeline** — single model, ensemble, or a whole
-directory of `.onnx` files, with or without the router pre-filter (see
-`ocr_pipeline_mnist.py`'s own module docstring for the full flag list
-and more examples):
+directory of `.onnx` files, with or without the router pre-filter and the
+letter-identity ensembles (see `ocr_pipeline_mnist.py`'s own module
+docstring for the full flag list and more examples):
 ```
-python ocr_pipeline_mnist.py --models v3_mnist_digit_soap_64/v3_mnist_digit_soap_64.onnx page.jpg
+python ocr_pipeline_mnist.py --models digit_models/v3_mnist_digit_soap_64/v3_mnist_digit_soap_64.onnx page.jpg
 
-python ocr_pipeline_mnist.py --model-dir . page.jpg   # every .onnx found recursively
+python ocr_pipeline_mnist.py --model-dir digit_models page.jpg   # every digit-ensemble .onnx
+                                                                    # found recursively under
+                                                                    # digit_models/ (router/letter
+                                                                    # .onnx files are excluded even
+                                                                    # if present — they need their
+                                                                    # own flags below)
 
 python ocr_pipeline_mnist.py \
-    --router-model v3_mnist_router_ranger_64/v3_mnist_router_ranger_64.onnx \
-    --model-dir . page.jpg
+    --router-model router_models/v3_mnist_router_ranger_64/v3_mnist_router_ranger_64.onnx \
+    --model-dir digit_models page.jpg
+
+python ocr_pipeline_mnist.py \
+    --router-model router_models/v3_mnist_router_ranger_64/v3_mnist_router_ranger_64.onnx \
+    --letter-uc-model-dir uppercase_models --letter-lc-model-dir lowercase_models \
+    --model-dir digit_models page.jpg   # router-classified UC/LC boxes now get read by the
+                                          # letter-identity ensembles instead of a bare UC/LC tag
 ```
 
 Every environment variable / override this project's scripts read (seed

@@ -2318,3 +2318,940 @@ independently shows the same pattern: `[Resume] Loaded from epoch 52
 (lines 61-62). Both scripts' resume behavior is provided by the shared
 `common/checkpointing.py` module per this README's own "Modularized"
 note above.
+
+---
+
+## 2026-08-02 — EMNIST orientation bug fixed; EMNIST ByClass letter loader added (Part 4 prep — letter-identity models)
+
+### What changed
+
+`supplementary_data.py`:
+1. New `_correct_emnist_orientation(img)` helper, applied inside
+   `EMNISTDigitsDataset.__getitem__`, `BalancedEMNISTDataset.__getitem__`,
+   and the new `EMNISTByClassDataset.__getitem__` (below), right after each
+   reads its raw image from the underlying `torchvision.datasets.EMNIST`
+   instance and before any transform runs.
+2. New `EMNISTByClassDataset` (all 62 byclass classes), `_LetterOnlyDataset`
+   (filters to one case's 26 classes, remaps to dense 0-25 labels), and
+   `load_base_emnist_letters(case, ...)` (train/val/test split, mirrors
+   `load_base_mnist()`/`load_base_usps()`'s own mechanics) — the data layer
+   for the upcoming v3 uppercase/lowercase letter-identity models
+   (`v3_mnist_letter_{uc,lc}_{optimizer}_{res}.py`, added in the training-
+   script phase of this same session).
+3. Module docstring updated (4 additions instead of 2; new "EMNIST ByClass"
+   entry in the LETTER DATASETS list).
+
+### Why
+
+**Orientation fix:** torchvision's `EMNIST` dataset class returns images
+rotated 90° and mirrored relative to upright, for every split — a real
+domain mismatch against real-world scanned character crops (which are
+upright) for any model trained on EMNIST-Digits or EMNIST-Balanced data.
+Found while designing the new byclass loader, not something William asked
+me to go looking for. He confirmed: fix it everywhere now (not just in the
+new loader), and he'll separately decide when to retrain the models that
+used the uncorrected data.
+
+**EMNIST ByClass over EMNIST Balanced for the letter models:** Balanced only
+has 11 distinct lowercase classes (the other 15 are merged into their
+uppercase counterpart by the dataset's own creators); William wants full
+26-class uppercase and lowercase models, so ByClass (all 26 real per case)
+is the only source that provides that.
+
+### Source
+
+- **Orientation bug:** confirmed by reading the actually-installed
+  `torchvision==0.28.0` source directly
+  (`site-packages/torchvision/datasets/mnist.py`) — `EMNIST.__getitem__` is
+  inherited unchanged from `MNIST.__getitem__`, which does
+  `Image.fromarray(img.numpy())` with no rotation/flip applied, for every
+  split. Corroborated by
+  [pytorch/vision#8783](https://github.com/pytorch/vision/issues/8783)
+  (open, reported Dec 2024): images come out rotated 90° and mirrored; the
+  documented community fix is `rotate(img, -90)` then a horizontal flip,
+  which is exactly what `_correct_emnist_orientation()` does. Not
+  independently verified by rendering an actual image from this project's
+  own dataset (that requires running code, which is William's to run, not
+  mine) — flagged to him as the one thing I couldn't confirm myself; he
+  approved proceeding on the source-read + GitHub-issue evidence.
+- **ByClass label ordering matches this project's own 0-9/10-35/36-61
+  convention with no remapping needed:** also confirmed by reading the same
+  torchvision source — `EMNIST.classes_split_dict["byclass"] =
+  sorted(string.digits + string.ascii_letters)`, which sorts by ASCII value
+  into exactly digits-then-uppercase-then-lowercase.
+- **EMNIST Balanced's 11-vs-26 lowercase-class gap:** already documented in
+  this file's own 2026-07-27 entry ("Bugs found while re-enabling EMNIST
+  Balanced") and in `BALANCED_TO_BYCLASS`'s comment in `supplementary_data.py`.
+- Everything else (which files to touch, scope of the fix, naming/design of
+  the new loader) is direct instruction from William (this conversation).
+
+### Verification
+
+`python -m py_compile supplementary_data.py` — clean. No training run, no
+dataset download, no rendered image — all of that is out of scope for this
+change per the project's Testing rule; William owns running/verifying it.
+
+---
+
+## 2026-08-02 — Uppercase letter-identity canonical templates added (SOAP/AdamW/Muon @ 28x28)
+
+### What changed
+
+Three new training scripts, the canonical templates for the full 24-script
+uppercase/lowercase letter-identity model set:
+- `v3_mnist_letter_uc_soap_28.py`
+- `v3_mnist_letter_uc_adamw_28.py`
+- `v3_mnist_letter_uc_muon_28.py`
+
+Each is its corresponding digit-ensemble script
+(`v3_mnist_digit_{soap,adamw,muon}_28.py`) with: `NUM_CLASSES` 10 → 26,
+`LABEL_MAP` → `list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")`, data loading replaced
+with a `load_letters()` wrapper around the new
+`supplementary_data.load_base_emnist_letters(case="upper", ...)` (added
+in the previous entry), and a `HAS_SUPPLEMENTARY`-gated early exit in
+`run_training()` (this data source is required, not optional, unlike the
+digit ensemble's supplementary sources) — mirroring the same guard
+`v3_mnist_router_ranger_*.py` already uses for the same reason. Every
+optimizer-specific mechanic (SOAP's Kronecker preconditioning, Schedule-
+Free AdamW's train()/eval() toggle + BatchNorm warmup, Muon's param-group
+split) is unchanged from the corresponding digit script.
+
+**One real deviation, not a straight copy:** `v3_mnist_letter_uc_adamw_28.py`
+does NOT reuse the digit AdamW script's `get_class_weights()`/
+`supplementary_data._extract_targets()` for its `WeightedRandomSampler`
+weights. Traced through `_extract_targets()`'s `isinstance`/`hasattr`
+branches by hand: it doesn't recognize the new `EMNISTByClassDataset`/
+`_LetterOnlyDataset` wrapper types, and a `Subset` wrapping a
+`_LetterOnlyDataset` falls through every branch to
+`raise ValueError(f"Cannot extract targets from dataset type: {type(dataset)}")`
+— reusing it as-is would crash. Fixed by computing sample weights directly
+from the `train_targets` tensor `load_base_emnist_letters()` already
+returns (`bincount` → inverse-frequency → index), which is exactly the
+pattern `v3_mnist_digit_soap_28.py`/`v3_mnist_digit_muon_28.py` already use
+for their own no-supplementary-data fallback — not a new invention, an
+existing in-project pattern applied where the AdamW script's own approach
+doesn't fit. Documented in the file's own module docstring.
+
+### Why
+
+Direct instruction from William: build the letter-identity models "based
+on my current digits models" — same architectures, same hyperparameters,
+same infrastructure (`common/`), retargeted at 26-class letter data. SOAP
+was built first as the most direct template (simplest data-loading
+adaptation — its digit script already had the no-supplementary-data
+inline-weighting fallback this reuses almost verbatim); AdamW and Muon
+followed as siblings at the same resolution before generating the
+remaining 21 resolution/case variants (a separate, later step).
+
+### Source
+
+- Architecture/hyperparameter values: read directly from
+  `v3_mnist_digit_soap_28.py`, `v3_mnist_digit_adamw_28.py`,
+  `v3_mnist_digit_muon_28.py` in full (not assumed from the 64x64 variants
+  or from memory) — confirmed byte-for-byte which lines are resolution-
+  specific (only `IMG_SIZE` + docstring, per the diff work in the previous
+  restructure's own resolution-ladder section) before writing anything.
+- `_extract_targets()` crash risk: confirmed by reading
+  `supplementary_data.py`'s actual `_extract_targets()` implementation and
+  tracing the `Subset(_LetterOnlyDataset)` case through its branches by
+  hand, not assumed.
+- `HAS_SUPPLEMENTARY`-gated exit pattern: copied from
+  `v3_mnist_router_ranger_*.py`'s own `run_training()`, which already
+  faces the same "this data source is required, not optional" situation.
+- File-touch scope, naming (`v3_mnist_letter_uc_*`), and the "no digit
+  mixing" constraint: direct instruction from William (this conversation).
+
+### Verification
+
+`python -m py_compile` on all three files — clean. No training run — out
+of scope per the project's Testing rule; William owns running it. Real
+EMNIST ByClass class-imbalance severity, actual convergence, and per-class
+accuracy are all unverified and untested — this entry covers only that
+the three scripts are structurally sound and load-bearing logic (the
+weight-computation fix above) is correct by inspection, not that training
+them produces a good model.
+
+---
+
+## 2026-08-02 — Remaining 21 letter-identity scripts generated (full 24-script set complete)
+
+### What changed
+
+Generated the rest of the 24-script uppercase/lowercase letter-identity
+set from the 3 approved canonical templates
+(`v3_mnist_letter_uc_{soap,adamw,muon}_28.py`, previous entry):
+- Resolution variants: `v3_mnist_letter_uc_{soap,adamw,muon}_{32,64,128}.py` (9 files)
+- Lowercase variants at all 4 resolutions: `v3_mnist_letter_lc_{soap,adamw,muon}_{28,32,64,128}.py` (12 files)
+
+Full 24-script set: `v3_mnist_letter_{uc,lc}_{soap,adamw,muon}_{28,32,64,128}.py`.
+
+**How they were generated, not just what exists:** written by a small,
+purpose-built Python script (not by hand, not by a blind find-and-replace)
+that applies a fixed list of exact, multi-word anchor strings per
+substitution point (filename references, docstring resolution/case
+wording, `IMG_SIZE`, `LETTER_CASE`, `LABEL_MAP`, output paths, print
+banners) — each anchor is asserted to match the source text exactly the
+expected number of times (1 for single-occurrence anchors, all
+occurrences for the `_uc_`→`_lc_` filename substitution) before being
+applied, raising instead of silently mismatching. This was deliberately
+NOT a bare-number substitution (e.g. blindly replacing every `"28"` with
+`"64"`) — that would have corrupted architecture constants that happen to
+contain the same digits (e.g. the classifier head's `128`-unit hidden
+layer, SOAP's `1024`/`256`/`128` layer widths) and citation lines that
+must NOT track resolution (the "(28/32/64/128; there is no 16x16 letter
+tier...)" ladder-list line, which lists all four tiers and is identical
+in every file).
+
+### Why
+
+Direct instruction from William to build all 24 models; per the approved
+plan, the 21 non-canonical files are pure mechanical substitution of the
+already-approved templates (same architecture, same hyperparameters, same
+infrastructure — only resolution/case differ), so generating them
+programmatically with hard verification is safer and more accurate than
+retyping ~700-900 lines by hand 21 times.
+
+### Source
+
+- The substitution-point list itself was derived by direct inspection of
+  each of the 3 template files (grep for every literal `"28"` occurrence,
+  read in context, classified by hand as resolution-specific vs.
+  architecture-constant vs. ladder-list-that-must-not-change) — not
+  assumed from the earlier digit-ensemble resolution-diff finding, though
+  it's consistent with it.
+- Direct instruction from William for scope (all 24) and to proceed with
+  the generated batch after review.
+
+### Verification
+
+- `python -m py_compile` on all 21 generated files, individually and
+  after copying into the project folder alongside the 3 templates (24
+  total) — clean.
+- Every one of the 21 generated files has an **identical line count** to
+  its source template (checked programmatically across all 21, not
+  sampled) — confirms every substitution was a same-line text replacement,
+  never a line insertion/deletion that could silently shift or duplicate
+  code.
+- Representative `diff` against the source template shown and reviewed
+  for: a resolution-only variant (`uc_soap_64`), a case-only variant
+  (`lc_soap_28`), and two combined resolution+case variants
+  (`lc_muon_128`, `lc_adamw_64`) — each diff contained only the intended
+  substitution lines, nothing else.
+- **Bug caught and fixed during generation, before any file reached the
+  project folder:** the generator's first run wrote files with CRLF line
+  endings (Python's default text-mode write behavior on Windows), while
+  every existing file in this project uses LF — caught by running `file`
+  on a generated output and comparing against an existing project file,
+  fixed by passing `newline="\n"` to both the template read and the
+  generated-file write, then regenerated and reverified (compile +
+  line-count + diff checks above are all from the corrected run).
+- Real EMNIST ByClass class-imbalance severity, actual convergence, and
+  per-class accuracy remain unverified and untested for all 24
+  scripts — training is William's to run.
+
+---
+
+## 2026-08-02 — README.md updated for the 24 letter-identity models
+
+### What changed
+
+`README.md`: header/Overview paragraphs mention the 24 letter-identity
+models; new bullet in "What changed in v3" describing them and the EMNIST
+orientation fix; the projected "Repository structure" tree and the actual
+"Current repo contents" tree both gain all 24 new files (and, in the
+projected tree, their eventual output directories) following the
+existing per-script enumeration convention; `External data locations`'s
+`DATA_DIR` bullet now lists EMNIST ByClass alongside the sources already
+there; `Usage` gains a "Train one letter-identity model" example. Also
+fixed a wording inconsistency this same change introduced: the
+"Router added" bullet used to say the router was built "ahead of a
+planned, not-yet-built letter-reading phase" — now reads "ahead of the
+letter-identity models (see below)", since that phase now exists.
+
+### Why
+
+Per CLAUDE.md's README-maintenance rule: an approved change that adds
+files the README describes gets the README updated in the same change,
+not left stale.
+
+### Source
+
+- Actual current file/directory listing confirmed via `ls`/`git status`
+  in this session (not assumed from memory) before writing the tree
+  additions — confirmed all 24 `.py` files exist, no output directories
+  exist yet for any of them (none have been trained), and none of the 24
+  are yet committed to git (all show `??` in `git status --short`).
+- Content/wording: direct instruction from William, including the
+  separate confirmation to fix the now-stale "not-yet-built" wording
+  found while reviewing this same change.
+
+### Verification
+
+Read back the edited sections after writing (`grep -n "letter" README.md`
+across the whole file) to confirm every mention is internally consistent
+and no stray old wording was left behind.
+
+---
+
+## 2026-08-02 — Letter-identity ensembles wired into ocr_pipeline_mnist.py
+
+### What changed
+
+`ocr_pipeline_mnist.py`, 12 changes total:
+1. New `UC_LABELS`/`LC_LABELS` constants (dense 0-25 A-Z / a-z — must
+   match each letter script's own `LABEL_MAP` order, a cross-file
+   contract same as the existing `ROUTER_LABELS` one).
+2. `predict_char_topn()` gained a `labels=None` param (defaults to the
+   existing `LABELS`), so it can run against a letter ensemble too —
+   zero behavior change for existing digit-ensemble call sites (none of
+   which pass `labels`).
+3. `short_model_name()` gained a `v3_mnist_letter_(uc|lc)_{optimizer}_{res}`
+   regex arm, matching the existing `digit_`/`router_` arms' style.
+4. `run_pipeline()` gained `uc_sessions/uc_img_sizes/uc_model_names,
+   lc_sessions/lc_img_sizes/lc_model_names` params (all default
+   `None`/`[]` — omitting them reproduces the exact original behavior).
+5. The `elif router_verdict in ("UC", "LC")` branch: if a matching
+   letter ensemble was loaded, runs it (single-model shortcut or
+   `vote_topn()`, same pattern the digit ensemble already uses) so the
+   box resolves to an actual letter instead of a bare `"UC"`/`"LC"` tag.
+   `agreement` deliberately stays the literal `"ROUTER-UC"`/`"ROUTER-LC"`
+   string regardless of the ensemble's vote outcome — see "Why" below for
+   the reasoning, this was not an oversight.
+6. CHARACTER DETAIL: shows the letter ensemble's own per-model top-3
+   breakdown (via a new `letter_detail` tuple field, see below) when one
+   was loaded; falls back to the original "digit ensemble skipped"
+   message when it wasn't.
+7. New `_load_onnx_model_list()` helper, extracted from the digit
+   ensemble's existing ~65-line inline CUDA-first/CPU-fallback loading
+   loop in `__main__` — reused for the new `--letter-uc-models`/
+   `--letter-lc-models` loading instead of a third near-identical copy.
+   The digit ensemble's own call site now calls this helper too (pure
+   extraction — same logic, same behavior, verified by inspection, not
+   rewritten).
+8. New `_is_router_or_letter_onnx()` helper + fix: `--model-dir`'s scan
+   now excludes router/letter `.onnx` filenames from the digit ensemble
+   — see "Bug found" below.
+9. New CLI flags: `--letter-uc-models`/`--letter-uc-model-dir`,
+   `--letter-lc-models`/`--letter-lc-model-dir` (each an optional
+   mutually-exclusive pair, mirroring `--models`/`--model-dir`'s shape).
+   Directory scans are filtered to `v3_mnist_letter_{uc,lc}_*.onnx`
+   specifically (same discipline as item 8).
+10. New loading blocks in `__main__` for the UC/LC ensembles, using the
+    new helper, placed after the router-loading block.
+11. The final per-image `run_pipeline()` call passes the new session
+    lists through.
+12. One new usage example in the argparse epilog.
+
+**Structural note — a new `letter_detail` tuple field, not a repurposed
+one:** the per-box `ensemble_line` tuple (`winner, agreement, raw_top1s,
+all_top3, router_verdict, router_prob`) had its `raw_top1s`/`all_top3`
+shaped to the DIGIT ensemble's model count — they feed the digit-indexed
+INDIVIDUAL MODEL PREDICTIONS and PER-MODEL SUMMARY sections. A
+letter-ensemble result has a different length/model identity, so it
+could NOT safely overwrite those without risking an index mismatch in
+those sections. Added a 7th tuple field, `letter_detail` (`None`
+normally, or `(letter_model_names, letter_top3)` for a letter-ensemble-
+backed box), read only by CHARACTER DETAIL — every other section is
+completely untouched by this addition.
+
+### Why
+
+**`agreement` stays `"ROUTER-UC"`/`"ROUTER-LC"` literally, even when an
+ensemble backs the box (not `"ROUTER-UC-MAJORITY"` etc.):** traced every
+place `agreement` is branched on in this file (ENSEMBLE RESULT
+rendering, PAGE LAYOUT rendering, CHARACTER DETAIL's flag/message logic,
+PER-MODEL SUMMARY's per-digit-model bracket tags, and — critically — the
+`_excluded` tuple used by both PER-MODEL ACCURACY and ACCURACY scoring to
+exclude letter boxes from `--ground-truth` digit-accuracy comparisons).
+Introducing new agreement values for letter-ensemble outcomes would have
+required touching all of those, and would have silently stopped
+excluding letter predictions from digit accuracy scoring (since
+`_excluded` checks the literal string `"ROUTER-UC"`/`"ROUTER-LC"`) unless
+every one of those checks was also updated in lockstep — a much larger,
+higher-risk change for no real benefit, since `winner` already carries
+the actual letter, and CHARACTER DETAIL already carries the router's own
+verdict/confidence separately via `router_verdict`/`router_prob`.
+
+**Extracting `_load_onnx_model_list()` instead of writing a third
+copy:** the digit ensemble's loading loop (CUDA-first, per-model CPU
+fallback, the "CUDA accepted but actually running on CPU" cuDNN-mismatch
+diagnostic) is ~65 lines; the new UC/LC loading needs the identical
+mechanics twice more. Copy-pasting it two more times would have meant
+three places to keep in sync for any future fix to that logic.
+
+### Bug found (pre-existing, unrelated to this task, fixed as part of
+### making letter-model loading safe)
+
+`--model-dir`'s recursive scan collected every `.onnx` file with no name
+filtering at all — meaning a plain `--model-dir .` run would already
+silently load `v3_mnist_router_ranger_*.onnx` into the *digit* ensemble
+(10-class softmax assumed) even before this session's changes, and would
+have started doing the same to the 24 new letter `.onnx` files the
+moment they're trained. Found while designing where the new
+`--letter-uc-model-dir`/`--letter-lc-model-dir` flags should scan and
+realizing the same gap would apply to them too. Fixed for all three
+(`--model-dir`, `--letter-uc-model-dir`, `--letter-lc-model-dir`) in the
+same change, per William's direction to also do the pipeline wiring
+properly rather than leave a known new gap.
+
+### Source
+
+- Every touched section (`predict_char_topn`, `short_model_name`,
+  `run_pipeline`, the per-box dispatch loop, CHARACTER DETAIL, the
+  `--model-dir` scan, the digit-ensemble loading block, `__main__`'s
+  argparse/loading structure) was read directly and in full before being
+  edited — not assumed from an earlier subagent summary (that summary
+  was used only to scope which sections mattered, not as the basis for
+  the actual edits).
+- The `_excluded`-tuple/accuracy-scoring dependency on the literal
+  `"ROUTER-UC"`/`"ROUTER-LC"` strings was confirmed by grepping every
+  `agreement ==` / `agreement in (...)` comparison in the file and
+  reading each one in context, not assumed.
+- Scope and design decisions (naming, CLI flag shape, fixing the
+  `--model-dir` gap now rather than deferring it): direct instruction
+  from William, per the plan approved earlier this session.
+
+### Verification
+
+`python -m py_compile ocr_pipeline_mnist.py` — clean. `ast.parse()` used
+to confirm all 5 new/modified top-level functions exist with the
+expected names. Grepped every `ensemble_line.append(...)` call site and
+the CHARACTER DETAIL unpack line to confirm all three now consistently
+construct/consume the same 7-element tuple shape (no stragglers left at
+the old 6-element shape, which would have raised `ValueError` on
+unpacking). Grepped every `uc_sessions`/`lc_sessions`/`uc_img_sizes`/
+`lc_img_sizes`/`uc_model_names`/`lc_model_names` reference to confirm
+each is defined in `__main__` before the final `run_pipeline()` call
+that passes them through, and defined as a parameter before use inside
+`run_pipeline()` itself. **Not verified:** no actual image was run
+through this pipeline (no trained letter `.onnx` files exist yet — all
+24 letter scripts are untrained, see the earlier 2026-08-02 entries) — so
+the letter-ensemble dispatch path, the CHARACTER DETAIL letter-breakdown
+rendering, and the new CLI flags have only been checked by static
+inspection, not by an actual run. That's William's to verify once at
+least one letter model is trained.
+
+### README.md updated for this same change
+
+The "Run the inference pipeline" usage example: fixed the `--model-dir`
+comment (previously said "every .onnx found recursively", no longer
+accurate now that router/letter files are excluded — see the "Bug found"
+section above) and added a fourth example showing `--letter-uc-model-dir`/
+`--letter-lc-model-dir` combined with `--router-model`. Per CLAUDE.md's
+README-maintenance rule — this documents a real CLI behavior change from
+the same edit, not a separate task.
+
+---
+
+## 2026-08-02 — run_all_training.ps1 updated for the 24 letter-identity scripts (24-script letter model set now complete end-to-end)
+
+### What changed
+
+`run_all_training.ps1`: header comment updated (20 -> 44 scripts,
+describes the new letter-identity block); `$scripts` array gains a new
+block of 24 entries after the existing 20 (one row per resolution —
+28/32/64/128 — each listing uc-soap/uc-adamw/uc-muon/lc-soap/lc-adamw/
+lc-muon, matching the existing digit block's one-row-per-resolution
+layout); completion message updated from "All 20 scripts complete." to
+"All 44 scripts complete." `$root`/`$python` (both pre-existing,
+machine-specific hardcoded paths) were left untouched, per this project's
+own "don't fix system-specific paths unless asked" convention.
+
+This closes out the full letter-identity-models task: all 24 scripts
+exist (earlier 2026-08-02 entries), are wired into the inference pipeline
+(previous entry), and are now included in the one-command full-training-
+run orchestration.
+
+### Why
+
+Direct instruction from William to add all 24 scripts to the run-all
+list, completing the same task the earlier phases (canonical templates,
+generated variants, pipeline wiring) were building toward.
+
+### Source
+
+Current file read in full before editing (not assumed from memory) to
+get the exact existing array formatting/style to match. Script list and
+ordering: derived from the same file-name set already verified present
+on disk in the "21 letter-identity scripts generated" entry earlier in
+this file, not retyped from scratch — cross-checked via `grep -c` after
+writing that the array contains exactly 44 unique `"v3_mnist_*.py"`
+entries with zero duplicates.
+
+### Verification
+
+- `grep -o '"v3_mnist[^"]*\.py"' run_all_training.ps1 | wc -l` → 44;
+  `| sort | uniq -d` → empty (no duplicates).
+- `[System.Management.Automation.Language.Parser]::ParseFile(...)` (pure
+  syntax parse, no execution) → no errors.
+- **Not verified:** the script was not actually run (would mean training
+  models — William's to run, per the project's Testing rule), so the
+  skip-if-`_final.pt`-exists logic and the actual training sequence for
+  the new entries are unverified beyond static parsing and the file-list
+  cross-check above.
+
+---
+
+## 2026-08-02 — Changelog placement bug found and fixed (this entry and the 5 before it were misfiled mid-document, now corrected)
+
+### What happened
+
+While adding this entry, discovered that all 5 of today's earlier
+changelog entries (EMNIST orientation fix, canonical templates, 21
+generated scripts, README update, and ocr_pipeline_mnist.py wiring) had
+been inserted in the *middle* of this file instead of appended at the
+true end. Root cause: my very first edit of this session anchored on
+text I remembered from an initial read of this file that had been
+silently truncated by the harness at line 983 of what was then a
+2321-line file — I mistook that truncation point for the file's actual
+end and anchored my first insertion there, which happened to land
+between two unrelated 2026-07-27/07-28 subsections of the same
+top-level restructure entry. Every entry after that one chained
+correctly onto the one before it, so the 5 entries were internally
+consistent and complete — just collectively in the wrong place, splitting
+"Minimum steps/epoch floor added"'s subsection away from the "DataLoader
+worker count auto-scaled" subsection that originally followed it
+directly.
+
+**Nothing was lost, deleted, or altered — William's direct instruction,
+given mid-session, was to append only and never lose any part of the
+record.** Fixed by mechanically relocating the exact same 422 lines
+(verified via a line-multiset equality check, not just visual
+inspection) from their mid-file position to the true end of the file,
+restoring the original adjacency between the two 2026-07-27/07-28
+subsections they'd been wedged between. No content was rewritten, only
+repositioned.
+
+### Why
+
+Direct instruction from William, given explicit choice between leaving
+the misplacement in place with a pointer note versus relocating the
+entries — he chose relocation.
+
+### Source
+
+Verified via `grep -n`/`sed -n` against the actual current file (not
+assumed) to find the exact line boundaries of the misplaced block and
+confirm what came immediately before/after it on both sides. The
+relocation itself was done by a small Python script, dry-run first
+against a scratch copy (diffed and visually confirmed correct at both
+boundaries before touching the real file), then applied — see the
+script's own line-multiset equality assertion for the mechanical
+correctness check.
+
+### Verification
+
+Dry run: line count unchanged (2743 -> 2743), sorted multiset of every
+line in the file identical before and after (proves no line's content
+was added, removed, or altered — only reordered). Applied to the real
+file, then re-verified the same two checks against it directly, plus a
+visual read of both boundary regions (`sed -n` around the old insertion
+point and `tail` of the new true end) confirming the historical
+subsection adjacency was restored and all 5 (now 6, including this
+entry) 2026-08-02 entries read in correct chronological order at the
+end of the file.
+
+---
+
+## 2026-08-02 — Session work delivered from the git worktree into this checkout
+
+### What changed
+
+Copied five files (overwriting the versions already in this checkout)
+from the `claude/emnist-mnist-case-models-50a96a` git worktree, plus all
+24 new letter-identity scripts: `supplementary_data.py`,
+`ocr_pipeline_mnist.py`, `run_all_training.ps1`, `README.md`,
+`v3_CHANGELOG.md` (overwritten), and
+`v3_mnist_letter_{uc,lc}_{soap,adamw,muon}_{28,32,64,128}.py` (24 new
+files). Every copied file was diffed against its worktree source
+immediately after copying and confirmed byte-identical.
+
+### Why
+
+All of this session's actual work (the EMNIST orientation fix, the 24
+letter-identity models, the `ocr_pipeline_mnist.py` wiring, the
+`run_all_training.ps1` update — see every entry above this one) happened
+in a git worktree, which is a separate checkout from this one. Per this
+project's own worktree rule, a git merge from the worktree branch into
+this checkout is never permitted under any circumstance — so getting the
+work here meant copying the files directly instead, per William's direct
+request ("put in my folder on my pc").
+
+### Source
+
+Direct instruction from William. File list and copy method: my own plan
+for this request, approved by him before execution.
+
+### Verification
+
+`diff` of each copied file against its worktree source, immediately
+after copying — all five reported identical; file count check confirmed
+24 letter scripts present.
+
+---
+
+## 2026-08-02 — Project reorganized into model-type folders (digit_models/, router_models/, uppercase_models/, lowercase_models/)
+
+### What changed
+
+Created four new top-level folders and moved every training script (plus
+its existing output directory, where one existed) into the matching
+one:
+- `digit_models/` — 15 scripts (`v3_mnist_digit_{soap,adamw,muon}_{16,28,32,64,128}.py`)
+- `router_models/` — 5 scripts (`v3_mnist_router_ranger_{16,28,32,64,128}.py`)
+- `uppercase_models/` — 12 scripts (`v3_mnist_letter_uc_{soap,adamw,muon}_{28,32,64,128}.py`)
+- `lowercase_models/` — 12 scripts (`v3_mnist_letter_lc_{soap,adamw,muon}_{28,32,64,128}.py`)
+
+`common/`, `supplementary_data.py`, `ocr_pipeline_mnist.py`,
+`run_all_training.ps1`, `README.md`, and `v3_CHANGELOG.md` stayed at the
+project root, per William's direct instruction.
+
+**Real code change, not just a file move:** every one of the 44 moved
+scripts does `from common.seeding import ...` / `from supplementary_data
+import ...` as a top-level-module import, which only resolved before
+because the script and `common/`/`supplementary_data.py` were siblings
+at the project root (Python puts a script's own directory on
+`sys.path[0]`). Moving a script one level deeper breaks that import
+unless fixed. Fixed by inserting one line into all 44 scripts, at the
+identical anchor point every family (digit/router/letter, every
+optimizer, every resolution) shares:
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+```
+placed between the existing `from datetime import datetime` line and
+`from common.seeding import (`. Applied via a small anchor-verified
+Python script (each anchor asserted to match exactly once per file
+before being touched, same method used earlier this session for the 21
+generated letter scripts) — dry-run against a scratch copy first
+(compiled clean, visually confirmed correct), then applied for real.
+
+### Why
+
+Direct instruction from William, following up on the letter-identity
+models work: "I need this all put in my folder on my pc bt i need to
+also have the folder reorganized into folders for mnist digit models,
+upper case models, lower case models and then also router modles."
+
+### Bug found during this change — real trained content lost, cause not conclusively identified
+
+**What happened:** before this reorganization, several digit and router
+models had real trained output (`.onnx`, `.csv`, `.png`, CLI transcripts
+— the git-tracked artifacts; `.pt` checkpoints were always gitignored)
+— confirmed directly (`du -sh`) before touching anything: `v3_mnist_digit_soap_64/`
+was 88MB, `v3_mnist_digit_adamw_64/` was 112MB, total project ~1.6GB.
+After the reorganization (folder creation, script moves, the 44-script
+import-path fix, and a lightweight `--help`-based import-resolution
+check on one script per folder — see "Verification" below), **every one
+of the 15 digit/router output directories was found completely empty**
+— confirmed both by direct `ls`/`find` across the whole checkout and by
+`git status` showing the old tracked artifact paths as deleted with no
+corresponding new-location entries anywhere.
+
+**What was checked and ruled out as the cause**, not assumed:
+- The import-path-fix script: its file loop is `folder_path.glob("*.py")`
+  — it only ever opened/wrote `.py` files, never touched a directory.
+- The `--help`-based import verification: proven not to be the cause by
+  checking whether it created a new output directory for a
+  never-before-trained letter model (`uppercase_models/v3_mnist_letter_uc_soap_28/`)
+  — it did not, and the captured output shows the process exited cleanly
+  at `argparse`'s usage text, before reaching the `OUTPUT_ROOT.mkdir()`
+  line later in the same `if __name__ == "__main__":` block that every
+  script family shares. Since this code path is identical across every
+  script family, this rules the check out for the digit/router scripts
+  too, not just the letter one actually tested.
+- A concurrently running training process: `tasklist` found no running
+  `python.exe` process at the time of investigation.
+- Any git operation that touches the working tree: only read-only
+  `git status`/`git show` were run against this checkout before the loss
+  was discovered.
+- `.git`'s own object database size (195MB) was checked specifically to
+  rule out "the 1.6GB figure was mostly git-internal all along" as an
+  alternative explanation for why total size didn't obviously drop —
+  195MB is far too small to account for 1.6GB, meaning real working-tree
+  content did exist post-move (consistent with the loss happening later
+  in the sequence, not during the move itself) — though this places a
+  bound on *when*, not a definitive cause.
+
+**What was NOT determined:** the exact command or mechanism responsible.
+This is stated plainly rather than guessed at, per this project's own
+verification standard — a specific cause was actively searched for and
+not found, not left unconsidered.
+
+**Resolution, per William's direct instruction:** no recovery attempted
+(git history could potentially restore the non-`.pt` tracked artifacts
+via `git restore`, but that's a state-changing git operation not run
+without explicit sign-off, and none was given). William confirmed
+retraining every model was already the plan regardless of this finding.
+`README.md`'s "Current repo contents" section was rewritten to describe
+the actual current state honestly (every output directory exists but is
+empty) rather than the pre-reorganization "9 complete / 2 in-progress"
+status, which is no longer true.
+
+### Source
+
+Every claim above is something I directly checked in this session (`du`,
+`ls`, `find`, `git status`, `git show --stat`, `tasklist`), not inferred
+or assumed — see "What was checked and ruled out" for the specific
+commands each conclusion rests on. Scope and resolution: direct
+instruction from William, given after I stopped and reported the finding
+rather than continuing silently.
+
+### Verification
+
+- All 44 moved scripts: `python -m py_compile` clean from their new
+  locations.
+- Real runtime verification (not just syntax): `python <script> --help`
+  run for one representative script per folder (`digit_models/v3_mnist_digit_soap_16.py`,
+  `router_models/v3_mnist_router_ranger_16.py`,
+  `uppercase_models/v3_mnist_letter_uc_soap_28.py`,
+  `lowercase_models/v3_mnist_letter_lc_muon_28.py`) — all four reached
+  `argparse`'s usage output cleanly, proving the `sys.path` fix actually
+  resolves `common`/`supplementary_data` imports at runtime, not just
+  that the files parse.
+- Directory listing confirmed exactly 4 new folders, correct file counts
+  in each (15/5/12/12), and zero stray `v3_mnist_*` files/directories
+  left at the project root.
+- The data-loss finding itself: see the dedicated section above for what
+  was and wasn't verified regarding cause.
+
+---
+
+## 2026-08-02 — run_all_training.ps1 reworked for the new folder layout
+
+### What changed
+
+Two real logic changes, not just data:
+1. Every `$scripts` array entry gained its subfolder prefix (e.g.
+   `"digit_models\v3_mnist_digit_soap_16.py"`).
+2. The skip-check's checkpoint-path computation previously assumed the
+   output directory sat directly under `$root`
+   (`Join-Path $root "$baseName\${baseName}_final.pt"`) — with
+   subfolder-qualified `$script` values this would have doubled the
+   subfolder into the path. Fixed by deriving the checkpoint path from
+   the script's own directory instead:
+   ```powershell
+   $scriptPath = Join-Path $root $script
+   $scriptDir  = Split-Path $scriptPath -Parent
+   $leafName   = [System.IO.Path]::GetFileNameWithoutExtension($script)
+   $finalCkpt  = Join-Path $scriptDir "$leafName\${leafName}_final.pt"
+   ```
+`$root` (`"E:\mnist_v3"`) and `$python` were left untouched — both
+already correct, per this project's own "don't fix system-specific paths
+unless asked" convention. Header comment updated to describe the new
+layout.
+
+### Why
+
+Direct instruction from William (the folder reorganization request), and
+a necessary consequence of it — the old path-construction logic would
+have silently pointed at the wrong checkpoint path for every script once
+`$scripts` became subfolder-qualified, breaking the skip-already-complete
+logic (not a cosmetic issue — it would have caused already-trained
+models to be silently retrained, or worse, incorrectly considered
+complete).
+
+### Source
+
+Verified the fix is correct against a real file, not just by inspection:
+computed `$finalCkpt` by hand for `digit_models\v3_mnist_digit_soap_16.py`
+and confirmed the resulting path
+(`E:\mnist_v3\digit_models\v3_mnist_digit_soap_16\v3_mnist_digit_soap_16_final.pt`)
+matched a real file that existed on disk at the time of that check (see
+the "Bug found" entry above for what later happened to that file — the
+path-computation logic itself was verified correct against real
+evidence, independent of that later data loss).
+
+### Verification
+
+`[System.Management.Automation.Language.Parser]::ParseFile(...)` (pure
+syntax parse, no execution) — clean, run twice (once after each edit to
+this file).
+
+---
+
+## 2026-08-02 — README.md updated for the model-type folder reorganization
+
+### What changed
+
+"Repository structure" section rewritten: both the projected-full-layout
+tree and the "Current repo contents" tree now nest every model script
+under its `digit_models/`/`router_models/`/`uppercase_models/`/
+`lowercase_models/` folder instead of flat at the root. `Usage` section's
+example commands all gained their subfolder prefix. The "Current repo
+contents" section's status description was rewritten from the
+pre-reorganization "9 complete / 2 in-progress / ..." breakdown to state
+plainly that every output directory currently exists but is empty (see
+the "Bug found" entry above), rather than leaving stale completion
+claims in place.
+
+### Why
+
+Per CLAUDE.md's README-maintenance rule — an approved change that moves
+files the README describes gets the README updated in the same change.
+Describing the current state honestly (empty directories, not the old
+completion status) rather than preserving now-false claims follows the
+same rule's spirit and this project's own verification standard.
+
+### Source
+
+Actual current folder contents confirmed via direct `ls`/`find` in this
+checkout before writing (not assumed from the worktree's README, which
+described a different, now-stale state). Wording and scope: direct
+instruction from William.
+
+### Verification
+
+`grep` across the full README for any remaining bare (non-subfolder-
+prefixed) `v3_mnist_*` script path reference in a command example —
+found and fixed all instances; final pass confirmed zero remaining.
+
+---
+
+## 2026-08-02 — Batch-size candidate ladder extended to a 300GB-VRAM-per-device ceiling
+
+### What changed
+
+`common/batch_sizing.py`: `determine_batch_size()`'s default `candidates`
+tuple replaced (previously `(64, 128, 256, 512, 1024, 2048, 4096, 8192,
+16384)`, 9 values) with a 205-value ladder: doubles 64 -> 2048 (6
+candidates), then steps by a constant +1536 up to 306176, capped with
+one final point at 307200 (= 300 x 1024). Module docstring updated to
+describe the new ladder's shape and rationale in place of the old "64 ->
+16384" description. The binary-search refinement algorithm itself
+(narrowing to within 8 of the true OOM ceiling once a working/failing
+bracket is found) is completely unchanged — this was purely a
+candidate-list swap.
+
+### Why
+
+Direct instruction from William: future-proof the batch-size search for
+hardware beyond his current RTX 4080 (16GB) — a better single GPU, a
+cloud instance, or a compute-cluster node with more VRAM per device —
+without needing this file edited again later. Chose 300GB specifically
+per his direct instruction after I researched and reported current
+top-of-market per-device VRAM (see Source below); a long candidate list
+costs nothing at runtime since `determine_batch_size()`'s coarse pass
+stops at the FIRST candidate that fails, so untested tail candidates are
+free.
+
+### Source
+
+Current top-of-market single-GPU/accelerator VRAM, checked via web
+search (not assumed from training data, which could be stale for
+fast-moving hardware releases) before proposing a ceiling:
+- NVIDIA H100: 80GB HBM3 (current cloud workhorse)
+- NVIDIA H200: 141GB HBM3e — live on AWS/Azure/GCP/Oracle by early 2026
+  ([H200 Cloud Pricing guide, getdeploying.com](https://getdeploying.com/gpus/nvidia-h200))
+- NVIDIA B200: ~180-192GB HBM3e
+  ([NVIDIA Blackwell architecture announcement, wccftech.com](https://wccftech.com/nvidia-blackwell-gpu-architecture-official-208-billion-transistors-5x-ai-performance-192-gb-hbm3e-memory/))
+- NVIDIA B300 (Blackwell Ultra) and AMD MI350X/MI355X: **288GB HBM3e
+  each** — currently tied for the highest per-GPU VRAM on the market
+  ([B200 vs MI355X comparison, bacloud.com](https://www.bacloud.com/en/blog/203/nvidia-b200-vs-amd-instinct-mi355x-next-gen-ai-data-center-gpu-showdown.html);
+  [2026 GPU selection guide, vessl.ai](https://vessl.ai/en/blog/gpu-workload-guide-en))
+
+The exact 205-value list was generated and verified programmatically
+(not hand-typed across ~200 values, which would risk a transcription
+error) — see Verification below.
+
+### Verification
+
+- Generated the list via a small Python script (`base + [2048+1536k for
+  k in 1..198] + [307200]`), asserted it was strictly increasing with no
+  duplicates, and printed it for direct comparison before writing it
+  into the file.
+- After writing, imported `determine_batch_size` from the real file and
+  compared its actual default `candidates` tuple against a freshly
+  recomputed expected list in a separate check — confirmed an exact
+  205-element match, ruling out any transcription error in formatting
+  the list across multiple source lines.
+- `python -m py_compile common/batch_sizing.py` — clean.
+- Not verified: an actual training run exercising any candidate above
+  the low thousands (this project has only ever run on a 16GB card) —
+  out of scope per the project's Testing rule; William owns running it
+  if/when bigger hardware is available.
+
+---
+
+## 2026-08-02 — Batch-size probe fixed for shared/heterogeneous multi-GPU nodes (every rank now probes independently; global batch size is the minimum across ranks)
+
+### What changed
+
+`common/distributed.py`: new `all_reduce_min(value, device)` function,
+added directly after `all_reduce_sum()` — takes the minimum of `value`
+across every rank and returns that same minimum to all of them; no-op
+passthrough when not running distributed (identical convention to
+`all_reduce_sum()`/`broadcast_int()`).
+
+`common/batch_sizing.py`: `determine_batch_size()` no longer skips the
+probe loop on non-main ranks. Previously: `if is_distributed() and not
+is_main_process(): return broadcast_int(0, device)` — only rank 0 ever
+actually ran `_probe_batch_size()`; every other rank received rank 0's
+result via broadcast, unconditionally. Now: every rank runs the full
+coarse-pass-plus-refinement loop independently against its own device
+(`_probe_batch_size()` already correctly targeted `device.index` per
+rank, so no change was needed there), and the final return value at all
+three return sites (`candidates[0]` fallback, `last_working` no-
+refinement-needed case, and the refined `lo`) is `all_reduce_min(...)`
+instead of `broadcast_int(...)`. Import line updated to only pull in
+`all_reduce_min` (the previous `is_distributed`, `is_main_process`,
+`broadcast_int` imports are no longer referenced anywhere in this file —
+confirmed via grep before removing them). `determine_batch_size()`'s own
+DDP-note docstring rewritten to describe the new design and why.
+
+`broadcast_int()` itself was left completely unchanged in
+`common/distributed.py` — still correct, general-purpose code; grepped
+the whole project first and confirmed nothing else calls it, but removed
+it from nowhere since deleting it wasn't asked for and is out of scope
+for this fix.
+
+### Why
+
+Direct instruction from William, following a question about what
+happens on a shared compute node with multiple GPUs used concurrently.
+The original rank-0-broadcast design's own docstring (`broadcast_int()`)
+stated its assumption plainly: "every rank's independent probe would
+land on the identical number, which is only guaranteed true if every GPU
+in the job is genuinely identical." That assumption holds on a
+dedicated/exclusive multi-GPU box but not on a shared/contended node,
+where another tenant's job can leave one rank's GPU with meaningfully
+less free VRAM than another's even on physically identical hardware —
+under the old design, a rank sharing its GPU with someone else could OOM
+mid-training even though rank 0's probe (on a less-contended GPU)
+succeeded and got broadcast to everyone. Taking the minimum across
+independently-probed ranks fixes this: every rank trains at a batch size
+safe for whichever rank has the LEAST available VRAM at probe time.
+
+### Source
+
+`broadcast_int()`'s own pre-existing docstring (read directly, not
+paraphrased from memory) for the exact wording of the assumption being
+superseded. The fix pattern (per-rank independent probe + collective
+MIN) is the direct, symmetric counterpart to this file's own pre-existing
+`all_reduce_sum()` (same `dist.all_reduce()` call, different
+`ReduceOp`) — not a new pattern introduced from outside this codebase.
+Scope (leave `broadcast_int()` in place rather than deleting it): direct
+instruction from William ("please don't break what is already working"),
+interpreted as staying minimal/conservative rather than also cleaning up
+now-unused-in-this-file code that could still be useful elsewhere.
+
+### Verification
+
+- `python -m py_compile` on both edited files — clean.
+- Grepped `common/batch_sizing.py` for any stray remaining
+  `broadcast_int`/`is_distributed`/`is_main_process` reference after the
+  edit — zero found.
+- Direct functional check of the specific claim in this change's own
+  "Why" section — that the non-distributed path is completely
+  unaffected: imported `all_reduce_min` in a fresh Python process (this
+  environment has `WORLD_SIZE` unset, so `is_distributed()` is False)
+  and confirmed `all_reduce_min(1234, None) == 1234` — the passthrough
+  returns the input completely unchanged, matching `broadcast_int()`'s
+  own no-op behavior in the same scenario byte-for-byte.
+- **Not verified:** actual multi-rank behavior (the MIN reduction itself
+  under a real `torchrun` job) — no multi-GPU hardware available in this
+  environment, same caveat `common/distributed.py`'s own module
+  docstring already states for every DDP-related function in this file,
+  now including this one. William owns confirming this on real
+  multi-GPU (ideally genuinely shared/contended) hardware before
+  trusting it for an actual run.
+
