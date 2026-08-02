@@ -3254,4 +3254,64 @@ now-unused-in-this-file code that could still be useful elsewhere.
   now including this one. William owns confirming this on real
   multi-GPU (ideally genuinely shared/contended) hardware before
   trusting it for an actual run.
+
+---
+
+## 2026-08-02 — run_all_training.ps1 training order changed: router first, then lowest-to-highest resolution, digit+uppercase+lowercase grouped per tier
+
+### What changed
+
+`run_all_training.ps1`: header comment and `$scripts` array reordered.
+Previous order: all 20 digit/router scripts first (16x16 -> 128x128,
+each resolution as soap -> adamw -> muon -> router), then all 24
+letter-identity scripts (28x28 -> 128x128, each resolution as uc-soap ->
+uc-adamw -> uc-muon -> lc-soap -> lc-adamw -> lc-muon) — i.e. digit/router
+entirely before letters. New order: all 5 router models first (16x16 ->
+128x128, ascending), then digit 16x16 (soap/adamw/muon — the USPS-only
+tier with no letter counterpart), then each remaining resolution tier as
+its own group in ascending order (28x28 -> 32x32 -> 64x64 -> 128x128),
+each group running digit (soap -> adamw -> muon), then uppercase
+(soap -> adamw -> muon), then lowercase (soap -> adamw -> muon) before
+moving to the next resolution. Pure reordering of the same 44 entries —
+no scripts added, removed, or renamed; the `foreach` loop's path-
+computation and skip-if-already-complete logic (added in the previous
+reorganization entry) is completely independent of array order and was
+not touched.
+
+### Why
+
+Direct instruction from William: run cheaper/lower-resolution tiers
+first, get the router (needed by every downstream UC/LC-routing
+decision) trained before anything else, and evaluate each resolution
+tier's digit + both letter cases together rather than finishing the
+entire digit/router sweep before starting any letter model — lets him
+see a complete cross-section (digit + uppercase + lowercase) at each
+resolution before committing more time to the next, more expensive tier.
+Directly follows from the earlier discussion in this same session about
+whether the 128x128 tier is worth its cost on consumer hardware — training
+it last (as its own final group) means that discussion's "128x128 is the
+one tier to reconsider" conclusion is reflected in execution order, not
+just discussed.
+
+### Source
+
+Direct instruction from William, given the exact ordering ("router
+models first... then digit 16x16... then digit 28x28 and also letters
+uc and lc 28x28... and so forth").
+
+### Verification
+
+- `[System.Management.Automation.Language.Parser]::ParseFile(...)` (pure
+  syntax parse, no execution) — clean.
+- Counted `.py` array entries via a line-anchored pattern (matching only
+  actual array-entry lines, not incidental comment text) — confirmed 44,
+  matching the total script count. A naive substring count without that
+  anchor initially flagged `v3_mnist_digit_soap_16.py` as appearing
+  twice; traced this down directly rather than assuming a real
+  duplicate — it's a single array entry (line 43) plus one unrelated
+  pre-existing comment (line 95, inside the `foreach` loop, illustrating
+  the path-computation logic with that filename as an example) — not a
+  duplicate entry, confirmed by reading both matched lines directly.
+- Not verified: an actual training run in the new order (would mean
+  running training — William's to run, per the project's Testing rule).
 
