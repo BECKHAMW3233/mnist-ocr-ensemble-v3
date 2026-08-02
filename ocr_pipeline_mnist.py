@@ -194,6 +194,15 @@ ROUTER_UNSURE_FLOOR = 0.6
 # router's output is just 3 unlabeled logits on the wire).
 ROUTER_LABELS = ["digit", "UC", "LC"]
 
+# Letter-identity ensembles (see v3_mnist_letter_{uc,lc}_*.py) — used by
+# predict_char_topn()'s labels= param when a router-classified UC/LC box
+# is handed to the matching letter ensemble instead of staying a bare
+# terminal label. Index order must match each letter script's own
+# LABEL_MAP (dense 0-25, A=0..Z=25 / a=0..z=25) — a cross-file contract,
+# same as ROUTER_LABELS above.
+UC_LABELS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+LC_LABELS = list("abcdefghijklmnopqrstuvwxyz")
+
 
 # ── Image utilities ───────────────────────────────────────────────────────────
 
@@ -204,8 +213,10 @@ def get_model_input_size(session) -> int:
 def short_model_name(path: str) -> str:
     """Extract a readable short name from the ONNX filename.
 
-    v3_mnist_digit_soap_64.onnx    -> digit_soap_64
-    v3_mnist_router_ranger_64.onnx -> router_ranger_64
+    v3_mnist_digit_soap_64.onnx      -> digit_soap_64
+    v3_mnist_router_ranger_64.onnx   -> router_ranger_64
+    v3_mnist_letter_uc_soap_64.onnx  -> letter_uc_soap_64
+    v3_mnist_letter_lc_adamw_28.onnx -> letter_lc_adamw_28
     v1_lion_64_64.onnx             -> lion_64   (v2 naming, kept for
                                                   backward compatibility)
     adahessian_64.onnx             -> adahessian_64  (older v1/v2 naming)
@@ -220,6 +231,10 @@ def short_model_name(path: str) -> str:
     m = re.match(r"v3_mnist_router_([a-z0-9]+)_(\d+)$", stem)
     if m:
         return f"router_{m.group(1)}_{m.group(2)}"
+    # v3_mnist_letter_{uc,lc}_{optimizer}_{res} pattern
+    m = re.match(r"v3_mnist_letter_(uc|lc)_([a-z0-9]+)_(\d+)$", stem)
+    if m:
+        return f"letter_{m.group(1)}_{m.group(2)}_{m.group(3)}"
     # v1_{optimizer}_{res}_{res} pattern (v2 naming)
     m = re.match(r"v1_([a-z0-9]+)_(\d+)_\d+$", stem)
     if m:
@@ -257,12 +272,17 @@ def normalize_char(char_gray, img_size: int):
     return cv2.resize(canvas, (img_size, img_size), interpolation=cv2.INTER_AREA)
 
 
-def predict_char_topn(session, char_gray, img_size: int, n: int = 3):
-    """Runs one digit-ensemble ONNX session on one character crop (via
+def predict_char_topn(session, char_gray, img_size: int, n: int = 3, labels=None):
+    """Runs one ensemble-member ONNX session on one character crop (via
     normalize_char()) and returns its top-n (label, softmax probability)
     predictions, highest confidence first. Returns [("?", 0.0)] * n if
-    normalize_char() finds no ink to classify.
+    normalize_char() finds no ink to classify. labels defaults to the
+    digit ensemble's own LABELS (0-9); pass UC_LABELS/LC_LABELS to reuse
+    this same function for the letter-identity ensembles instead — the
+    only thing that differs between a digit and a letter model at
+    inference time is which label list its output index maps to.
     """
+    labels = LABELS if labels is None else labels
     normalized = normalize_char(char_gray, img_size)
     if normalized is None:
         return [("?", 0.0)] * n
@@ -272,7 +292,7 @@ def predict_char_topn(session, char_gray, img_size: int, n: int = 3):
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
     top_indices = np.argsort(probs)[::-1][:n]
-    return [(LABELS[idx], float(probs[idx])) for idx in top_indices]
+    return [(labels[idx], float(probs[idx])) for idx in top_indices]
 
 
 def predict_router(session, char_gray, img_size: int, unsure_floor: float = ROUTER_UNSURE_FLOOR):
@@ -965,7 +985,9 @@ def resolve_image_paths(args):
 
 def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None,
                   router_session=None, router_img_size=None,
-                  router_unsure_floor=ROUTER_UNSURE_FLOOR):
+                  router_unsure_floor=ROUTER_UNSURE_FLOOR,
+                  uc_sessions=None, uc_img_sizes=None, uc_model_names=None,
+                  lc_sessions=None, lc_img_sizes=None, lc_model_names=None):
     """
     image_path: path to a single image file to run the pipeline on (the
     __main__ entry point loops over multiple resolved images, calling
@@ -994,11 +1016,23 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
     v3_mnist_router_ranger_*.py / predict_router() above). If provided,
     every detected box is classified digit/UC/LC before the digit
     ensemble runs. Only a "digit" verdict (confidence >= router_unsure_floor)
-    proceeds to the full ensemble; UC/LC verdicts are output directly as
-    terminal labels (no ensemble run); a verdict below router_unsure_floor
-    is rendered [UNK] (no ensemble run either). Passing None (the default)
-    reproduces the pipeline's original behavior exactly, with zero router
-    involvement — every box goes straight to the ensemble.
+    proceeds to the full ensemble; a verdict below router_unsure_floor is
+    rendered [UNK] (no ensemble run). UC/LC verdicts are handed to the
+    matching letter-identity ensemble below, if one was loaded — otherwise
+    they're output directly as terminal labels, exactly as before letter
+    models existed. Passing None (the default) reproduces the pipeline's
+    original behavior exactly, with zero router involvement — every box
+    goes straight to the digit ensemble.
+
+    uc_sessions/uc_img_sizes/uc_model_names, lc_sessions/lc_img_sizes/
+    lc_model_names (all optional): loaded uppercase/lowercase letter-
+    identity ONNX sessions (see v3_mnist_letter_{uc,lc}_*.py), parallel
+    lists in the same shape as sessions/img_sizes/model_names above. A
+    router-classified UC (or LC) box is handed to the matching ensemble
+    here — single-model shortcut or vote_topn(), same as the digit
+    ensemble — if that list is non-empty; if empty/None (the default),
+    that box keeps the original bare-'UC'/'LC'-label behavior. Only takes
+    effect together with router_session.
     """
     n_models = len(sessions)
     ensemble_label = f"{n_models}-Model Ensemble" if n_models > 1 else "Single Model"
@@ -1044,6 +1078,7 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
                 )
                 router_counts[router_verdict] += 1
 
+            letter_detail = None
             if router_verdict == "unknown":
                 # Router couldn't classify this box with enough confidence
                 # to commit to digit/UC/LC — skip the (expensive, 10-class)
@@ -1056,10 +1091,46 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
                 raw_top1s = ["?"] * n_models
                 all_top3  = [[("?", 0.0), ("?", 0.0), ("?", 0.0)] for _ in range(n_models)]
             elif router_verdict in ("UC", "LC"):
-                # Confident letter classification — terminal label, no
-                # letter-identity/case-reading model exists yet (see
-                # v3_mnist_router_ranger_*.py). Ensemble never runs.
-                winner    = router_verdict
+                # Confident letter classification — hand off to the
+                # matching letter-identity ensemble (see
+                # v3_mnist_letter_{uc,lc}_*.py) if one was loaded via
+                # --letter-uc-models/--letter-lc-models. raw_top1s/all_top3
+                # here MUST stay digit-ensemble-shaped (length n_models) —
+                # they feed the digit-indexed INDIVIDUAL MODEL PREDICTIONS/
+                # PER-MODEL SUMMARY sections below — so the letter
+                # ensemble's own per-model detail is carried separately in
+                # letter_detail (used only by CHARACTER DETAIL) instead of
+                # overwriting them. agreement deliberately stays the bare
+                # "ROUTER-UC"/"ROUTER-LC" tag regardless of the letter
+                # ensemble's vote outcome — every downstream section
+                # (rendering, CHARACTER DETAIL flags, PER-MODEL SUMMARY,
+                # and the --ground-truth digit-accuracy exclusion list)
+                # branches on that exact string, and letter boxes must
+                # keep being excluded from digit-ground-truth accuracy
+                # scoring regardless of whether an ensemble backed them.
+                if router_verdict == "UC":
+                    letter_sessions, letter_img_sizes, letter_model_names, letter_labels = (
+                        uc_sessions, uc_img_sizes, uc_model_names, UC_LABELS)
+                else:
+                    letter_sessions, letter_img_sizes, letter_model_names, letter_labels = (
+                        lc_sessions, lc_img_sizes, lc_model_names, LC_LABELS)
+
+                if letter_sessions:
+                    letter_top3 = [
+                        predict_char_topn(s, gray[y:y+h, x:x+w], letter_img_sizes[i], n=3, labels=letter_labels)
+                        for i, s in enumerate(letter_sessions)
+                    ]
+                    if len(letter_sessions) == 1:
+                        winner = letter_top3[0][0][0]
+                    else:
+                        winner, _, _ = vote_topn(letter_top3)
+                    letter_detail = (letter_model_names, letter_top3)
+                else:
+                    # No letter model loaded for this case — fall back to
+                    # the bare terminal label (original, router-only
+                    # behavior, before any letter-identity model existed).
+                    winner = router_verdict
+
                 agreement = f"ROUTER-{router_verdict}"
                 raw_top1s = ["?"] * n_models
                 all_top3  = [[("?", 0.0), ("?", 0.0), ("?", 0.0)] for _ in range(n_models)]
@@ -1100,8 +1171,8 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
                 per_model_line[i].append(raw_top1s[i])
 
             if space:
-                ensemble_line.append((" ", "ALL", [" "] * n_models, [], None, None))
-            ensemble_line.append((winner, agreement, raw_top1s, all_top3, router_verdict, router_prob))
+                ensemble_line.append((" ", "ALL", [" "] * n_models, [], None, None, None))
+            ensemble_line.append((winner, agreement, raw_top1s, all_top3, router_verdict, router_prob, letter_detail))
             prev_x_end = x + w
 
         for i in range(n_models):
@@ -1231,7 +1302,7 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
             if char_idx >= len(ens_line):
                 break
             entry = ens_line[char_idx]
-            final_label, agreement, raw_top1s, all_top3, router_verdict, router_prob = entry
+            final_label, agreement, raw_top1s, all_top3, router_verdict, router_prob, letter_detail = entry
 
             flag = ("✓ all"      if agreement == "ALL"            else
                     "single"     if agreement == "SINGLE"          else
@@ -1250,11 +1321,15 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
             router_note = (f"  router={router_top_label}({router_prob:.1%})"
                            if router_verdict is not None else "")
             print(f"\n    Char {box_idx+1:>2}  [x:{x} y:{y} w:{w} h:{h} asp:{aspect:.2f}]  vote={flag}  final={final_label}{router_note}{nd_warn}")
-            if agreement in ("ROUTER-UNKNOWN", "ROUTER-UC", "ROUTER-LC"):
-                _what = "unclassifiable" if agreement == "ROUTER-UNKNOWN" else final_label
-                print(f"      (digit ensemble skipped — router classified this box as {_what})")
+            if agreement == "ROUTER-UNKNOWN":
+                print(f"      (digit ensemble skipped — router classified this box as unclassifiable)")
+            elif agreement in ("ROUTER-UC", "ROUTER-LC") and letter_detail is None:
+                _case = "uc" if agreement == "ROUTER-UC" else "lc"
+                print(f"      (digit ensemble skipped — router classified this box as {final_label}; "
+                      f"no --letter-{_case}-models loaded, so no letter-identity ensemble ran)")
             else:
-                for mi, (mname, top3) in enumerate(zip(model_names, all_top3)):
+                _model_names, _top3s = letter_detail if letter_detail is not None else (model_names, all_top3)
+                for mi, (mname, top3) in enumerate(zip(_model_names, _top3s)):
                     top1_lbl, top1_conf = top3[0]
                     top2_lbl, top2_conf = top3[1] if len(top3) > 1 else ("?", 0.0)
                     top3_lbl, top3_conf = top3[2] if len(top3) > 2 else ("?", 0.0)
@@ -1367,6 +1442,101 @@ def run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=None
     print(f"\n{'='*60}\n")
 
 
+# ── Model loading ─────────────────────────────────────────────────────────────
+
+def _is_router_or_letter_onnx(fname: str) -> bool:
+    """True if fname is a router or letter-identity ONNX file — used by
+    --model-dir's scan to keep those out of the digit ensemble (they need
+    their own --router-model / --letter-uc-* / --letter-lc-* flags
+    instead, same as --router-model already worked before this existed).
+    """
+    lower = fname.lower()
+    return lower.startswith("v3_mnist_router_") or lower.startswith("v3_mnist_letter_")
+
+
+def _load_onnx_model_list(model_paths, cuda_available, kind_label):
+    """
+    Loads a list of ONNX model paths into InferenceSessions, CUDA-first
+    with automatic per-model CPU fallback (including the same "CUDA
+    accepted but actually running on CPU" diagnostic, printed once per
+    call). Originally inline in __main__ for the digit ensemble only —
+    extracted here, byte-identical logic, so the new --letter-uc-models/
+    --letter-lc-models loading can share it instead of a third
+    near-identical copy. kind_label is used only in printed messages
+    (e.g. "digit ensemble", "uppercase letter"). Returns (sessions,
+    img_sizes, model_names, active_providers) — parallel lists, one entry
+    per successfully loaded model.
+    """
+    sessions, img_sizes, model_names, active_providers = [], [], [], []
+    cuda_diagnostic_shown = False
+    print(f"\nLoading {len(model_paths)} {kind_label} model(s)...")
+    for path in model_paths:
+        s = None
+        used_provider = None
+        if cuda_available:
+            try:
+                # Both providers passed together (not CUDA alone) so ONNX
+                # Runtime can fall back to CPU per-operator within a single
+                # session if some op isn't CUDA-supported, not just fail the
+                # whole session load. get_providers() after creation reports
+                # which provider is actually active for this session.
+                #
+                # IMPORTANT: ONNX Runtime can accept CUDAExecutionProvider
+                # in the providers list WITHOUT raising an exception, then
+                # silently fall back to CPU for actual execution — this
+                # commonly happens on a CUDA/cuDNN version mismatch between
+                # what onnxruntime-gpu expects and what's installed on the
+                # system. That failure mode does NOT raise here, so the
+                # except block below never fires for it — it has to be
+                # detected by checking get_providers() after the fact, and
+                # ORT's own explanation (if any) goes to native stderr, not
+                # a Python exception, so it's captured separately below.
+                import io, contextlib
+                stderr_capture = io.StringIO()
+                with contextlib.redirect_stderr(stderr_capture):
+                    s = ort.InferenceSession(
+                        path, providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+                    )
+                used_provider = "CUDA" if s.get_providers()[0] == "CUDAExecutionProvider" else "CPU"
+                if used_provider == "CPU" and not cuda_diagnostic_shown:
+                    captured = stderr_capture.getvalue().strip()
+                    print(f"  [CUDA] Session accepted CUDAExecutionProvider without error, "
+                          f"but get_providers() shows CPU is actually active for {os.path.basename(path)}.")
+                    print(f"  [CUDA] This usually means a CUDA/cuDNN version mismatch between "
+                          f"onnxruntime-gpu and what's installed on this system, not a missing GPU.")
+                    if captured:
+                        print(f"  [CUDA] ONNX Runtime's own stderr output during load:")
+                        for line in captured.splitlines():
+                            print(f"    {line}")
+                    else:
+                        print(f"  [CUDA] No stderr output was captured — check `pip show onnxruntime-gpu` "
+                              f"for the exact CUDA/cuDNN versions it was built against, and compare against "
+                              f"the versions actually installed (nvidia-smi shows driver/CUDA version; "
+                              f"cuDNN version has to be checked separately).")
+                    cuda_diagnostic_shown = True  # only print this full diagnostic once per call,
+                                                    # not once per model, to avoid flooding the log
+            except Exception as e:
+                print(f"  [CUDA] Failed to load {os.path.basename(path)} on GPU "
+                      f"({type(e).__name__}: {e}) — falling back to CPU-only session for this model.")
+                s = None
+        if s is None:
+            try:
+                s = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+                used_provider = "CPU"
+            except Exception as e:
+                print(f"  Failed: {os.path.basename(path)}: {e}")
+                continue
+
+        sessions.append(s)
+        img_sizes.append(get_model_input_size(s))
+        model_names.append(short_model_name(path))
+        active_providers.append(used_provider)
+        print(f"  Loaded: {short_model_name(path):20s}  [{img_sizes[-1]}x{img_sizes[-1]}]  "
+              f"({used_provider})  ({os.path.basename(path)})")
+
+    return sessions, img_sizes, model_names, active_providers
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -1394,6 +1564,10 @@ EXAMPLES:
 
   With the router pre-filter (see v3_mnist_router_ranger_*.py):
     python ocr_pipeline_mnist.py --router-model v3_mnist_router_ranger_64/v3_mnist_router_ranger_64.onnx --model-dir . digit.jpg
+
+  With the router AND letter-identity ensembles (see v3_mnist_letter_{uc,lc}_*.py):
+    python ocr_pipeline_mnist.py --router-model v3_mnist_router_ranger_64/v3_mnist_router_ranger_64.onnx \\
+        --letter-uc-model-dir . --letter-lc-model-dir . --model-dir . page.jpg
         """
     )
     model_src = parser.add_mutually_exclusive_group(required=True)
@@ -1465,6 +1639,38 @@ EXAMPLES:
             "(digit/UC/LC). Only takes effect together with --router-model."
         )
     )
+    letter_uc_src = parser.add_mutually_exclusive_group()
+    letter_uc_src.add_argument(
+        "--letter-uc-models",
+        nargs="+",
+        default=None,
+        help=(
+            "One or more uppercase letter-identity ONNX model paths (see "
+            "v3_mnist_letter_uc_*.py). Only used for boxes the router "
+            "classifies as UC; omit to keep the original bare-'UC'-label "
+            "behavior for those boxes. Only takes effect together with "
+            "--router-model."
+        )
+    )
+    letter_uc_src.add_argument(
+        "--letter-uc-model-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory to scan recursively for v3_mnist_letter_uc_*.onnx files."
+    )
+    letter_lc_src = parser.add_mutually_exclusive_group()
+    letter_lc_src.add_argument(
+        "--letter-lc-models",
+        nargs="+",
+        default=None,
+        help="Same as --letter-uc-models, for boxes the router classifies as LC."
+    )
+    letter_lc_src.add_argument(
+        "--letter-lc-model-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory to scan recursively for v3_mnist_letter_lc_*.onnx files."
+    )
     args = parser.parse_args()
 
     if args.non_digit_floor is not None:
@@ -1490,6 +1696,7 @@ EXAMPLES:
             print(f"  ERROR: --model-dir not found: {args.model_dir}")
             sys.exit(1)
         skipped_dirs = []
+        skipped_router_letter = []
         for root, dirs, files in os.walk(args.model_dir):
             before = set(dirs)
             dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
@@ -1498,17 +1705,27 @@ EXAMPLES:
                 skipped_dirs.extend(os.path.join(root, d) for d in skipped)
             dirs.sort()
             for fname in sorted(files):
-                if fname.lower().endswith(".onnx"):
-                    model_paths.append(os.path.join(root, fname))
+                if not fname.lower().endswith(".onnx"):
+                    continue
+                if _is_router_or_letter_onnx(fname):
+                    skipped_router_letter.append(os.path.join(root, fname))
+                    continue
+                model_paths.append(os.path.join(root, fname))
         if skipped_dirs:
             print(f"  Skipped {len(skipped_dirs)} excluded folder(s) "
                   f"(venv/site-packages/etc.) during scan:")
             for d in skipped_dirs:
                 print(f"    - {d}")
+        if skipped_router_letter:
+            print(f"  Skipped {len(skipped_router_letter)} router/letter-identity .onnx file(s) "
+                  f"during --model-dir scan (not digit-ensemble models — use --router-model / "
+                  f"--letter-uc-model(-dir) / --letter-lc-model(-dir) to load them):")
+            for f in skipped_router_letter:
+                print(f"    - {f}")
         if not model_paths:
             print(f"  ERROR: No .onnx files found in: {args.model_dir}")
             sys.exit(1)
-        print(f"  Scanned {args.model_dir} — found {len(model_paths)} .onnx file(s)")
+        print(f"  Scanned {args.model_dir} — found {len(model_paths)} digit-ensemble .onnx file(s)")
     else:
         for m in args.models:
             expanded = glob.glob(m)
@@ -1543,75 +1760,9 @@ EXAMPLES:
         print("  [Warning] CUDAExecutionProvider not available (onnxruntime-gpu not installed, "
               "or no compatible CUDA device found) — running on CPU only.")
 
-    sessions       = []
-    img_sizes      = []
-    model_names    = []
-    active_providers = []
-    cuda_diagnostic_shown = False
-    print(f"\nLoading {len(model_paths)} model(s)...")
-    for path in model_paths:
-        s = None
-        used_provider = None
-        if cuda_available:
-            try:
-                # Both providers passed together (not CUDA alone) so ONNX
-                # Runtime can fall back to CPU per-operator within a single
-                # session if some op isn't CUDA-supported, not just fail the
-                # whole session load. get_providers() after creation reports
-                # which provider is actually active for this session.
-                #
-                # IMPORTANT: ONNX Runtime can accept CUDAExecutionProvider
-                # in the providers list WITHOUT raising an exception, then
-                # silently fall back to CPU for actual execution — this
-                # commonly happens on a CUDA/cuDNN version mismatch between
-                # what onnxruntime-gpu expects and what's installed on the
-                # system. That failure mode does NOT raise here, so the
-                # except block below never fires for it — it has to be
-                # detected by checking get_providers() after the fact, and
-                # ORT's own explanation (if any) goes to native stderr, not
-                # a Python exception, so it's captured separately below.
-                import io, contextlib
-                stderr_capture = io.StringIO()
-                with contextlib.redirect_stderr(stderr_capture):
-                    s = ort.InferenceSession(
-                        path, providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
-                    )
-                used_provider = "CUDA" if s.get_providers()[0] == "CUDAExecutionProvider" else "CPU"
-                if used_provider == "CPU" and not cuda_diagnostic_shown:
-                    captured = stderr_capture.getvalue().strip()
-                    print(f"  [CUDA] Session accepted CUDAExecutionProvider without error, "
-                          f"but get_providers() shows CPU is actually active for {os.path.basename(path)}.")
-                    print(f"  [CUDA] This usually means a CUDA/cuDNN version mismatch between "
-                          f"onnxruntime-gpu and what's installed on this system, not a missing GPU.")
-                    if captured:
-                        print(f"  [CUDA] ONNX Runtime's own stderr output during load:")
-                        for line in captured.splitlines():
-                            print(f"    {line}")
-                    else:
-                        print(f"  [CUDA] No stderr output was captured — check `pip show onnxruntime-gpu` "
-                              f"for the exact CUDA/cuDNN versions it was built against, and compare against "
-                              f"the versions actually installed (nvidia-smi shows driver/CUDA version; "
-                              f"cuDNN version has to be checked separately).")
-                    cuda_diagnostic_shown = True  # only print this full diagnostic once per run,
-                                                    # not once per model, to avoid flooding the log
-            except Exception as e:
-                print(f"  [CUDA] Failed to load {os.path.basename(path)} on GPU "
-                      f"({type(e).__name__}: {e}) — falling back to CPU-only session for this model.")
-                s = None
-        if s is None:
-            try:
-                s = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
-                used_provider = "CPU"
-            except Exception as e:
-                print(f"  Failed: {os.path.basename(path)}: {e}")
-                continue
-
-        sessions.append(s)
-        img_sizes.append(get_model_input_size(s))
-        model_names.append(short_model_name(path))
-        active_providers.append(used_provider)
-        print(f"  Loaded: {short_model_name(path):20s}  [{img_sizes[-1]}x{img_sizes[-1]}]  "
-              f"({used_provider})  ({os.path.basename(path)})")
+    sessions, img_sizes, model_names, active_providers = _load_onnx_model_list(
+        model_paths, cuda_available, "digit ensemble"
+    )
 
     if not sessions:
         print("  ERROR: No models loaded successfully.")
@@ -1649,6 +1800,75 @@ EXAMPLES:
         print(f"  Router unsure floor: {router_unsure_floor} (top-class confidence below this -> [UNK] — "
               f"see --router-unsure-floor)")
 
+    # Load the letter-identity ensembles (optional) — same CUDA-first/
+    # CPU-fallback loading as the digit ensemble above (via
+    # _load_onnx_model_list()), just directory scans filtered to each
+    # case's own filename prefix specifically, so --letter-uc-model-dir
+    # pointed at the project root doesn't also sweep up LC/digit/router
+    # files (same discipline as the --model-dir fix above). Only used for
+    # boxes the router classifies UC/LC; omitting these flags keeps the
+    # original bare-label behavior for those boxes (see run_pipeline()'s
+    # own docstring).
+    uc_model_paths = []
+    if args.letter_uc_model_dir:
+        if not os.path.isdir(args.letter_uc_model_dir):
+            print(f"  ERROR: --letter-uc-model-dir not found: {args.letter_uc_model_dir}")
+            sys.exit(1)
+        for root, dirs, files in os.walk(args.letter_uc_model_dir):
+            dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+            dirs.sort()
+            for fname in sorted(files):
+                if fname.lower().endswith(".onnx") and fname.lower().startswith("v3_mnist_letter_uc_"):
+                    uc_model_paths.append(os.path.join(root, fname))
+    elif args.letter_uc_models:
+        for m in args.letter_uc_models:
+            expanded = glob.glob(m)
+            if expanded:
+                uc_model_paths.extend(sorted(expanded))
+            elif os.path.isfile(m):
+                uc_model_paths.append(m)
+            else:
+                print(f"  [warn] --letter-uc-models path not found, skipping: {m}")
+
+    uc_sessions, uc_img_sizes, uc_model_names = [], [], []
+    if uc_model_paths:
+        uc_sessions, uc_img_sizes, uc_model_names, _ = _load_onnx_model_list(
+            uc_model_paths, cuda_available, "uppercase letter"
+        )
+        if not uc_sessions:
+            print("  [warn] No uppercase letter models loaded successfully — "
+                  "UC-routed boxes will fall back to the bare 'UC' label.")
+
+    lc_model_paths = []
+    if args.letter_lc_model_dir:
+        if not os.path.isdir(args.letter_lc_model_dir):
+            print(f"  ERROR: --letter-lc-model-dir not found: {args.letter_lc_model_dir}")
+            sys.exit(1)
+        for root, dirs, files in os.walk(args.letter_lc_model_dir):
+            dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+            dirs.sort()
+            for fname in sorted(files):
+                if fname.lower().endswith(".onnx") and fname.lower().startswith("v3_mnist_letter_lc_"):
+                    lc_model_paths.append(os.path.join(root, fname))
+    elif args.letter_lc_models:
+        for m in args.letter_lc_models:
+            expanded = glob.glob(m)
+            if expanded:
+                lc_model_paths.extend(sorted(expanded))
+            elif os.path.isfile(m):
+                lc_model_paths.append(m)
+            else:
+                print(f"  [warn] --letter-lc-models path not found, skipping: {m}")
+
+    lc_sessions, lc_img_sizes, lc_model_names = [], [], []
+    if lc_model_paths:
+        lc_sessions, lc_img_sizes, lc_model_names, _ = _load_onnx_model_list(
+            lc_model_paths, cuda_available, "lowercase letter"
+        )
+        if not lc_sessions:
+            print("  [warn] No lowercase letter models loaded successfully — "
+                  "LC-routed boxes will fall back to the bare 'LC' label.")
+
     # Print model roster once — not repeated per image
     print(f"\n  {'─'*50}")
     print(f"  MODELS ({len(sessions)} loaded)")
@@ -1668,6 +1888,8 @@ EXAMPLES:
     for image_path in image_paths:
         run_pipeline(image_path, sessions, img_sizes, model_names, ground_truth=args.ground_truth,
                      router_session=router_session, router_img_size=router_img_size,
-                     router_unsure_floor=router_unsure_floor)
+                     router_unsure_floor=router_unsure_floor,
+                     uc_sessions=uc_sessions, uc_img_sizes=uc_img_sizes, uc_model_names=uc_model_names,
+                     lc_sessions=lc_sessions, lc_img_sizes=lc_img_sizes, lc_model_names=lc_model_names)
 
     tee.close()

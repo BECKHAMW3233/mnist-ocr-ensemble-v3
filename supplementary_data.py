@@ -4,7 +4,7 @@ supplementary_data.py
 Shared supplementary dataset loader — v3. Extends the v2 module of the
 same name; the loading pattern (per-source Dataset wrapper classes,
 graceful skip-on-missing, WeightedRandomSampler-friendly label
-extraction) is unchanged, not replaced. Two additions for v3:
+extraction) is unchanged, not replaced. Four additions for v3:
 
   1. digit_sources_for_tier(img_size) — the per-source resolution-ladder
      split (see Part 1 of this restructure / v3_CHANGELOG.md): MNIST, EMNIST
@@ -22,6 +22,33 @@ extraction) is unchanged, not replaced. Two additions for v3:
      the dict below). This was found while re-enabling EMNIST Balanced
      as the v3 router's letter source (Part 3) — BalancedEMNISTDataset
      itself is otherwise unchanged.
+
+  3. _correct_emnist_orientation() — torchvision's EMNIST dataset class
+     (every split: digits, balanced, byclass, etc.) returns images
+     rotated 90 degrees and mirrored relative to upright — a real,
+     still-open torchvision bug (github.com/pytorch/vision/issues/8783),
+     confirmed by reading torchvision 0.28.0's own mnist.py directly:
+     EMNIST.__getitem__ inherits MNIST.__getitem__ unchanged, which
+     applies zero rotation/flip correction. Applied in
+     EMNISTDigitsDataset, BalancedEMNISTDataset, and the new
+     EMNISTByClassDataset below, so training images match the upright
+     orientation real scanned character crops have at inference time.
+     Added 2026-08-02, per direct user follow-up after this was found
+     while building the v3 letter-identity models (Part 4) — see
+     v3_CHANGELOG.md.
+
+  4. EMNISTByClassDataset / load_base_emnist_letters() — EMNIST ByClass
+     (all 62 classes, not previously used anywhere in this project — only
+     "digits" and "balanced" were), added as the sole data source for the
+     v3 uppercase/lowercase letter-identity models
+     (v3_mnist_letter_{uc,lc}_{optimizer}_{res}.py). Chosen over EMNIST
+     Balanced specifically because Balanced only has 11 distinct lowercase
+     classes (the other 15 are merged into their uppercase counterpart by
+     the dataset's own creators — see BALANCED_TO_BYCLASS's comment
+     above); ByClass has all 26. Raw byclass label integers already match
+     this project's own 0-9/10-35/36-61 convention directly (confirmed by
+     reading torchvision's own EMNIST.classes_split_dict) — no remapping
+     bug, unlike BALANCED_TO_BYCLASS above.
 
 Provides digit-only supplementary data sources for MNIST digit recognition:
 
@@ -51,6 +78,15 @@ Provides digit-only supplementary data sources for MNIST digit recognition:
                          use_chars_hnd/use_chars_img/use_pghwld default
                          False); optional supplementary letter sources,
                          not required for the router per this restructure)
+  8. EMNIST ByClass    — 814,255 samples across all 62 classes; the sole
+                         source for the v3 letter-identity models
+                         (uppercase/lowercase, 26 classes each — see
+                         EMNISTByClassDataset / load_base_emnist_letters()
+                         above). Not wired into load_supplementary() at
+                         all — the letter scripts call
+                         load_base_emnist_letters() directly, mirroring
+                         how load_base_mnist()/load_base_usps() sit
+                         outside load_supplementary() too.
 
 Class index mapping (byclass, 62 classes):
     0-9   : digits 0-9
@@ -94,7 +130,7 @@ import torch
 from torch.utils.data import Dataset, ConcatDataset, Subset, random_split
 from torchvision import transforms
 from torchvision.datasets import EMNIST, MNIST, USPS, SVHN
-from PIL import Image
+from PIL import Image, ImageOps
 
 # =============================================================================
 # Paths — EDIT THESE FOR YOUR OWN SYSTEM
@@ -196,6 +232,22 @@ DIGIT_TO_BYCLASS    = {i: i for i in range(10)}
 # Dataset wrappers
 # =============================================================================
 
+def _correct_emnist_orientation(img):
+    """
+    torchvision's EMNIST dataset class (every split — digits, balanced,
+    byclass, etc.) returns images rotated 90 degrees and mirrored relative
+    to upright. This is a real, still-open torchvision bug
+    (github.com/pytorch/vision/issues/8783), confirmed by reading
+    torchvision 0.28.0's own mnist.py directly: EMNIST.__getitem__
+    inherits MNIST.__getitem__ unchanged, which applies zero rotation/flip
+    correction before handing back the PIL image. Undoes it so training
+    images match the upright orientation real scanned character crops
+    have at inference time. Added 2026-08-02, per direct user follow-up —
+    see v3_CHANGELOG.md.
+    """
+    return ImageOps.mirror(img.rotate(-90, expand=True))
+
+
 class EMNISTDigitsDataset(Dataset):
     """
     EMNIST Digits split — 240,000 training + 40,000 test samples, digits 0-9.
@@ -214,6 +266,7 @@ class EMNISTDigitsDataset(Dataset):
 
     def __getitem__(self, idx):
         img, _ = self.base[idx]
+        img    = _correct_emnist_orientation(img)
         label  = self.remapped_labels[idx]
         if self.transform:
             img = self.transform(img)
@@ -384,6 +437,7 @@ class BalancedEMNISTDataset(Dataset):
     def __getitem__(self, idx):
         orig_idx = self.valid_indices[idx]
         img, _   = self.base[orig_idx]
+        img      = _correct_emnist_orientation(img)
         label    = self.remapped_labels[idx]
         if self.transform:
             img = self.transform(img)
@@ -393,6 +447,68 @@ class BalancedEMNISTDataset(Dataset):
 
     def get_labels(self):
         return self.remapped_labels
+
+
+class EMNISTByClassDataset(Dataset):
+    """
+    EMNIST ByClass — all 62 classes (0-9 digits, 10-35 uppercase, 36-61
+    lowercase). Not used by the digit ensemble or the router — added in
+    v3 as the sole data source for the uppercase/lowercase letter-identity
+    models (v3_mnist_letter_{uc,lc}_{optimizer}_{res}.py). Chosen over
+    EMNIST Balanced specifically because Balanced only has 11 distinct
+    lowercase classes (see BALANCED_TO_BYCLASS's comment above); ByClass
+    has real, distinct labels for all 26. Raw byclass label integers
+    already match this project's own 0-9/10-35/36-61 convention directly
+    (confirmed by reading torchvision's own EMNIST.classes_split_dict) —
+    no remapping needed, unlike BALANCED_TO_BYCLASS.
+    """
+    def __init__(self, train: bool = True, transform=None):
+        self.base = EMNIST(
+            root=str(DATA_DIR), split="byclass", train=train,
+            download=True, transform=None,
+        )
+        self.transform       = transform
+        self.remapped_labels = [int(label) for _, label in self.base]
+
+    def __len__(self):
+        return len(self.base)
+
+    def __getitem__(self, idx):
+        img, _ = self.base[idx]
+        img    = _correct_emnist_orientation(img)
+        label  = self.remapped_labels[idx]
+        if self.transform:
+            img = self.transform(img)
+        else:
+            img = transforms.ToTensor()(img)
+        return img, label
+
+    def get_labels(self):
+        return self.remapped_labels
+
+
+class _LetterOnlyDataset(Dataset):
+    """
+    Wraps EMNISTByClassDataset, keeping only one case's byclass range
+    (10-35 uppercase / 36-61 lowercase) and remapping to a dense 0-25
+    label for a 26-class classifier head (A=0..Z=25 or a=0..z=25).
+    """
+    def __init__(self, base: "EMNISTByClassDataset", case: str):
+        offset = {"upper": 10, "lower": 36}[case]
+        self.base = base
+        self.indices = [i for i, lbl in enumerate(base.remapped_labels)
+                         if offset <= lbl < offset + 26]
+        self.dense_labels = [base.remapped_labels[i] - offset for i in self.indices]
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        img, _ = self.base[self.indices[idx]]
+        return img, self.dense_labels[idx]
+
+    def get_labels(self):
+        return self.dense_labels
 
 
 class Chars74KDataset(Dataset):
@@ -1161,6 +1277,68 @@ def load_base_usps(data_dir: Path, train_transform, val_transform, test_transfor
     if return_train_targets:
         train_targets = torch.tensor(
             [int(train_full.remapped_labels[i]) for i in train_indices.indices], dtype=torch.long
+        )
+        return train_ds, val_ds, test_ds, train_targets
+
+    return train_ds, val_ds, test_ds
+
+
+# =============================================================================
+# Base EMNIST ByClass letter loader (v3 — uppercase/lowercase models)
+# =============================================================================
+# Unlike the digit ensemble's 5-source, per-resolution-tier ladder
+# (digit_sources_for_tier()), the letter-identity models
+# (v3_mnist_letter_{uc,lc}_{optimizer}_{res}.py) have exactly ONE data
+# source — EMNIST ByClass — so there is no per-tier branching here: every
+# resolution (28/32/64/128; there is no 16x16 letter tier, that was
+# USPS-digit-only) calls this same function identically. Mirrors
+# load_base_mnist()/load_base_usps()'s own train/val split mechanics
+# exactly (same random_split + seeded Generator idiom, same
+# return_train_targets escape hatch).
+
+def load_base_emnist_letters(case: str, train_transform, val_transform, test_transform,
+                              validation_split: float = 0.15, split_seed: int = 42,
+                              return_train_targets: bool = False):
+    """
+    Loads EMNIST ByClass, filtered to one letter case, and splits its
+    train portion into train/val. Labels are dense 0-25 (A=0..Z=25 for
+    case="upper", a=0..z=25 for case="lower") — see _LetterOnlyDataset.
+
+    Args mirror load_base_mnist()/load_base_usps(); same defaults, same
+    return_train_targets behavior.
+
+    Returns:
+        (train_ds, val_ds, test_ds) by default, or
+        (train_ds, val_ds, test_ds, train_targets) if return_train_targets=True.
+    """
+    if case not in ("upper", "lower"):
+        raise ValueError(f"case must be 'upper' or 'lower', got {case!r}")
+
+    print(f"[Dataset] Loading EMNIST ByClass ({case}) "
+          f"(via supplementary_data.load_base_emnist_letters)...")
+
+    train_full  = _LetterOnlyDataset(EMNISTByClassDataset(train=True,  transform=train_transform), case)
+    train_noaug = _LetterOnlyDataset(EMNISTByClassDataset(train=True,  transform=val_transform),   case)
+    test_ds     = _LetterOnlyDataset(EMNISTByClassDataset(train=False, transform=test_transform),  case)
+
+    total       = len(train_full)
+    val_count   = int(total * validation_split)
+    train_count = total - val_count
+
+    generator = torch.Generator().manual_seed(split_seed)
+    train_indices, val_indices = random_split(
+        range(total), [train_count, val_count], generator=generator
+    )
+
+    train_ds = Subset(train_full,  train_indices.indices)
+    val_ds   = Subset(train_noaug, val_indices.indices)
+
+    print(f"[Dataset] Train: {train_count:,}  |  Val: {val_count:,}  |  "
+          f"Test: {len(test_ds):,}")
+
+    if return_train_targets:
+        train_targets = torch.tensor(
+            [int(train_full.dense_labels[i]) for i in train_indices.indices], dtype=torch.long
         )
         return train_ds, val_ds, test_ds, train_targets
 
