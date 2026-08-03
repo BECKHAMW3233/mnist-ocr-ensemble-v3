@@ -1,11 +1,13 @@
 # run_all_training.ps1
 # =====================
-# Runs all 44 v3 training scripts in order: the 20 digit/router scripts
-# (16x16 -> 28x28 -> 32x32 -> 64x64 -> 128x128, each resolution as soap ->
-# adamw -> muon -> router), then the 24 letter-identity scripts (28x28 ->
-# 32x32 -> 64x64 -> 128x128 -- no 16x16 tier, that's USPS-digit-only --
-# each resolution as uc-soap -> uc-adamw -> uc-muon -> lc-soap -> lc-adamw
-# -> lc-muon).
+# Runs all 44 v3 training scripts, one resolution tier at a time, smallest
+# to largest (16x16 -> 28x28 -> 32x32 -> 64x64 -> 128x128). Within each
+# tier: router first (needed for downstream UC/LC routing decisions),
+# then digit (soap -> adamw -> muon), then uppercase (soap -> adamw ->
+# muon), then lowercase (soap -> adamw -> muon) -- before moving to the
+# next tier. 128x128 is the last tier run, in full (router included) --
+# it is the most expensive tier, and every 128x128 model, router or
+# otherwise, only trains after every other tier is done.
 #
 # Skips any script whose output already has a `_final.pt` (already
 # trained to completion). A script with a `_resume.pt` but no
@@ -31,16 +33,60 @@ $python = "C:\Users\Will\AppData\Local\Python\pythoncore-3.14-64\python.exe"
 $root   = "E:\mnist_v3"
 
 $scripts = @(
-    "digit_models\v3_mnist_digit_soap_16.py",  "digit_models\v3_mnist_digit_adamw_16.py",  "digit_models\v3_mnist_digit_muon_16.py",  "router_models\v3_mnist_router_ranger_16.py",
-    "digit_models\v3_mnist_digit_soap_28.py",  "digit_models\v3_mnist_digit_adamw_28.py",  "digit_models\v3_mnist_digit_muon_28.py",  "router_models\v3_mnist_router_ranger_28.py",
-    "digit_models\v3_mnist_digit_soap_32.py",  "digit_models\v3_mnist_digit_adamw_32.py",  "digit_models\v3_mnist_digit_muon_32.py",  "router_models\v3_mnist_router_ranger_32.py",
-    "digit_models\v3_mnist_digit_soap_64.py",  "digit_models\v3_mnist_digit_adamw_64.py",  "digit_models\v3_mnist_digit_muon_64.py",  "router_models\v3_mnist_router_ranger_64.py",
-    "digit_models\v3_mnist_digit_soap_128.py", "digit_models\v3_mnist_digit_adamw_128.py", "digit_models\v3_mnist_digit_muon_128.py", "router_models\v3_mnist_router_ranger_128.py",
+    # 16x16 tier (USPS-only digit; no letter models exist at this resolution)
+    "router_models\v3_mnist_router_ranger_16.py",
+    "digit_models\v3_mnist_digit_soap_16.py",
+    "digit_models\v3_mnist_digit_adamw_16.py",
+    "digit_models\v3_mnist_digit_muon_16.py",
 
-    "uppercase_models\v3_mnist_letter_uc_soap_28.py",  "uppercase_models\v3_mnist_letter_uc_adamw_28.py",  "uppercase_models\v3_mnist_letter_uc_muon_28.py",  "lowercase_models\v3_mnist_letter_lc_soap_28.py",  "lowercase_models\v3_mnist_letter_lc_adamw_28.py",  "lowercase_models\v3_mnist_letter_lc_muon_28.py",
-    "uppercase_models\v3_mnist_letter_uc_soap_32.py",  "uppercase_models\v3_mnist_letter_uc_adamw_32.py",  "uppercase_models\v3_mnist_letter_uc_muon_32.py",  "lowercase_models\v3_mnist_letter_lc_soap_32.py",  "lowercase_models\v3_mnist_letter_lc_adamw_32.py",  "lowercase_models\v3_mnist_letter_lc_muon_32.py",
-    "uppercase_models\v3_mnist_letter_uc_soap_64.py",  "uppercase_models\v3_mnist_letter_uc_adamw_64.py",  "uppercase_models\v3_mnist_letter_uc_muon_64.py",  "lowercase_models\v3_mnist_letter_lc_soap_64.py",  "lowercase_models\v3_mnist_letter_lc_adamw_64.py",  "lowercase_models\v3_mnist_letter_lc_muon_64.py",
-    "uppercase_models\v3_mnist_letter_uc_soap_128.py", "uppercase_models\v3_mnist_letter_uc_adamw_128.py", "uppercase_models\v3_mnist_letter_uc_muon_128.py", "lowercase_models\v3_mnist_letter_lc_soap_128.py", "lowercase_models\v3_mnist_letter_lc_adamw_128.py", "lowercase_models\v3_mnist_letter_lc_muon_128.py"
+    # 28x28 tier
+    "router_models\v3_mnist_router_ranger_28.py",
+    "digit_models\v3_mnist_digit_soap_28.py",
+    "digit_models\v3_mnist_digit_adamw_28.py",
+    "digit_models\v3_mnist_digit_muon_28.py",
+    "uppercase_models\v3_mnist_letter_uc_soap_28.py",
+    "uppercase_models\v3_mnist_letter_uc_adamw_28.py",
+    "uppercase_models\v3_mnist_letter_uc_muon_28.py",
+    "lowercase_models\v3_mnist_letter_lc_soap_28.py",
+    "lowercase_models\v3_mnist_letter_lc_adamw_28.py",
+    "lowercase_models\v3_mnist_letter_lc_muon_28.py",
+
+    # 32x32 tier
+    "router_models\v3_mnist_router_ranger_32.py",
+    "digit_models\v3_mnist_digit_soap_32.py",
+    "digit_models\v3_mnist_digit_adamw_32.py",
+    "digit_models\v3_mnist_digit_muon_32.py",
+    "uppercase_models\v3_mnist_letter_uc_soap_32.py",
+    "uppercase_models\v3_mnist_letter_uc_adamw_32.py",
+    "uppercase_models\v3_mnist_letter_uc_muon_32.py",
+    "lowercase_models\v3_mnist_letter_lc_soap_32.py",
+    "lowercase_models\v3_mnist_letter_lc_adamw_32.py",
+    "lowercase_models\v3_mnist_letter_lc_muon_32.py",
+
+    # 64x64 tier
+    "router_models\v3_mnist_router_ranger_64.py",
+    "digit_models\v3_mnist_digit_soap_64.py",
+    "digit_models\v3_mnist_digit_adamw_64.py",
+    "digit_models\v3_mnist_digit_muon_64.py",
+    "uppercase_models\v3_mnist_letter_uc_soap_64.py",
+    "uppercase_models\v3_mnist_letter_uc_adamw_64.py",
+    "uppercase_models\v3_mnist_letter_uc_muon_64.py",
+    "lowercase_models\v3_mnist_letter_lc_soap_64.py",
+    "lowercase_models\v3_mnist_letter_lc_adamw_64.py",
+    "lowercase_models\v3_mnist_letter_lc_muon_64.py",
+
+    # 128x128 tier -- trained LAST, all of it, router included (router
+    # still leads within this tier, matching every other tier's order)
+    "router_models\v3_mnist_router_ranger_128.py",
+    "digit_models\v3_mnist_digit_soap_128.py",
+    "digit_models\v3_mnist_digit_adamw_128.py",
+    "digit_models\v3_mnist_digit_muon_128.py",
+    "uppercase_models\v3_mnist_letter_uc_soap_128.py",
+    "uppercase_models\v3_mnist_letter_uc_adamw_128.py",
+    "uppercase_models\v3_mnist_letter_uc_muon_128.py",
+    "lowercase_models\v3_mnist_letter_lc_soap_128.py",
+    "lowercase_models\v3_mnist_letter_lc_adamw_128.py",
+    "lowercase_models\v3_mnist_letter_lc_muon_128.py"
 )
 
 foreach ($script in $scripts) {

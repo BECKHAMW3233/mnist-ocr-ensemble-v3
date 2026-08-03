@@ -1,0 +1,188 @@
+
+======================================================================
+[Session start] 2026-08-02T18:16:29
+======================================================================
+
+############################################################
+  ROUTER — 128x128 — DIGIT / UC / LC (+ [UNK] via confidence floor)
+  Seed: GLOBAL_SEED=42 (override with MNIST_SEED env var)
+############################################################
+
+[CPU] 24 logical cores detected — reserving 6 (25%) for the OS, 18 usable (this machine's NUM_WORKERS = 18 DataLoader workers; also the thread count torch.set_num_threads() uses on CPU-only runs)
+[Device] GPU 0/0: NVIDIA GeForce RTX 4080  |  16.0 GB VRAM  |  CUDA 13.0  |  AMP: True
+[Startup VRAM] GPU 0: 684 MB / 16376 MB in use before this script has allocated anything
+[Startup VRAM] Something is using GPU memory, but Windows' WDDM driver mode doesn't expose which process to nvidia-smi (check Task Manager's Performance > GPU tab instead).
+[Batch] Override: using batch size 1232 (skipping auto-detect)
+============================================================
+  Router — Ranger (RAdam + Lookahead)  [128x128]
+  PyTorch 2.13.0+cu130  |  AMP: True
+  Output: E:\mnist_v3\router_models\v3_mnist_router_ranger_128
+  Resolution: 128x128  |  Batch: 1232 (override)
+  Optimizer: Ranger  |  Scheduler: fixed-length warmup -> cosine (per-step)
+  Output classes: ['digit', 'UC', 'LC']  |  ROUTER_UNSURE_FLOOR=0.6
+  Digit sources this tier: {'use_digits': True, 'use_mnist': True, 'use_usps': True, 'use_svhn': True, 'use_ardis': True, 'use_balanced': False, 'use_kaggle': False, 'use_chars_hnd': False, 'use_chars_img': False, 'use_pghwld': False}
+  Normalization: [0,1]  (no mean/std shift)
+============================================================
+[Dataset] Loading MNIST (via supplementary_data.load_base_mnist)...
+[Dataset] Train: 51,000  |  Val: 9,000  |  Test: 10,000
+[Dataset] Loading digit supplementary data (digit class)...
+  [Supplementary] ARDIS IV:        7,600 samples (Swedish historical digits)
+  [Supplementary] EMNIST Digits:   240,000 samples
+  [Supplementary] MNIST:           60,000 samples
+  [Supplementary] USPS:            7,291 samples
+  [Supplementary] SVHN:            73,257 samples
+  [Supplementary] Total supplementary samples: 388,148
+[Dataset] Combined digit training set: 439,148 samples
+[Dataset] Loading EMNIST Balanced (UC/LC classes)...
+[Dataset] EMNIST Balanced UC/LC — Train: 75,480  |  Val: 13,320  |  Test: 14,800
+[Dataset] Router train set: 439,148 digit + 75,480 UC/LC = 514,628 total
+[Dataset] Router val set:   9,000 digit + 13,320 UC/LC = 22,320 total
+[Dataset] Router test set:  10,000 digit + 14,800 UC/LC = 24,800 total
+[Dataset] Balancing sampler: digit=439,148 (w=0.00000228)  UC=52,985 (w=0.00001887)  LC=22,495 (w=0.00004445)
+
+[Model] OCRRouterNet — 128x128
+  Parameters : 62,579
+  Est. size  : 0.24 MB (float32)
+[Optimizer] Ranger  lr=4.00e-03  (reference=1.00e-03 @ batch=256, scaled by min(1232/256, 4.0)=4.000x)  wd=0.0001  betas=(0.9, 0.999)  lookahead_k=6  alpha=0.5
+[Schedule] Fixed warmup: 100 steps (418 steps/epoch)  ->  cosine decay over ~100 epochs (41,800 steps total — shape target only, PATIENCE governs the actual stop)
+
+[Train] Starting 128x128 — no epoch cap | batch: 1232 | patience: 15
+[Resume] No prior checkpoint found — starting fresh
+  [128x128] Epoch   1  Batch    10/  418  loss: 1.1019  acc: 0.3425
+  [128x128] Epoch   1  Batch    20/  418  loss: 1.1005  acc: 0.3455
+  [128x128] Epoch   1  Batch    30/  418  loss: 1.0978  acc: 0.3501
+  [128x128] Epoch   1  Batch    40/  418  loss: 1.0929  acc: 0.3579
+  [128x128] Epoch   1  Batch    50/  418  loss: 1.0879  acc: 0.3644
+  [128x128] Epoch   1  Batch    60/  418  loss: 1.0825  acc: 0.3701
+  [128x128] Epoch   1  Batch    70/  418  loss: 1.0771  acc: 0.3759
+  [128x128] Epoch   1  Batch    80/  418  loss: 1.0722  acc: 0.3806
+  [128x128] Epoch   1  Batch    90/  418  loss: 1.0677  acc: 0.3859
+  [128x128] Epoch   1  Batch   100/  418  loss: 1.0640  acc: 0.3908
+  [128x128] Epoch   1  Batch   110/  418  loss: 1.0602  acc: 0.3957
+  [128x128] Epoch   1  Batch   120/  418  loss: 1.0570  acc: 0.4002
+  [128x128] Epoch   1  Batch   130/  418  loss: 1.0542  acc: 0.4040
+  [128x128] Epoch   1  Batch   140/  418  loss: 1.0514  acc: 0.4086
+  [128x128] Epoch   1  Batch   150/  418  loss: 1.0485  acc: 0.4127
+  [128x128] Epoch   1  Batch   160/  418  loss: 1.0462  acc: 0.4163
+  [128x128] Epoch   1  Batch   170/  418  loss: 1.0442  acc: 0.4193
+  [128x128] Epoch   1  Batch   180/  418  loss: 1.0420  acc: 0.4223
+  [128x128] Epoch   1  Batch   190/  418  loss: 1.0400  acc: 0.4252
+  [128x128] Epoch   1  Batch   200/  418  loss: 1.0379  acc: 0.4280
+  [128x128] Epoch   1  Batch   210/  418  loss: 1.0361  acc: 0.4306
+  [128x128] Epoch   1  Batch   220/  418  loss: 1.0342  acc: 0.4332
+  [128x128] Epoch   1  Batch   230/  418  loss: 1.0324  acc: 0.4357
+  [128x128] Epoch   1  Batch   240/  418  loss: 1.0311  acc: 0.4377
+  [128x128] Epoch   1  Batch   250/  418  loss: 1.0299  acc: 0.4398
+  [128x128] Epoch   1  Batch   260/  418  loss: 1.0286  acc: 0.4418
+  [128x128] Epoch   1  Batch   270/  418  loss: 1.0275  acc: 0.4437
+  [128x128] Epoch   1  Batch   280/  418  loss: 1.0262  acc: 0.4456
+  [128x128] Epoch   1  Batch   290/  418  loss: 1.0249  acc: 0.4473
+  [128x128] Epoch   1  Batch   300/  418  loss: 1.0235  acc: 0.4493
+  [128x128] Epoch   1  Batch   310/  418  loss: 1.0221  acc: 0.4513
+  [128x128] Epoch   1  Batch   320/  418  loss: 1.0207  acc: 0.4533
+  [128x128] Epoch   1  Batch   330/  418  loss: 1.0194  acc: 0.4550
+  [128x128] Epoch   1  Batch   340/  418  loss: 1.0181  acc: 0.4568
+  [128x128] Epoch   1  Batch   350/  418  loss: 1.0168  acc: 0.4585
+  [128x128] Epoch   1  Batch   360/  418  loss: 1.0156  acc: 0.4600
+  [128x128] Epoch   1  Batch   370/  418  loss: 1.0144  acc: 0.4615
+  [128x128] Epoch   1  Batch   380/  418  loss: 1.0133  acc: 0.4629
+  [128x128] Epoch   1  Batch   390/  418  loss: 1.0121  acc: 0.4644
+  [128x128] Epoch   1  Batch   400/  418  loss: 1.0108  acc: 0.4661
+  [128x128] Epoch   1  Batch   410/  418  loss: 1.0096  acc: 0.4677
+  [128x128] Epoch   1  Batch   418/  418  loss: 1.0088  acc: 0.4687
+[128x128] Epoch   1  loss: 1.0088  acc: 0.4687  |  val_loss: 0.7778  val_acc: 0.7108  |  lr: 4.00e-03  [148s]  |  VRAM 7.9/14.6GB  CUDA 93/99%(avg/max)  59/61°C  202W  |  CPU 18%  RAM 34.9/63.2GB  |  wait 44.8s/compute 90.5s
+  [Checkpoint] val_loss → 0.7778  saved
+  [128x128] Epoch   2  Batch    10/  418  loss: 0.9571  acc: 0.5318
+  [128x128] Epoch   2  Batch    20/  418  loss: 0.9565  acc: 0.5323
+  [128x128] Epoch   2  Batch    30/  418  loss: 0.9569  acc: 0.5320
+  [128x128] Epoch   2  Batch    40/  418  loss: 0.9574  acc: 0.5322
+  [128x128] Epoch   2  Batch    50/  418  loss: 0.9582  acc: 0.5317
+  [128x128] Epoch   2  Batch    60/  418  loss: 0.9566  acc: 0.5330
+  [128x128] Epoch   2  Batch    70/  418  loss: 0.9564  acc: 0.5339
+  [128x128] Epoch   2  Batch    80/  418  loss: 0.9560  acc: 0.5338
+  [128x128] Epoch   2  Batch    90/  418  loss: 0.9546  acc: 0.5352
+  [128x128] Epoch   2  Batch   100/  418  loss: 0.9534  acc: 0.5363
+  [128x128] Epoch   2  Batch   110/  418  loss: 0.9525  acc: 0.5368
+  [128x128] Epoch   2  Batch   120/  418  loss: 0.9526  acc: 0.5368
+  [128x128] Epoch   2  Batch   130/  418  loss: 0.9516  acc: 0.5379
+  [128x128] Epoch   2  Batch   140/  418  loss: 0.9508  acc: 0.5389
+  [128x128] Epoch   2  Batch   150/  418  loss: 0.9500  acc: 0.5393
+  [128x128] Epoch   2  Batch   160/  418  loss: 0.9494  acc: 0.5395
+  [128x128] Epoch   2  Batch   170/  418  loss: 0.9487  acc: 0.5399
+  [128x128] Epoch   2  Batch   180/  418  loss: 0.9477  acc: 0.5409
+  [128x128] Epoch   2  Batch   190/  418  loss: 0.9468  acc: 0.5418
+  [128x128] Epoch   2  Batch   200/  418  loss: 0.9468  acc: 0.5419
+  [128x128] Epoch   2  Batch   210/  418  loss: 0.9464  acc: 0.5426
+  [128x128] Epoch   2  Batch   220/  418  loss: 0.9457  acc: 0.5431
+  [128x128] Epoch   2  Batch   230/  418  loss: 0.9452  acc: 0.5437
+  [128x128] Epoch   2  Batch   240/  418  loss: 0.9447  acc: 0.5444
+  [128x128] Epoch   2  Batch   250/  418  loss: 0.9438  acc: 0.5452
+  [128x128] Epoch   2  Batch   260/  418  loss: 0.9432  acc: 0.5457
+  [128x128] Epoch   2  Batch   270/  418  loss: 0.9421  acc: 0.5464
+  [128x128] Epoch   2  Batch   280/  418  loss: 0.9415  acc: 0.5469
+  [128x128] Epoch   2  Batch   290/  418  loss: 0.9408  acc: 0.5476
+  [128x128] Epoch   2  Batch   300/  418  loss: 0.9399  acc: 0.5483
+  [128x128] Epoch   2  Batch   310/  418  loss: 0.9393  acc: 0.5489
+  [128x128] Epoch   2  Batch   320/  418  loss: 0.9387  acc: 0.5492
+  [128x128] Epoch   2  Batch   330/  418  loss: 0.9383  acc: 0.5497
+  [128x128] Epoch   2  Batch   340/  418  loss: 0.9378  acc: 0.5501
+  [128x128] Epoch   2  Batch   350/  418  loss: 0.9374  acc: 0.5504
+  [128x128] Epoch   2  Batch   360/  418  loss: 0.9367  acc: 0.5509
+  [128x128] Epoch   2  Batch   370/  418  loss: 0.9361  acc: 0.5513
+  [128x128] Epoch   2  Batch   380/  418  loss: 0.9355  acc: 0.5518
+  [128x128] Epoch   2  Batch   390/  418  loss: 0.9348  acc: 0.5524
+  [128x128] Epoch   2  Batch   400/  418  loss: 0.9343  acc: 0.5529
+  [128x128] Epoch   2  Batch   410/  418  loss: 0.9335  acc: 0.5536
+  [128x128] Epoch   2  Batch   418/  418  loss: 0.9332  acc: 0.5538
+[128x128] Epoch   2  loss: 0.9332  acc: 0.5538  |  val_loss: 0.8577  val_acc: 0.5947  |  lr: 4.00e-03  [104s]  |  VRAM 7.9/19.4GB  CUDA 95/98%(avg/max)  64/66°C  203W  |  CPU 19%  RAM 39.7/63.2GB  |  wait 1.6s/compute 90.9s
+  [EarlyStopping] 1/15
+  [128x128] Epoch   3  Batch    10/  418  loss: 0.9187  acc: 0.5625
+  [128x128] Epoch   3  Batch    20/  418  loss: 0.9144  acc: 0.5661
+  [128x128] Epoch   3  Batch    30/  418  loss: 0.9157  acc: 0.5675
+  [128x128] Epoch   3  Batch    40/  418  loss: 0.9134  acc: 0.5698
+  [128x128] Epoch   3  Batch    50/  418  loss: 0.9128  acc: 0.5704
+  [128x128] Epoch   3  Batch    60/  418  loss: 0.9123  acc: 0.5709
+  [128x128] Epoch   3  Batch    70/  418  loss: 0.9128  acc: 0.5702
+  [128x128] Epoch   3  Batch    80/  418  loss: 0.9118  acc: 0.5713
+  [128x128] Epoch   3  Batch    90/  418  loss: 0.9113  acc: 0.5713
+  [128x128] Epoch   3  Batch   100/  418  loss: 0.9097  acc: 0.5725
+  [128x128] Epoch   3  Batch   110/  418  loss: 0.9106  acc: 0.5719
+  [128x128] Epoch   3  Batch   120/  418  loss: 0.9094  acc: 0.5728
+  [128x128] Epoch   3  Batch   130/  418  loss: 0.9084  acc: 0.5735
+  [128x128] Epoch   3  Batch   140/  418  loss: 0.9075  acc: 0.5744
+  [128x128] Epoch   3  Batch   150/  418  loss: 0.9063  acc: 0.5753
+  [128x128] Epoch   3  Batch   160/  418  loss: 0.9062  acc: 0.5754
+  [128x128] Epoch   3  Batch   170/  418  loss: 0.9059  acc: 0.5757
+  [128x128] Epoch   3  Batch   180/  418  loss: 0.9054  acc: 0.5761
+  [128x128] Epoch   3  Batch   190/  418  loss: 0.9047  acc: 0.5765
+  [128x128] Epoch   3  Batch   200/  418  loss: 0.9043  acc: 0.5767
+  [128x128] Epoch   3  Batch   210/  418  loss: 0.9040  acc: 0.5770
+  [128x128] Epoch   3  Batch   220/  418  loss: 0.9036  acc: 0.5773
+  [128x128] Epoch   3  Batch   230/  418  loss: 0.9030  acc: 0.5776
+  [128x128] Epoch   3  Batch   240/  418  loss: 0.9024  acc: 0.5782
+  [128x128] Epoch   3  Batch   250/  418  loss: 0.9016  acc: 0.5789
+  [128x128] Epoch   3  Batch   260/  418  loss: 0.9009  acc: 0.5795
+  [128x128] Epoch   3  Batch   270/  418  loss: 0.9003  acc: 0.5799
+  [128x128] Epoch   3  Batch   280/  418  loss: 0.8996  acc: 0.5807
+  [128x128] Epoch   3  Batch   290/  418  loss: 0.8987  acc: 0.5813
+  [128x128] Epoch   3  Batch   300/  418  loss: 0.8979  acc: 0.5818
+  [128x128] Epoch   3  Batch   310/  418  loss: 0.8976  acc: 0.5818
+  [128x128] Epoch   3  Batch   320/  418  loss: 0.8970  acc: 0.5823
+  [128x128] Epoch   3  Batch   330/  418  loss: 0.8963  acc: 0.5829
+  [128x128] Epoch   3  Batch   340/  418  loss: 0.8956  acc: 0.5833
+  [128x128] Epoch   3  Batch   350/  418  loss: 0.8953  acc: 0.5834
+  [128x128] Epoch   3  Batch   360/  418  loss: 0.8949  acc: 0.5838
+  [128x128] Epoch   3  Batch   370/  418  loss: 0.8946  acc: 0.5841
+  [128x128] Epoch   3  Batch   380/  418  loss: 0.8942  acc: 0.5844
+  [128x128] Epoch   3  Batch   390/  418  loss: 0.8936  acc: 0.5848
+  [128x128] Epoch   3  Batch   400/  418  loss: 0.8932  acc: 0.5850
+  [128x128] Epoch   3  Batch   410/  418  loss: 0.8926  acc: 0.5854
+  [128x128] Epoch   3  Batch   418/  418  loss: 0.8924  acc: 0.5856
+[128x128] Epoch   3  loss: 0.8924  acc: 0.5856  |  val_loss: 0.7357  val_acc: 0.7238  |  lr: 3.99e-03  [105s]  |  VRAM 7.9/19.4GB  CUDA 91/95%(avg/max)  64/65°C  201W  |  CPU 20%  RAM 38.3/63.2GB  |  wait 1.6s/compute 91.6s
+  [Checkpoint] val_loss → 0.7357  saved
+  [128x128] Epoch   4  Batch    10/  418  loss: 0.8807  acc: 0.5983
+  [128x128] Epoch   4  Batch    20/  418  loss: 0.8801  acc: 0.5967
+  [128x128] Epoch   4  Batch    30/  418  loss: 0.8778  acc: 0.5961
+  [128x128] Epoch   4  Batch    40/  418  loss: 0.8744  acc: 0.5983
+  [128x128] Epoch   4  Batch    50/  418  loss: 0.8736  acc: 0.6000
+  [128x128] Epoch   4  Batch    60/  418  loss: 0.8749  acc: 0.5983

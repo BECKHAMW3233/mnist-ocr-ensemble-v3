@@ -3254,4 +3254,167 @@ now-unused-in-this-file code that could still be useful elsewhere.
   now including this one. William owns confirming this on real
   multi-GPU (ideally genuinely shared/contended) hardware before
   trusting it for an actual run.
+
+---
+
+## 2026-08-02 — run_all_training.ps1 training order changed: router first, then lowest-to-highest resolution, digit+uppercase+lowercase grouped per tier
+
+### What changed
+
+`run_all_training.ps1`: header comment and `$scripts` array reordered.
+Previous order: all 20 digit/router scripts first (16x16 -> 128x128,
+each resolution as soap -> adamw -> muon -> router), then all 24
+letter-identity scripts (28x28 -> 128x128, each resolution as uc-soap ->
+uc-adamw -> uc-muon -> lc-soap -> lc-adamw -> lc-muon) — i.e. digit/router
+entirely before letters. New order: all 5 router models first (16x16 ->
+128x128, ascending), then digit 16x16 (soap/adamw/muon — the USPS-only
+tier with no letter counterpart), then each remaining resolution tier as
+its own group in ascending order (28x28 -> 32x32 -> 64x64 -> 128x128),
+each group running digit (soap -> adamw -> muon), then uppercase
+(soap -> adamw -> muon), then lowercase (soap -> adamw -> muon) before
+moving to the next resolution. Pure reordering of the same 44 entries —
+no scripts added, removed, or renamed; the `foreach` loop's path-
+computation and skip-if-already-complete logic (added in the previous
+reorganization entry) is completely independent of array order and was
+not touched.
+
+### Why
+
+Direct instruction from William: run cheaper/lower-resolution tiers
+first, get the router (needed by every downstream UC/LC-routing
+decision) trained before anything else, and evaluate each resolution
+tier's digit + both letter cases together rather than finishing the
+entire digit/router sweep before starting any letter model — lets him
+see a complete cross-section (digit + uppercase + lowercase) at each
+resolution before committing more time to the next, more expensive tier.
+Directly follows from the earlier discussion in this same session about
+whether the 128x128 tier is worth its cost on consumer hardware — training
+it last (as its own final group) means that discussion's "128x128 is the
+one tier to reconsider" conclusion is reflected in execution order, not
+just discussed.
+
+### Source
+
+Direct instruction from William, given the exact ordering ("router
+models first... then digit 16x16... then digit 28x28 and also letters
+uc and lc 28x28... and so forth").
+
+### Verification
+
+- `[System.Management.Automation.Language.Parser]::ParseFile(...)` (pure
+  syntax parse, no execution) — clean.
+- Counted `.py` array entries via a line-anchored pattern (matching only
+  actual array-entry lines, not incidental comment text) — confirmed 44,
+  matching the total script count. A naive substring count without that
+  anchor initially flagged `v3_mnist_digit_soap_16.py` as appearing
+  twice; traced this down directly rather than assuming a real
+  duplicate — it's a single array entry (line 43) plus one unrelated
+  pre-existing comment (line 95, inside the `foreach` loop, illustrating
+  the path-computation logic with that filename as an example) — not a
+  duplicate entry, confirmed by reading both matched lines directly.
+- Not verified: an actual training run in the new order (would mean
+  running training — William's to run, per the project's Testing rule).
+
+---
+
+## 2026-08-02 — Telemetry CSV log now written incrementally every epoch, not once at the end
+
+### What changed
+
+All 44 training scripts (digit_models, uppercase_models, lowercase_models,
+router_models): moved the `save_log(history, cfg["log_path"])` call from
+a single end-of-run invocation (after the epoch loop exits and the final
+test-set evaluation completes) to inside the per-epoch loop, right after
+`history` is updated for that epoch (immediately after the
+`epoch_time_s` append, before the RAM/swap-safety checks). Removed the
+now-redundant end-of-run call. `common/cli_logging.py`'s `save_log()`
+itself is unchanged — it already rewrites the whole CSV (header + every
+row) from the complete `history` dict on each call, so no separate
+append-mode logic was needed: a resumed run restores `history` from the
+checkpoint (`_rs["history"]`, already containing every pre-resume epoch)
+before the loop continues, so the very next per-epoch write naturally
+reproduces the full history (old epochs + new) in one file — no risk of
+duplicate or missing rows.
+
+### Why
+
+William reported the CSV log for
+`router_models/v3_mnist_router_ranger_128.py` wasn't appearing after a
+run crashed / was interrupted. Investigation (comparing that run's
+output folder against a fully-completed `..._ranger_64` run's folder)
+showed `save_log()` only ever fired once, at the very end of a
+completed run — so a run that crashes or is stopped early never
+produces a CSV at all, even though per-epoch data was already being
+captured safely in `_resume.pt` via `save_resume_state()`. Direct
+instruction from William: the log needs to be generated and populated
+from the start of the run, and a resumed run needs to continue (not
+restart) that file.
+
+### Source
+
+Direct instruction from William. No external documentation involved —
+pure control-flow relocation within this project's own existing
+`save_log()`/`history` mechanism.
+
+### Verification
+
+- `git diff` confirms all 44 files received the identical mechanical
+  change (one new 8-space-indented `save_log()` call inserted right
+  after the `epoch_time_s` history append; the old 4-space-indented
+  end-of-loop call removed) — no unintended differences between files.
+- `python -m py_compile` on all 44 files — clean, no syntax errors.
+- Not verified: an actual training run confirming the CSV populates
+  live and correctly continues across a resume (would mean running
+  training — William's to run, per the project's Testing rule).
+
+---
+
+## 2026-08-02 — run_all_training.ps1: undid "all routers front-loaded" grouping, router-128 no longer trained before other tiers
+
+### What changed
+
+`run_all_training.ps1`: reordered `$scripts` again (superseding the
+immediately-preceding reorder entry above). Previous order ran all 5
+router models first (16x16 -> 128x128, ascending) as their own block
+before any digit/uppercase/lowercase model, then processed the
+remaining resolution tiers in ascending order. New order: one
+resolution tier at a time, ascending (16x16 -> 28x28 -> 32x32 -> 64x64
+-> 128x128); within each tier, router leads, then digit (soap -> adamw
+-> muon), then uppercase (soap -> adamw -> muon), then lowercase
+(soap -> adamw -> muon). The 128x128 tier — including
+`router_models\v3_mnist_router_ranger_128.py` — now runs entirely last,
+after every other tier is complete. Still 44 entries total, pure
+reordering — confirmed via a line-anchored count of actual array-entry
+lines (44), not comment text.
+
+### Why
+
+The immediately-preceding reorder (entry above) had pulled ALL 5 router
+resolutions, including router-128, into a single block ahead of every
+other model — William did not ask for this; his actual instruction was
+that 128x128 (every category, router included) trains last, with router
+leading only within each tier it belongs to (needed for downstream
+UC/LC routing decisions at that resolution), not that every router
+resolution jumps the queue ahead of lower-resolution digit/letter
+models. William caught this directly: "128x128 was always supposed to
+be last even as a router model... I never asked for the 128x128 router
+model training to happen before all the other models."
+
+### Source
+
+Direct instruction from William, correcting the prior reorder's
+over-broad interpretation of "router models first."
+
+### Verification
+
+- `[System.Management.Automation.Language.Parser]::ParseFile(...)` (pure
+  syntax parse, no execution) — clean.
+- Counted actual array-entry lines via a line-anchored pattern (only
+  lines starting with an indented `"..._models\...py"`, excluding
+  comment text) — confirmed 44.
+- Confirmed `router_models\v3_mnist_router_ranger_128.py` is the first
+  entry within the 128x128 tier block, and that block is the last group
+  in the array.
+- Not verified: an actual training run in this order (would mean
+  running training — William's to run, per the project's Testing rule).
 

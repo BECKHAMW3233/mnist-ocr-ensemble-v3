@@ -612,6 +612,14 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             history.setdefault(hw_key, []).append(hw_val)
         history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
 
+        # Write/update the CSV after every epoch (not just at the end) so it
+        # exists from the first completed epoch and survives a crash or
+        # manual stop. A resumed run's `history` already contains the
+        # pre-resume epochs (restored from the checkpoint above), so this
+        # naturally continues the same file rather than needing separate
+        # append logic.
+        save_log(history, cfg["log_path"])
+
         if device.type == "cpu" and HAS_PSUTIL:
             _swap_used_gb = round(psutil.swap_memory().used / 1024**3, 3)
             _free_ram_gb  = psutil.virtual_memory().available / 1024**3
@@ -652,7 +660,6 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
     print(f"{'='*40}")
 
     plot_history(history, cfg["plot_path"], img_size, title="Letter Identity Ensemble (Lowercase) SOAP")
-    save_log(history, cfg["log_path"])
     if is_main_process():
         # unwrap_model(): see common/distributed.py — a DDP-wrapped
         # model.state_dict() has "module."-prefixed keys, which would
