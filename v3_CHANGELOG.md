@@ -3417,4 +3417,43 @@ over-broad interpretation of "router models first."
   in the array.
 - Not verified: an actual training run in this order (would mean
   running training — William's to run, per the project's Testing rule).
+
+---
+
+## 2026-08-06 — README's "Current repo contents" section updated to reflect actual training progress
+
+### What changed
+
+`README.md`: rewrote the "Current repo contents (as of this writing)"
+section (previously stated, inaccurately, that no model had any trained
+output). Now lists actual state: 26 of 44 scripts complete, 2
+partial/interrupted (`v3_mnist_digit_adamw_64`, resumable but no
+`.onnx` yet; `v3_mnist_router_ranger_128`, two interrupted attempts,
+no completed checkpoint), 16 never run. Updated the directory tree's
+per-model annotations to match. No code changed — documentation only.
+
+### Why
+
+Per William's direct instruction, after the previous "no model has
+trained artifacts" text was found to be stale.
+
+### Source
+
+Read directly from `E:\mnist_v3`'s actual files — `git status`
+(modified/untracked file list), then each output directory's contents
+(`.onnx`/`.pt`/`.csv`/`.png`/CLI transcript presence or absence) checked
+individually per model, not sampled. Not sourced from any external
+documentation — pure on-disk verification.
+
+### Verification
+
+- Cross-checked every one of the 44 model output directories against
+  the categorization used in the new README text (complete / partial /
+  never-run) — confirmed by direct `ls` of each directory, not inferred
+  from file counts alone (e.g. `adamw_64`'s presence of `_resume.pt`
+  and absence of `.onnx` was checked explicitly to classify it as
+  partial rather than complete).
+- Not verified: whether the two partial runs (`adamw_64`,
+  `ranger_128`) will complete successfully if resumed — that's a
+  training outcome, not something checkable by reading files.
 

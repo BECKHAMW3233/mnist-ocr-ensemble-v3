@@ -229,16 +229,45 @@ mnist-ocr-ensemble-v3/
 
 ### Current repo contents (as of this writing)
 
-**All 44 training scripts exist and are ready to run.** Every model's
-output directory currently exists but is empty — **no model has trained
-artifacts right now.** This project was reorganized into the four
-folders above on 2026-08-02; during that reorganization, the real
-trained content (`.onnx`/`.csv`/`.png`/CLI transcripts) that previously
-existed for several digit and router models was lost by a mechanism that
-could not be conclusively identified (see `v3_CHANGELOG.md`'s
-reorganization entry for the full, honest account of what was checked
-and ruled out). Every model — digit, router, and letter-identity alike —
-needs a fresh training run.
+**Training is well underway.** 26 of the 44 scripts now have a complete
+trained output (`.onnx`/`.csv`/`.png`/CLI transcript(s) all present); 2
+more have partial/interrupted runs; the remaining 16 are still
+untrained. This project was reorganized into the four folders above on
+2026-08-02; during that reorganization, the real trained content that
+previously existed for several digit and router models was lost by a
+mechanism that could not be conclusively identified (see
+`v3_CHANGELOG.md`'s reorganization entry for the full, honest account of
+what was checked and ruled out) — every artifact below was retrained
+after that loss, not recovered.
+
+**Complete — digit (10 of 15):** `v3_mnist_digit_soap_16`, `_soap_28`,
+`_soap_32`, `_soap_64`, `_adamw_16`, `_adamw_28`, `_adamw_32`,
+`_muon_16`, `_muon_28`, `_muon_32`.
+
+**Complete — router (4 of 5):** `v3_mnist_router_ranger_16`, `_28`,
+`_32`, `_64`.
+
+**Complete — uppercase letters (6 of 12):** `v3_mnist_letter_uc_soap_28`,
+`_soap_32`, `_adamw_28`, `_adamw_32`, `_muon_28`, `_muon_32`.
+
+**Complete — lowercase letters (6 of 12):** `v3_mnist_letter_lc_soap_28`,
+`_soap_32`, `_adamw_28`, `_adamw_32`, `_muon_28`, `_muon_32`.
+
+**Partial / interrupted:**
+- `v3_mnist_digit_adamw_64` — has `_best.pt` and `_resume.pt` (i.e. it's
+  resumable) plus a `log.csv` and CLI transcript, but no `.onnx`,
+  `_final.pt`, or `curves.png` yet — stopped before completion.
+- `v3_mnist_router_ranger_128` — two separate interrupted attempts
+  (`..._cli_20260802_181629.txt` stops mid-epoch-3;
+  `..._cli_20260802_185035.txt` stops mid-epoch-10), neither produced a
+  `.onnx`, `log.csv`, or `curves.png`. Both attempts predate the
+  per-epoch CSV-write fix described in `v3_CHANGELOG.md`'s telemetry
+  entry — this is the same missing-log run that entry was written about.
+
+**Never run (16):** digit `_soap_128`, `_adamw_128`, `_muon_64`,
+`_muon_128`; and, for both uppercase and lowercase, the `_soap_64`,
+`_soap_128`, `_adamw_64`, `_adamw_128`, `_muon_64`, `_muon_128` combos —
+script exists, no output directory yet.
 
 ```
 mnist-ocr-ensemble-v3/
@@ -267,72 +296,85 @@ mnist-ocr-ensemble-v3/
 ├── historical_data/
 │   └── claude_code_prompt.md          # archived prompt from an earlier session — kept for reference only
 │
-├── digit_models/                      # 15 scripts, all present — every output dir exists, empty
+├── digit_models/                      # 15 scripts — 10 complete, 1 partial, 4 never run
 │   ├── v3_mnist_digit_soap_16.py
-│   ├── v3_mnist_digit_soap_16/          # (empty — needs training)
+│   ├── v3_mnist_digit_soap_16/          # COMPLETE
 │   ├── v3_mnist_digit_soap_28.py
-│   ├── v3_mnist_digit_soap_28/          # (empty)
+│   ├── v3_mnist_digit_soap_28/          # COMPLETE
 │   ├── v3_mnist_digit_soap_32.py
-│   ├── v3_mnist_digit_soap_32/          # (empty)
+│   ├── v3_mnist_digit_soap_32/          # COMPLETE
 │   ├── v3_mnist_digit_soap_64.py
-│   ├── v3_mnist_digit_soap_64/          # (empty)
+│   ├── v3_mnist_digit_soap_64/          # COMPLETE
 │   ├── v3_mnist_digit_soap_128.py        # (never run — no directory)
 │   ├── v3_mnist_digit_adamw_16.py
-│   ├── v3_mnist_digit_adamw_16/         # (empty)
+│   ├── v3_mnist_digit_adamw_16/         # COMPLETE
 │   ├── v3_mnist_digit_adamw_28.py
-│   ├── v3_mnist_digit_adamw_28/         # (empty)
+│   ├── v3_mnist_digit_adamw_28/         # COMPLETE
 │   ├── v3_mnist_digit_adamw_32.py
-│   ├── v3_mnist_digit_adamw_32/         # (empty)
+│   ├── v3_mnist_digit_adamw_32/         # COMPLETE
 │   ├── v3_mnist_digit_adamw_64.py
-│   ├── v3_mnist_digit_adamw_64/         # (empty)
+│   ├── v3_mnist_digit_adamw_64/         # PARTIAL — resumable, no onnx yet
 │   ├── v3_mnist_digit_adamw_128.py       # (never run — no directory)
 │   ├── v3_mnist_digit_muon_16.py
-│   ├── v3_mnist_digit_muon_16/          # (empty)
+│   ├── v3_mnist_digit_muon_16/          # COMPLETE
 │   ├── v3_mnist_digit_muon_28.py
-│   ├── v3_mnist_digit_muon_28/          # (empty)
+│   ├── v3_mnist_digit_muon_28/          # COMPLETE
 │   ├── v3_mnist_digit_muon_32.py
-│   ├── v3_mnist_digit_muon_32/          # (empty)
+│   ├── v3_mnist_digit_muon_32/          # COMPLETE
 │   ├── v3_mnist_digit_muon_64.py         # (never run — no directory)
 │   └── v3_mnist_digit_muon_128.py        # (never run — no directory)
 │
-├── router_models/                     # 5 scripts, all present — every output dir exists, empty
+├── router_models/                     # 5 scripts — 4 complete, 1 with two interrupted attempts
 │   ├── v3_mnist_router_ranger_16.py
-│   ├── v3_mnist_router_ranger_16/       # (empty — needs training)
+│   ├── v3_mnist_router_ranger_16/       # COMPLETE
 │   ├── v3_mnist_router_ranger_28.py
-│   ├── v3_mnist_router_ranger_28/       # (empty)
+│   ├── v3_mnist_router_ranger_28/       # COMPLETE
 │   ├── v3_mnist_router_ranger_32.py
-│   ├── v3_mnist_router_ranger_32/       # (empty)
+│   ├── v3_mnist_router_ranger_32/       # COMPLETE
 │   ├── v3_mnist_router_ranger_64.py
-│   ├── v3_mnist_router_ranger_64/       # (empty)
-│   └── v3_mnist_router_ranger_128.py     # (never run — no directory)
+│   ├── v3_mnist_router_ranger_64/       # COMPLETE
+│   ├── v3_mnist_router_ranger_128.py
+│   └── v3_mnist_router_ranger_128/      # two interrupted attempts — no onnx/log.csv/curves.png yet
 │
-├── uppercase_models/                  # 12 scripts, all present — none ever trained, no directories yet
+├── uppercase_models/                  # 12 scripts — 6 complete, 6 never run
 │   ├── v3_mnist_letter_uc_soap_28.py
+│   ├── v3_mnist_letter_uc_soap_28/      # COMPLETE
 │   ├── v3_mnist_letter_uc_soap_32.py
-│   ├── v3_mnist_letter_uc_soap_64.py
-│   ├── v3_mnist_letter_uc_soap_128.py
+│   ├── v3_mnist_letter_uc_soap_32/      # COMPLETE
+│   ├── v3_mnist_letter_uc_soap_64.py     # (never run — no directory)
+│   ├── v3_mnist_letter_uc_soap_128.py    # (never run — no directory)
 │   ├── v3_mnist_letter_uc_adamw_28.py
+│   ├── v3_mnist_letter_uc_adamw_28/     # COMPLETE
 │   ├── v3_mnist_letter_uc_adamw_32.py
-│   ├── v3_mnist_letter_uc_adamw_64.py
-│   ├── v3_mnist_letter_uc_adamw_128.py
+│   ├── v3_mnist_letter_uc_adamw_32/     # COMPLETE
+│   ├── v3_mnist_letter_uc_adamw_64.py    # (never run — no directory)
+│   ├── v3_mnist_letter_uc_adamw_128.py   # (never run — no directory)
 │   ├── v3_mnist_letter_uc_muon_28.py
+│   ├── v3_mnist_letter_uc_muon_28/      # COMPLETE
 │   ├── v3_mnist_letter_uc_muon_32.py
-│   ├── v3_mnist_letter_uc_muon_64.py
-│   └── v3_mnist_letter_uc_muon_128.py
+│   ├── v3_mnist_letter_uc_muon_32/      # COMPLETE
+│   ├── v3_mnist_letter_uc_muon_64.py     # (never run — no directory)
+│   └── v3_mnist_letter_uc_muon_128.py    # (never run — no directory)
 │
-└── lowercase_models/                  # 12 scripts, all present — none ever trained, no directories yet
+└── lowercase_models/                  # 12 scripts — 6 complete, 6 never run
     ├── v3_mnist_letter_lc_soap_28.py
+    ├── v3_mnist_letter_lc_soap_28/      # COMPLETE
     ├── v3_mnist_letter_lc_soap_32.py
-    ├── v3_mnist_letter_lc_soap_64.py
-    ├── v3_mnist_letter_lc_soap_128.py
+    ├── v3_mnist_letter_lc_soap_32/      # COMPLETE
+    ├── v3_mnist_letter_lc_soap_64.py     # (never run — no directory)
+    ├── v3_mnist_letter_lc_soap_128.py    # (never run — no directory)
     ├── v3_mnist_letter_lc_adamw_28.py
+    ├── v3_mnist_letter_lc_adamw_28/     # COMPLETE
     ├── v3_mnist_letter_lc_adamw_32.py
-    ├── v3_mnist_letter_lc_adamw_64.py
-    ├── v3_mnist_letter_lc_adamw_128.py
+    ├── v3_mnist_letter_lc_adamw_32/     # COMPLETE
+    ├── v3_mnist_letter_lc_adamw_64.py    # (never run — no directory)
+    ├── v3_mnist_letter_lc_adamw_128.py   # (never run — no directory)
     ├── v3_mnist_letter_lc_muon_28.py
+    ├── v3_mnist_letter_lc_muon_28/      # COMPLETE
     ├── v3_mnist_letter_lc_muon_32.py
-    ├── v3_mnist_letter_lc_muon_64.py
-    └── v3_mnist_letter_lc_muon_128.py
+    ├── v3_mnist_letter_lc_muon_32/      # COMPLETE
+    ├── v3_mnist_letter_lc_muon_64.py     # (never run — no directory)
+    └── v3_mnist_letter_lc_muon_128.py    # (never run — no directory)
 ```
 
 `__pycache__/` directories under each model folder and under `common/`,

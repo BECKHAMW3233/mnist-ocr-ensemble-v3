@@ -1,0 +1,834 @@
+
+======================================================================
+[Session start] 2026-08-04T07:59:23
+======================================================================
+
+############################################################
+  MNIST DIGIT ENSEMBLE — SOAP 32x32
+  Seed: GLOBAL_SEED=42 (override with MNIST_SEED env var)
+############################################################
+
+[CPU] 24 logical cores detected — reserving 6 (25%) for the OS, 18 usable (this machine's NUM_WORKERS = 18 DataLoader workers; also the thread count torch.set_num_threads() uses on CPU-only runs)
+[Device] GPU 0/0: NVIDIA GeForce RTX 4080  |  16.0 GB VRAM  |  CUDA 13.0  |  AMP: False
+[Startup VRAM] GPU 0: 979 MB / 16376 MB in use before this script has allocated anything
+[Startup VRAM] Something is using GPU memory, but Windows' WDDM driver mode doesn't expose which process to nvidia-smi (check Task Manager's Performance > GPU tab instead).
+[Batch] Auto-detecting batch size for 32x32 (10 real training steps per candidate, bottom-up with binary-search refinement)...
+[Batch] Batch size 64 — OK (10 real steps completed)
+[Batch] Batch size 128 — OK (10 real steps completed)
+[Batch] Batch size 256 — OK (10 real steps completed)
+[Batch] Batch size 512 — OK (10 real steps completed)
+[Batch] Batch size 1024 — OK (10 real steps completed)
+[Batch] Batch size 2048 — OK (10 real steps completed)
+[Batch] Batch size 3584 — failed (RuntimeError), trying next
+[Batch] Bracket found: 2048 works, 3584 fails — refining...
+[Batch] Batch size 2816 — failed (RuntimeError), trying next
+[Batch] Batch size 2432 — failed (RuntimeError), trying next
+[Batch] Batch size 2240 — OK (10 real steps completed)
+[Batch] Batch size 2336 — OK (10 real steps completed)
+[Batch] Batch size 2384 — failed (RuntimeError), trying next
+[Batch] Batch size 2360 — failed (RuntimeError), trying next
+[Batch] Batch size 2352 — failed (RuntimeError), trying next
+[Batch] Batch size 2344 — failed (RuntimeError), trying next
+[Batch] Refined to batch size 2336 (largest confirmed-working, within 8 of the true VRAM ceiling)
+============================================================
+  MNIST Digit Ensemble — SOAP  [32x32]
+  PyTorch 2.13.0+cu130  |  AMP: False (SOAP requires float32)
+  Output: E:\mnist_v3\digit_models\v3_mnist_digit_soap_32
+  Resolution: 32x32  |  Batch: 2336 (auto-detected)
+  Optimizer: SOAP (Shampoo + Adam, Kronecker-factored second-order)
+  Digit sources this tier: {'use_digits': True, 'use_mnist': True, 'use_usps': True, 'use_svhn': True, 'use_ardis': True, 'use_balanced': False, 'use_kaggle': False, 'use_chars_hnd': False, 'use_chars_img': False, 'use_pghwld': False}
+  Normalization: [0,1]
+============================================================
+[Dataset] Loading MNIST (via supplementary_data.load_base_mnist)...
+[Dataset] Train: 51,000  |  Val: 9,000  |  Test: 10,000
+  [Supplementary] ARDIS IV:        7,600 samples (Swedish historical digits)
+  [Supplementary] EMNIST Digits:   240,000 samples
+  [Supplementary] MNIST:           60,000 samples
+  [Supplementary] USPS:            7,291 samples
+  [Supplementary] SVHN:            73,257 samples
+  [Supplementary] Total supplementary samples: 388,148
+  [Weights] Combined: 439,148 samples
+  [Weights] Class weight range:  0.000019 — 0.000024
+  [Weights] Digit weight range:  0.000019 — 0.000024
+[Dataset] Combined: 439,148 samples
+
+[Model] OCRConvNetTriplePyramid — 32x32
+  Parameters : 7,573,482
+  Est. size  : 28.9 MB (float32)
+[Optimizer] SOAP  lr=0.001  betas=(0.95, 0.95)  wd=0.0005  precond_freq=100
+            warmup_steps=500  total_steps=37,600
+
+[Train] Starting 32x32 — no epoch cap | batch: 2336 | patience: 20
+[Resume] Loaded from epoch 187 (val_loss=0.2824, patience=2/20)
+[Resume] Continuing from epoch 188
+  [32x32] Epoch 188  Batch     5/  188  loss: 0.2872  acc: 0.9985
+  [32x32] Epoch 188  Batch    10/  188  loss: 0.2866  acc: 0.9988
+  [32x32] Epoch 188  Batch    15/  188  loss: 0.2866  acc: 0.9988
+  [32x32] Epoch 188  Batch    20/  188  loss: 0.2867  acc: 0.9988
+  [32x32] Epoch 188  Batch    25/  188  loss: 0.2869  acc: 0.9988
+  [32x32] Epoch 188  Batch    30/  188  loss: 0.2869  acc: 0.9988
+  [32x32] Epoch 188  Batch    35/  188  loss: 0.2865  acc: 0.9989
+  [32x32] Epoch 188  Batch    40/  188  loss: 0.2865  acc: 0.9989
+  [32x32] Epoch 188  Batch    45/  188  loss: 0.2864  acc: 0.9989
+  [32x32] Epoch 188  Batch    50/  188  loss: 0.2865  acc: 0.9989
+  [32x32] Epoch 188  Batch    55/  188  loss: 0.2865  acc: 0.9988
+  [32x32] Epoch 188  Batch    60/  188  loss: 0.2866  acc: 0.9988
+  [32x32] Epoch 188  Batch    65/  188  loss: 0.2864  acc: 0.9989
+  [32x32] Epoch 188  Batch    70/  188  loss: 0.2863  acc: 0.9989
+  [32x32] Epoch 188  Batch    75/  188  loss: 0.2862  acc: 0.9989
+  [32x32] Epoch 188  Batch    80/  188  loss: 0.2862  acc: 0.9989
+  [32x32] Epoch 188  Batch    85/  188  loss: 0.2862  acc: 0.9989
+  [32x32] Epoch 188  Batch    90/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 188  Batch    95/  188  loss: 0.2861  acc: 0.9990
+  [32x32] Epoch 188  Batch   100/  188  loss: 0.2861  acc: 0.9990
+  [32x32] Epoch 188  Batch   105/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 188  Batch   110/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   115/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   120/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   125/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   130/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 188  Batch   135/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   140/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   145/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   150/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   155/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   160/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   165/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   170/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   175/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   180/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   185/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 188  Batch   188/  188  loss: 0.2859  acc: 0.9990
+[32x32] Epoch 188  loss: 0.2859  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 9.10e-06  [96s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  60/62°C  218W  |  CPU 18%  RAM 29.6/63.2GB  |  wait 85.2s/compute 9.8s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 3/20
+  [32x32] Epoch 189  Batch     5/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch    10/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 189  Batch    15/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 189  Batch    20/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 189  Batch    25/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 189  Batch    30/  188  loss: 0.2859  acc: 0.9989
+  [32x32] Epoch 189  Batch    35/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 189  Batch    40/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 189  Batch    45/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch    50/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch    55/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch    60/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch    65/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 189  Batch    70/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch    75/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 189  Batch    80/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 189  Batch    85/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 189  Batch    90/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 189  Batch    95/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 189  Batch   100/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch   105/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch   110/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 189  Batch   115/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 189  Batch   120/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   125/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   130/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   135/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   140/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   145/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 189  Batch   150/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   155/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   160/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   165/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   170/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   175/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   180/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   185/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 189  Batch   188/  188  loss: 0.2859  acc: 0.9990
+[32x32] Epoch 189  loss: 0.2859  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 7.66e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  64/68°C  222W  |  CPU 20%  RAM 29.6/63.2GB  |  wait 38.5s/compute 9.8s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 4/20
+  [32x32] Epoch 190  Batch     5/  188  loss: 0.2854  acc: 0.9994
+  [32x32] Epoch 190  Batch    10/  188  loss: 0.2853  acc: 0.9994
+  [32x32] Epoch 190  Batch    15/  188  loss: 0.2852  acc: 0.9993
+  [32x32] Epoch 190  Batch    20/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 190  Batch    25/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 190  Batch    30/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 190  Batch    35/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch    40/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 190  Batch    45/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 190  Batch    50/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 190  Batch    55/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 190  Batch    60/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch    65/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch    70/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 190  Batch    75/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch    80/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch    85/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 190  Batch    90/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch    95/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch   100/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   110/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 190  Batch   115/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   120/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   125/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   135/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   140/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   145/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   150/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   155/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   160/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   165/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 190  Batch   170/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 190  Batch   175/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 190  Batch   180/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 190  Batch   185/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 190  Batch   188/  188  loss: 0.2856  acc: 0.9991
+[32x32] Epoch 190  loss: 0.2856  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 6.34e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  68/70°C  225W  |  CPU 21%  RAM 29.6/63.2GB  |  wait 38.6s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 5/20
+  [32x32] Epoch 191  Batch     5/  188  loss: 0.2870  acc: 0.9985
+  [32x32] Epoch 191  Batch    10/  188  loss: 0.2857  acc: 0.9989
+  [32x32] Epoch 191  Batch    15/  188  loss: 0.2857  acc: 0.9989
+  [32x32] Epoch 191  Batch    20/  188  loss: 0.2859  acc: 0.9989
+  [32x32] Epoch 191  Batch    25/  188  loss: 0.2860  acc: 0.9988
+  [32x32] Epoch 191  Batch    30/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 191  Batch    35/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch    40/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch    45/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch    50/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 191  Batch    55/  188  loss: 0.2861  acc: 0.9989
+  [32x32] Epoch 191  Batch    60/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 191  Batch    65/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 191  Batch    70/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch    75/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch    80/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch    85/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch    90/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch    95/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   100/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   105/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   110/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   115/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   120/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   125/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 191  Batch   130/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   135/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   140/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 191  Batch   145/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   150/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   155/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   160/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   165/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   170/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   175/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   180/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   185/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 191  Batch   188/  188  loss: 0.2858  acc: 0.9990
+[32x32] Epoch 191  loss: 0.2858  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 5.15e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 100/100%(avg/max)  68/70°C  224W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.8s/compute 9.4s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 6/20
+  [32x32] Epoch 192  Batch     5/  188  loss: 0.2855  acc: 0.9993
+  [32x32] Epoch 192  Batch    10/  188  loss: 0.2857  acc: 0.9992
+  [32x32] Epoch 192  Batch    15/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 192  Batch    20/  188  loss: 0.2851  acc: 0.9993
+  [32x32] Epoch 192  Batch    25/  188  loss: 0.2853  acc: 0.9993
+  [32x32] Epoch 192  Batch    30/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 192  Batch    35/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 192  Batch    40/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 192  Batch    45/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch    50/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch    55/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch    60/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch    65/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch    70/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch    75/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch    80/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch    85/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch    90/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch    95/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   100/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 192  Batch   105/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 192  Batch   110/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   115/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   120/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   125/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   135/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   140/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   145/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   150/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   155/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 192  Batch   160/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   165/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   170/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   175/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   180/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   185/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 192  Batch   188/  188  loss: 0.2856  acc: 0.9991
+[32x32] Epoch 192  loss: 0.2856  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 4.08e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  69/71°C  226W  |  CPU 21%  RAM 29.4/63.2GB  |  wait 38.8s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 7/20
+  [32x32] Epoch 193  Batch     5/  188  loss: 0.2833  acc: 0.9997
+  [32x32] Epoch 193  Batch    10/  188  loss: 0.2841  acc: 0.9994
+  [32x32] Epoch 193  Batch    15/  188  loss: 0.2842  acc: 0.9993
+  [32x32] Epoch 193  Batch    20/  188  loss: 0.2845  acc: 0.9993
+  [32x32] Epoch 193  Batch    25/  188  loss: 0.2847  acc: 0.9992
+  [32x32] Epoch 193  Batch    30/  188  loss: 0.2851  acc: 0.9991
+  [32x32] Epoch 193  Batch    35/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch    40/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch    45/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 193  Batch    50/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 193  Batch    55/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 193  Batch    60/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 193  Batch    65/  188  loss: 0.2851  acc: 0.9991
+  [32x32] Epoch 193  Batch    70/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 193  Batch    75/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch    80/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch    85/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch    90/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch    95/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 193  Batch   100/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch   105/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch   110/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch   115/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch   120/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 193  Batch   125/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 193  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 193  Batch   135/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 193  Batch   140/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 193  Batch   145/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   150/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   155/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   160/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   165/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   170/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   175/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   180/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   185/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 193  Batch   188/  188  loss: 0.2856  acc: 0.9991
+[32x32] Epoch 193  loss: 0.2856  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 3.13e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 97/100%(avg/max)  69/72°C  224W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.7s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 8/20
+  [32x32] Epoch 194  Batch     5/  188  loss: 0.2850  acc: 0.9991
+  [32x32] Epoch 194  Batch    10/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 194  Batch    15/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 194  Batch    20/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 194  Batch    25/  188  loss: 0.2850  acc: 0.9993
+  [32x32] Epoch 194  Batch    30/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 194  Batch    35/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 194  Batch    40/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 194  Batch    45/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    50/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    55/  188  loss: 0.2856  acc: 0.9992
+  [32x32] Epoch 194  Batch    60/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    65/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    70/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    75/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch    80/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 194  Batch    85/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch    90/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 194  Batch    95/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 194  Batch   100/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   105/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   110/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   115/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   120/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   125/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   130/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   135/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   140/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 194  Batch   145/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   150/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   155/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   160/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   165/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   170/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   175/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   180/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   185/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 194  Batch   188/  188  loss: 0.2857  acc: 0.9991
+[32x32] Epoch 194  loss: 0.2857  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 2.31e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  69/71°C  225W  |  CPU 21%  RAM 29.4/63.2GB  |  wait 38.7s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 9/20
+  [32x32] Epoch 195  Batch     5/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 195  Batch    10/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 195  Batch    15/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 195  Batch    20/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    25/  188  loss: 0.2855  acc: 0.9990
+  [32x32] Epoch 195  Batch    30/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    35/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch    40/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    45/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    50/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    55/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch    60/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch    65/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch    70/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 195  Batch    75/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 195  Batch    80/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 195  Batch    85/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 195  Batch    90/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 195  Batch    95/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 195  Batch   100/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 195  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   110/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   115/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   120/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   125/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   135/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   140/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   145/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   150/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   155/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   160/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   165/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   170/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   175/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 195  Batch   180/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   185/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 195  Batch   188/  188  loss: 0.2854  acc: 0.9991
+[32x32] Epoch 195  loss: 0.2854  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.61e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  71/72°C  227W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.6s/compute 9.7s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 10/20
+  [32x32] Epoch 196  Batch     5/  188  loss: 0.2872  acc: 0.9988
+  [32x32] Epoch 196  Batch    10/  188  loss: 0.2863  acc: 0.9990
+  [32x32] Epoch 196  Batch    15/  188  loss: 0.2863  acc: 0.9989
+  [32x32] Epoch 196  Batch    20/  188  loss: 0.2863  acc: 0.9990
+  [32x32] Epoch 196  Batch    25/  188  loss: 0.2862  acc: 0.9990
+  [32x32] Epoch 196  Batch    30/  188  loss: 0.2861  acc: 0.9990
+  [32x32] Epoch 196  Batch    35/  188  loss: 0.2860  acc: 0.9991
+  [32x32] Epoch 196  Batch    40/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 196  Batch    45/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 196  Batch    50/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch    55/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 196  Batch    60/  188  loss: 0.2859  acc: 0.9991
+  [32x32] Epoch 196  Batch    65/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 196  Batch    70/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 196  Batch    75/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 196  Batch    80/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch    85/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch    90/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch    95/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   100/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 196  Batch   105/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 196  Batch   110/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 196  Batch   115/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 196  Batch   120/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   125/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   130/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   135/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   140/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   145/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   150/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   155/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   160/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   165/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   170/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   175/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   180/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   185/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 196  Batch   188/  188  loss: 0.2858  acc: 0.9990
+[32x32] Epoch 196  loss: 0.2858  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.04e-06  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  70/73°C  225W  |  CPU 21%  RAM 29.4/63.2GB  |  wait 38.6s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 11/20
+  [32x32] Epoch 197  Batch     5/  188  loss: 0.2843  acc: 0.9992
+  [32x32] Epoch 197  Batch    10/  188  loss: 0.2851  acc: 0.9991
+  [32x32] Epoch 197  Batch    15/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 197  Batch    20/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 197  Batch    25/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch    30/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 197  Batch    35/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch    40/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 197  Batch    45/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 197  Batch    50/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 197  Batch    55/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 197  Batch    60/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 197  Batch    65/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 197  Batch    70/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 197  Batch    75/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 197  Batch    80/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 197  Batch    85/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 197  Batch    90/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch    95/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 197  Batch   100/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 197  Batch   110/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 197  Batch   115/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch   120/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 197  Batch   125/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch   130/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch   135/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 197  Batch   140/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 197  Batch   145/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch   150/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch   155/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch   160/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch   165/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 197  Batch   170/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 197  Batch   175/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 197  Batch   180/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 197  Batch   185/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 197  Batch   188/  188  loss: 0.2857  acc: 0.9991
+[32x32] Epoch 197  loss: 0.2857  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 5.91e-07  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  70/72°C  224W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.6s/compute 9.7s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 12/20
+  [32x32] Epoch 198  Batch     5/  188  loss: 0.2846  acc: 0.9993
+  [32x32] Epoch 198  Batch    10/  188  loss: 0.2846  acc: 0.9994
+  [32x32] Epoch 198  Batch    15/  188  loss: 0.2844  acc: 0.9995
+  [32x32] Epoch 198  Batch    20/  188  loss: 0.2843  acc: 0.9995
+  [32x32] Epoch 198  Batch    25/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 198  Batch    30/  188  loss: 0.2848  acc: 0.9994
+  [32x32] Epoch 198  Batch    35/  188  loss: 0.2846  acc: 0.9994
+  [32x32] Epoch 198  Batch    40/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 198  Batch    45/  188  loss: 0.2849  acc: 0.9993
+  [32x32] Epoch 198  Batch    50/  188  loss: 0.2849  acc: 0.9993
+  [32x32] Epoch 198  Batch    55/  188  loss: 0.2850  acc: 0.9993
+  [32x32] Epoch 198  Batch    60/  188  loss: 0.2850  acc: 0.9993
+  [32x32] Epoch 198  Batch    65/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 198  Batch    70/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 198  Batch    75/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 198  Batch    80/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 198  Batch    85/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 198  Batch    90/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 198  Batch    95/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 198  Batch   100/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 198  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 198  Batch   110/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   115/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   120/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   125/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   130/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   135/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   140/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   145/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   150/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   155/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   160/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   165/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   170/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   175/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 198  Batch   180/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 198  Batch   185/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 198  Batch   188/  188  loss: 0.2856  acc: 0.9991
+[32x32] Epoch 198  loss: 0.2856  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 2.69e-07  [49s]  |  VRAM 11.1/14.4GB  CUDA 100/100%(avg/max)  69/70°C  228W  |  CPU 21%  RAM 29.4/63.2GB  |  wait 38.7s/compute 9.7s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 13/20
+  [32x32] Epoch 199  Batch     5/  188  loss: 0.2845  acc: 0.9994
+  [32x32] Epoch 199  Batch    10/  188  loss: 0.2847  acc: 0.9994
+  [32x32] Epoch 199  Batch    15/  188  loss: 0.2846  acc: 0.9994
+  [32x32] Epoch 199  Batch    20/  188  loss: 0.2846  acc: 0.9994
+  [32x32] Epoch 199  Batch    25/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 199  Batch    30/  188  loss: 0.2850  acc: 0.9993
+  [32x32] Epoch 199  Batch    35/  188  loss: 0.2849  acc: 0.9993
+  [32x32] Epoch 199  Batch    40/  188  loss: 0.2850  acc: 0.9992
+  [32x32] Epoch 199  Batch    45/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 199  Batch    50/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 199  Batch    55/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 199  Batch    60/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 199  Batch    65/  188  loss: 0.2852  acc: 0.9992
+  [32x32] Epoch 199  Batch    70/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 199  Batch    75/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 199  Batch    80/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 199  Batch    85/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 199  Batch    90/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 199  Batch    95/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 199  Batch   100/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   110/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   115/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   120/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 199  Batch   125/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 199  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   135/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   140/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   145/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   150/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   155/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   160/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 199  Batch   165/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 199  Batch   170/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 199  Batch   175/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 199  Batch   180/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 199  Batch   185/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 199  Batch   188/  188  loss: 0.2856  acc: 0.9991
+[32x32] Epoch 199  loss: 0.2856  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 7.26e-08  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  68/69°C  227W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.6s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 14/20
+  [32x32] Epoch 200  Batch     5/  188  loss: 0.2840  acc: 0.9994
+  [32x32] Epoch 200  Batch    10/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 200  Batch    15/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 200  Batch    20/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 200  Batch    25/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 200  Batch    30/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch    35/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 200  Batch    40/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 200  Batch    45/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 200  Batch    50/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 200  Batch    55/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 200  Batch    60/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 200  Batch    65/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 200  Batch    70/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 200  Batch    75/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch    80/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch    85/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 200  Batch    90/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 200  Batch    95/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   100/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   105/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   110/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   115/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   120/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   125/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   130/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 200  Batch   135/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   140/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   145/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   150/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   155/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   160/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   165/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   170/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   175/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   180/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 200  Batch   185/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 200  Batch   188/  188  loss: 0.2857  acc: 0.9990
+[32x32] Epoch 200  loss: 0.2857  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.30e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  69/69°C  227W  |  CPU 20%  RAM 29.4/63.2GB  |  wait 38.7s/compute 9.5s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 15/20
+  [32x32] Epoch 201  Batch     5/  188  loss: 0.2847  acc: 0.9994
+  [32x32] Epoch 201  Batch    10/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 201  Batch    15/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 201  Batch    20/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 201  Batch    25/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 201  Batch    30/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 201  Batch    35/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 201  Batch    40/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 201  Batch    45/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 201  Batch    50/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 201  Batch    55/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 201  Batch    60/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 201  Batch    65/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 201  Batch    70/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 201  Batch    75/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch    80/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch    85/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch    90/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch    95/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   100/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   105/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   110/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   115/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   120/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   125/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   130/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   135/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   140/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   145/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   150/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   155/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 201  Batch   160/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   165/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   170/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   175/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   180/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   185/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 201  Batch   188/  188  loss: 0.2858  acc: 0.9990
+[32x32] Epoch 201  loss: 0.2858  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.00e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 99/100%(avg/max)  70/72°C  228W  |  CPU 21%  RAM 29.1/63.2GB  |  wait 38.5s/compute 9.7s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 16/20
+  [32x32] Epoch 202  Batch     5/  188  loss: 0.2860  acc: 0.9988
+  [32x32] Epoch 202  Batch    10/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 202  Batch    15/  188  loss: 0.2855  acc: 0.9992
+  [32x32] Epoch 202  Batch    20/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 202  Batch    25/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 202  Batch    30/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 202  Batch    35/  188  loss: 0.2858  acc: 0.9989
+  [32x32] Epoch 202  Batch    40/  188  loss: 0.2858  acc: 0.9989
+  [32x32] Epoch 202  Batch    45/  188  loss: 0.2859  acc: 0.9989
+  [32x32] Epoch 202  Batch    50/  188  loss: 0.2859  acc: 0.9989
+  [32x32] Epoch 202  Batch    55/  188  loss: 0.2860  acc: 0.9989
+  [32x32] Epoch 202  Batch    60/  188  loss: 0.2859  acc: 0.9989
+  [32x32] Epoch 202  Batch    65/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch    70/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch    75/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch    80/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch    85/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch    90/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch    95/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 202  Batch   100/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   105/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   110/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   115/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   120/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   125/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   130/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   135/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   140/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   145/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   150/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   155/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   160/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   165/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   170/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   175/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   180/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 202  Batch   185/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 202  Batch   188/  188  loss: 0.2859  acc: 0.9990
+[32x32] Epoch 202  loss: 0.2859  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.00e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  71/72°C  227W  |  CPU 21%  RAM 29.2/63.2GB  |  wait 38.8s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 17/20
+  [32x32] Epoch 203  Batch     5/  188  loss: 0.2847  acc: 0.9996
+  [32x32] Epoch 203  Batch    10/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 203  Batch    15/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 203  Batch    20/  188  loss: 0.2861  acc: 0.9990
+  [32x32] Epoch 203  Batch    25/  188  loss: 0.2862  acc: 0.9989
+  [32x32] Epoch 203  Batch    30/  188  loss: 0.2861  acc: 0.9989
+  [32x32] Epoch 203  Batch    35/  188  loss: 0.2861  acc: 0.9989
+  [32x32] Epoch 203  Batch    40/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 203  Batch    45/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 203  Batch    50/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 203  Batch    55/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 203  Batch    60/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 203  Batch    65/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 203  Batch    70/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 203  Batch    75/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 203  Batch    80/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 203  Batch    85/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 203  Batch    90/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch    95/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   100/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   105/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   110/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   115/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   120/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   125/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   130/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   135/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   140/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 203  Batch   145/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   150/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 203  Batch   155/  188  loss: 0.2856  acc: 0.9991
+  [32x32] Epoch 203  Batch   160/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   165/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   170/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   175/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   180/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   185/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 203  Batch   188/  188  loss: 0.2855  acc: 0.9991
+[32x32] Epoch 203  loss: 0.2855  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.00e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  70/73°C  227W  |  CPU 21%  RAM 29.3/63.2GB  |  wait 38.7s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 18/20
+  [32x32] Epoch 204  Batch     5/  188  loss: 0.2855  acc: 0.9991
+  [32x32] Epoch 204  Batch    10/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 204  Batch    15/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch    20/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    25/  188  loss: 0.2849  acc: 0.9992
+  [32x32] Epoch 204  Batch    30/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 204  Batch    35/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 204  Batch    40/  188  loss: 0.2851  acc: 0.9992
+  [32x32] Epoch 204  Batch    45/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    50/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    55/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    60/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    65/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 204  Batch    70/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch    75/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch    80/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch    85/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    90/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch    95/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch   100/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch   105/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch   110/  188  loss: 0.2853  acc: 0.9992
+  [32x32] Epoch 204  Batch   115/  188  loss: 0.2854  acc: 0.9992
+  [32x32] Epoch 204  Batch   120/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   125/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   130/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   135/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   140/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch   145/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch   150/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch   155/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch   160/  188  loss: 0.2853  acc: 0.9991
+  [32x32] Epoch 204  Batch   165/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   170/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   175/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   180/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   185/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 204  Batch   188/  188  loss: 0.2854  acc: 0.9991
+[32x32] Epoch 204  loss: 0.2854  acc: 0.9991  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.00e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  70/72°C  227W  |  CPU 20%  RAM 29.3/63.2GB  |  wait 38.4s/compute 9.8s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 19/20
+  [32x32] Epoch 205  Batch     5/  188  loss: 0.2848  acc: 0.9993
+  [32x32] Epoch 205  Batch    10/  188  loss: 0.2852  acc: 0.9991
+  [32x32] Epoch 205  Batch    15/  188  loss: 0.2854  acc: 0.9991
+  [32x32] Epoch 205  Batch    20/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch    25/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch    30/  188  loss: 0.2856  acc: 0.9990
+  [32x32] Epoch 205  Batch    35/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch    40/  188  loss: 0.2857  acc: 0.9990
+  [32x32] Epoch 205  Batch    45/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch    50/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch    55/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch    60/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch    65/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch    70/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch    75/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch    80/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch    85/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch    90/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch    95/  188  loss: 0.2860  acc: 0.9990
+  [32x32] Epoch 205  Batch   100/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch   105/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch   110/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch   115/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 205  Batch   120/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   125/  188  loss: 0.2859  acc: 0.9990
+  [32x32] Epoch 205  Batch   130/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   135/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 205  Batch   140/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch   145/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   150/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   155/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   160/  188  loss: 0.2858  acc: 0.9990
+  [32x32] Epoch 205  Batch   165/  188  loss: 0.2858  acc: 0.9991
+  [32x32] Epoch 205  Batch   170/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch   175/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch   180/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch   185/  188  loss: 0.2857  acc: 0.9991
+  [32x32] Epoch 205  Batch   188/  188  loss: 0.2857  acc: 0.9990
+[32x32] Epoch 205  loss: 0.2857  acc: 0.9990  |  val_loss: 0.2824  val_acc: 1.0000  |  lr: 1.00e-09  [49s]  |  VRAM 11.1/14.4GB  CUDA 98/100%(avg/max)  70/72°C  226W  |  CPU 20%  RAM 29.3/63.2GB  |  wait 38.7s/compute 9.6s
+[Log] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_log.csv
+  [EarlyStopping] 20/20
+  [EarlyStopping] Halting.
+
+[Train] [32x32] Loading best checkpoint...
+
+[Eval] [32x32] Running per-class accuracy analysis on test set...
+
+  [Per-Class] 10 worst-performing classes:
+    '4' (class  4): 99.7%  (982 samples)
+    '6' (class  6): 99.8%  (958 samples)
+    '9' (class  9): 99.8%  (1009 samples)
+    '2' (class  2): 99.8%  (1032 samples)
+    '1' (class  1): 99.8%  (1135 samples)
+    '8' (class  8): 99.9%  (974 samples)
+    '3' (class  3): 99.9%  (1010 samples)
+    '7' (class  7): 99.9%  (1028 samples)
+    '0' (class  0): 100.0%  (980 samples)
+    '5' (class  5): 100.0%  (892 samples)
+
+========================================
+  [32x32] SOAP Test accuracy : 0.9986  (99.86%)
+  [32x32] SOAP Test loss     : 0.2875
+========================================
+[Plot] Saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_curves.png
+[Save] E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32_final.pt
+[ONNX] Exported and validated: E:\mnist_v3\digit_models\v3_mnist_digit_soap_32\v3_mnist_digit_soap_32.onnx  (28.9 MB)
+  [Resume] State cleared — training complete.
+
+[Done] [32x32] All files saved to E:\mnist_v3\digit_models\v3_mnist_digit_soap_32
+
+############################################################
+  TRAINING COMPLETE — SOAP
+  32x32: 99.86% test accuracy
+############################################################
