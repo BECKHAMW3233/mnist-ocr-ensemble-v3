@@ -283,6 +283,92 @@ class HardwareMonitor:
         return summary
 
 
+def get_nvsmi_vram_gb() -> tuple:
+    """
+    Queries nvidia-smi directly for actual physical VRAM usage/capacity
+    (2026-08-07, per direct user follow-up) — unlike
+    torch.cuda.max_memory_reserved()/total_memory, which go through
+    CUDA's own driver-level virtual memory system and, on Windows/WDDM,
+    can report a "reserved" figure that exceeds the card's real physical
+    capacity if the allocator spilled into Windows' shared-system-RAM GPU
+    fallback (confirmed directly on this project's own machine: this
+    exact query already runs successfully via print_vram_baseline()
+    below, returning real numbers bounded by the card's actual capacity
+    — see v3_CHANGELOG.md for the full verification). Returns (used_gb,
+    total_gb), each -1 on any failure (nvidia-smi missing, timeout,
+    unparseable output) — same defensive convention as sample() above.
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", f"-i={_cuda_index()}",
+             "--query-gpu=memory.used,memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        parts = result.stdout.strip().split(",")
+        used_mb, total_mb = _parse_nvsmi_float(parts[0]), _parse_nvsmi_float(parts[1])
+        if used_mb == -1 or total_mb == -1:
+            return -1, -1
+        return round(used_mb / 1024, 3), round(total_mb / 1024, 3)
+    except Exception:
+        return -1, -1
+
+
+def check_vram_safety(hw_summary: dict, nvsmi_total_gb: float, epoch: int,
+                       reserve_gb: float = 1.0) -> bool:
+    """
+    Returns True if training should stop — torch.cuda's own reported
+    peak-reserved VRAM for this epoch is within reserve_gb of this GPU's
+    real physical capacity (nvsmi_total_gb, from get_nvsmi_vram_gb()).
+    Prints a warning first. No-op (False) if nvsmi_total_gb is
+    unavailable (< 0) — see get_nvsmi_vram_gb()'s own docstring for why
+    nvidia-smi's number is used as the physical-capacity ground truth
+    instead of torch.cuda's own total_memory.
+    """
+    if nvsmi_total_gb < 0:
+        return False
+    if hw_summary["vram_peak_reserved_gb"] > (nvsmi_total_gb - reserve_gb):
+        print(f"  [VRAM] Reserved {hw_summary['vram_peak_reserved_gb']:.2f} GB this "
+              f"epoch — within {reserve_gb:.1f} GB of this GPU's {nvsmi_total_gb:.2f} GB "
+              f"physical capacity — stopping training cleanly after epoch {epoch}")
+        return True
+    return False
+
+
+def check_cpu_ram_safety(device: torch.device, swap_baseline_gb: float,
+                          ram_reserve_gb: float, epoch: int) -> bool:
+    """
+    Returns True if CPU-only training should stop — either swap usage
+    grew past this run's own baseline (treated as OOM) or free RAM
+    dropped below the configured reserve (2026-08-07, per direct user
+    follow-up — centralized here from the identical block previously
+    duplicated across all 44 training scripts, same as
+    check_vram_safety() above). No-op (False) on a GPU run — this check
+    is specifically about CPU-only training exhausting system RAM/swap;
+    a GPU run's own swap fluctuation is an unrelated signal and must not
+    stop a healthy CUDA run (2026-08-07 fix — this device-type gate was
+    lost when the original per-script `if device.type == "cpu"` block
+    was centralized into this function, and fired incorrectly on a real
+    GPU training run as a result — see v3_CHANGELOG.md). Prints a
+    warning first. No-op (False) if psutil isn't available.
+    """
+    if device.type != "cpu" or not HAS_PSUTIL:
+        return False
+    _swap_used_gb = round(psutil.swap_memory().used / 1024**3, 3)
+    _free_ram_gb  = psutil.virtual_memory().available / 1024**3
+    if _swap_used_gb > swap_baseline_gb:
+        print(f"  [RAM] Page file / swap usage GREW beyond this run's "
+              f"{swap_baseline_gb:.3f} GB baseline ({_swap_used_gb:.3f} GB now) — "
+              f"treating as OOM, stopping training cleanly after epoch {epoch}")
+        return True
+    if _free_ram_gb < ram_reserve_gb:
+        print(f"  [RAM] Free RAM ({_free_ram_gb:.2f} GB) below the "
+              f"{ram_reserve_gb} GB reserve — stopping training "
+              f"cleanly after epoch {epoch}")
+        return True
+    return False
+
+
 def print_vram_baseline() -> None:
     """
     Best-effort report of VRAM already in use before this script allocates

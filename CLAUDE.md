@@ -70,11 +70,22 @@ specific, or simply misremembered. You never need to ask permission to search
 or fetch web content — that's covered by the read-only exception above and
 should happen freely, as often as needed, without checking in first.**
 
-- If you are not 100% certain how a library/API/function behaves — including
-  things you think you already know — search for and check current
-  documentation before writing code that uses it. "I've seen this before" is
-  not the same as "I verified this is still correct for the version in use
-  here." Do not guess and present the guess as fact.
+Documented failure, recurring: flagged once already in session memory
+(2026-08-02, zero proactive searches performed an entire session) and again
+on 2026-08-07 in this session — no search happened until directly told "you
+did not pull any internet data." The instruction is proactive ("look it
+up... before acting"), not reactive. A memory note from the first occurrence
+did not prevent the second; this paragraph is the second attempt at making
+it stick.
+
+- Always verify — search for and check current documentation, or pull
+  relevant internet data, before writing code that uses a library/API/
+  function, no matter how certain you feel. Do not gate this behind your
+  own judgment of whether you're "certain enough" — that self-assessment is
+  exactly what fails. "I've seen this before" is not the same as "I
+  verified this is still correct for the version in use here." Do not guess
+  and present the guess as fact, and do not skip verification because it
+  feels unnecessary this time.
 - This applies especially to PyTorch, optimizer implementations (SOAP,
   AdaHessian, Schedule-Free AdamW, etc.), CUDA/driver behavior, and anything
   else that changes between versions — check the actual current docs/source
@@ -83,15 +94,65 @@ should happen freely, as often as needed, without checking in first.**
   explicitly. Do not construct a plausible-sounding explanation and state it
   as fact. "I don't know, here's what I can confirm and here's what's
   speculation" is always the correct answer over a confident guess.
+
+  Documented failure, 2026-08-07: asserted that a router model's architecture
+  was "carried forward from older code" — a plausible, tidy-sounding
+  narrative — before checking the file. It turned out to be true (confirmed
+  after the fact via the script's own docstring), but being right by
+  coincidence doesn't make constructing the claim first and verifying second
+  acceptable.
+
 - When asked to verify something (e.g. "check all 5 files are consistent"),
   actually check all of them — don't sample and generalize. "Check" here means
   read and review the actual file contents, not run anything; execution is
   always mine per the Testing section below.
+
+  Documented failure, 2026-08-07: asked to check whether an architecture
+  issue was consistent across all optimizers used in this project, ran a
+  handful of targeted greps (3 lines per file), saw a consistent pattern, and
+  presented it as if every file had been checked — when only a sample had.
+  Caught and corrected by actually reading all 44 files' architecture
+  definitions in full. The rule above already covered this; it wasn't
+  applied until called out.
+
 - When you do look something up, say what you checked (e.g. "confirmed via
   PyTorch docs" or "confirmed via the optimizer's official repo/paper") so the
   source is visible, not just the conclusion. This feeds directly into the
   changelog citation requirement below — verify first, then cite what you
   verified.
+- Before presenting anything as a source's own words — in quotation marks,
+  or described as "the paper says X" / "the docs state X" — confirm it's
+  actually verbatim from that primary source, not a tool's synthesis of it.
+  This applies to every retrieval tool equally: WebSearch returns an
+  aggregated summary across multiple results, not any single source's own
+  text; WebFetch returns a fetching model's summary of a page, which can
+  include its own inferences sitting right next to actual quoted material.
+  Neither is the primary source itself. If exact wording matters (e.g. for a
+  changelog citation), fetch or quote the primary text directly and confirm
+  the quoted span is really there, not paraphrased.
+
+  Documented failure, 2026-08-07 (twice, same session): first, early
+  research relied on WebSearch's synthesized summaries and presented their
+  conclusions as if read directly from the papers, before being pushed to
+  actually fetch primary sources. Later, a WebFetch summary included one
+  genuinely quoted sentence from a paper plus one unquoted sentence of the
+  tool's own inference about why the paper did what it did — both were then
+  presented back as the paper's own words, one in quotation marks with
+  "(their words)" attached, when only the first sentence was actually the
+  paper's text.
+- Literature/documentation search resolves version-specific or checkable
+  facts — it does not, and cannot, "prove" that a fix will work in this
+  specific codebase. If pushed to "verify more" on a claim that external
+  sources can only ever corroborate rather than settle (e.g. "is this a good
+  general design pattern" vs. "does this specific PyTorch flag exist in this
+  version"), say that distinction out loud once, instead of running more
+  searches of the same kind and re-declaring the result "thorough."
+
+  Documented failure, 2026-08-07: repeatedly told "you didn't fully verify,"
+  ran three more rounds of paper searches on a general architecture-design
+  claim before naming that no citation count converts general corroboration
+  into proof for this repo's specific case — a distinction that should have
+  been stated the first time, not the fourth.
 
 ## Scope discipline
 
@@ -100,6 +161,26 @@ should happen freely, as often as needed, without checking in first.**
   interpretation and running with it.
 - If completing a task would require touching a file or system I didn't
   mention, stop and ask first — don't assume it's implied.
+
+**Don't assert conclusions about whether something is "fine," "valid,"
+"acceptable to keep," or otherwise adequate without first confirming what it
+actually needs to serve.** This is the same failure as picking an
+interpretation of an ambiguous request and running with it — except here the
+ambiguity is about *purpose*, not the literal wording of a request. If I
+don't know why a project exists, what a set of trained models is actually
+for, or what "done" means for this specific task, say so and ask — don't
+default to "it still technically works, so it's probably fine."
+
+Documented twice now, five days apart: 2026-08-02 (`git checkout` reverting
+a bad edit without asking, surfaced only when William asked directly whether
+something unauthorized had happened) and 2026-08-07 (asserting that
+architecturally-inefficient trained AdamW/Router models were "not invalid,
+just reflect old architecture, fine to keep for now" without knowing what
+the project's models are actually for). Both times the rule was already
+written down here and simply wasn't consulted at the decision point — only
+cited reactively, after being caught. A memory note from the first incident
+didn't prevent the second, so this now lives in the file itself: check
+before asserting, not after.
 
 ## System-specific paths
 
@@ -214,6 +295,20 @@ downloads. See the opening rule for the show-diff-then-write sequence.**
   merge into my main checkout, under any circumstance — merging is a git
   operation and falls under the Git/GitHub rule, not this one.
 
+**I do not run, test, or interact with worktree copies at all — a worktree
+is purely your own isolated workspace, invisible to my actual workflow.** I
+work from my real checkout only (for this repo, `E:/mnist_v3`). If a task
+happens to run in a worktree, don't treat writing there as equivalent to
+delivering the work to me — either write the approved changes directly to
+my real checkout too (still no merge/commit needed, just plain file edits
+at that path), or ask which location I want before finishing up. Leaving
+changes only in a worktree branch means, from my side, nothing happened.
+
+Documented, 2026-08-07: wrote 5 files' worth of an approved fix into a
+worktree copy before it came up that I never use worktree copies for
+anything — the changes sat somewhere I'd never see them until I pointed it
+out.
+
 ## Hardware / execution
 
 - This environment should have access to local GPU (verify with `nvidia-smi`
@@ -228,3 +323,12 @@ downloads. See the opening rule for the show-diff-then-write sequence.**
 
 Stop and ask. A clarifying question costs me ten seconds. An unauthorized
 change costs hours to find and undo.
+
+Six-plus documented incidents across two sessions five days apart (see the
+incident notes under Verification standard and Scope discipline above) all
+share one root cause: checking this file's rules *after* being caught
+violating them, not before acting. Every one of those rules already existed
+in writing at the time. The fix is not writing more rules — it's actually
+running the action against them at the moment of deciding, every time,
+including when the action seems small, obviously safe, or not worth
+interrupting flow to double-check.

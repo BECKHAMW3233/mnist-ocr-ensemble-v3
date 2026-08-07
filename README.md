@@ -82,8 +82,12 @@ mnist-ocr-ensemble-v3/
 ├── v3_CHANGELOG.md
 ├── requirements.txt                     # pip install -r requirements.txt
 ├── setup_packages.py                    # python setup_packages.py [--check]
-├── run_all_training.ps1                 # runs all 44 training scripts in sequence, skips
-│                                         # already-completed ones — see the script's own header
+├── run_all_training.ps1                 # runs 34 of 44 training scripts in sequence, skips
+│                                         # already-completed ones — the ten 128x128 scripts are
+│                                         # commented out for now (2026-08-07, William's own
+│                                         # change) pending a decision, after seeing 64x64 results,
+│                                         # on whether to train 128x128 at all — see the script's
+│                                         # own header
 │
 ├── common/                              # shared INFRASTRUCTURE modules (Part 2 modularization —
 │   │                                     # optimizer algorithms are NOT here, see below)
@@ -229,153 +233,39 @@ mnist-ocr-ensemble-v3/
 
 ### Current repo contents (as of this writing)
 
-**Training is well underway.** 26 of the 44 scripts now have a complete
-trained output (`.onnx`/`.csv`/`.png`/CLI transcript(s) all present); 2
-more have partial/interrupted runs; the remaining 16 are still
-untrained. This project was reorganized into the four folders above on
-2026-08-02; during that reorganization, the real trained content that
-previously existed for several digit and router models was lost by a
-mechanism that could not be conclusively identified (see
-`v3_CHANGELOG.md`'s reorganization entry for the full, honest account of
-what was checked and ruled out) — every artifact below was retrained
-after that loss, not recovered.
+**Clean slate — 0 of 44 scripts trained.** On 2026-08-07, after two
+architecture fixes landed (`OCRConvNetWide`, behind every `_adamw_*`
+script, and `OCRRouterNet`, behind every `v3_mnist_router_ranger_*.py`
+script — both previously downsampled via a separate `MaxPool2d` after
+full-resolution convs instead of downsampling immediately via a strided
+conv; AdamW's shortcut path also switched from a stride-2 1x1 conv to an
+avg-pool + stride-1 1x1 conv — see `v3_CHANGELOG.md`'s two 2026-08-07
+entries for the full rationale and sources), William deleted every
+previously-trained output in this project: all `.onnx`/checkpoint/`.csv`/
+`.png`/CLI-transcript files, across all 44 scripts.
 
-**Complete — digit (10 of 15):** `v3_mnist_digit_soap_16`, `_soap_28`,
-`_soap_32`, `_soap_64`, `_adamw_16`, `_adamw_28`, `_adamw_32`,
-`_muon_16`, `_muon_28`, `_muon_32`.
+Only 13 of the 28 previously-trained-or-partial outputs were
+architecturally affected by these fixes (8 AdamW: digit `_16`/`_28`/`_32`
+complete + `_64` partial, uc `_28`/`_32`, lc `_28`/`_32`; 5 router:
+`_16`/`_28`/`_32`/`_64` complete + `_128` partial). The other 15 (8 SOAP +
+7 Muon outputs) had no architectural issue and weren't touched by either
+fix — they were deleted anyway, per William's own standard: any code
+change in this project means everything downstream gets retrained, not
+just the outputs specifically affected by that change.
 
-**Complete — router (4 of 5):** `v3_mnist_router_ranger_16`, `_28`,
-`_32`, `_64`.
+This project was reorganized into the four folders above on 2026-08-02;
+during that reorganization, the real trained content that previously
+existed for several digit and router models was lost by a mechanism that
+could not be conclusively identified (see `v3_CHANGELOG.md`'s
+reorganization entry for the full, honest account of what was checked and
+ruled out) — everything described above as "previously trained" was
+itself already a retrain after that earlier loss, not original content.
 
-**Complete — uppercase letters (6 of 12):** `v3_mnist_letter_uc_soap_28`,
-`_soap_32`, `_adamw_28`, `_adamw_32`, `_muon_28`, `_muon_32`.
-
-**Complete — lowercase letters (6 of 12):** `v3_mnist_letter_lc_soap_28`,
-`_soap_32`, `_adamw_28`, `_adamw_32`, `_muon_28`, `_muon_32`.
-
-**Partial / interrupted:**
-- `v3_mnist_digit_adamw_64` — has `_best.pt` and `_resume.pt` (i.e. it's
-  resumable) plus a `log.csv` and CLI transcript, but no `.onnx`,
-  `_final.pt`, or `curves.png` yet — stopped before completion.
-- `v3_mnist_router_ranger_128` — two separate interrupted attempts
-  (`..._cli_20260802_181629.txt` stops mid-epoch-3;
-  `..._cli_20260802_185035.txt` stops mid-epoch-10), neither produced a
-  `.onnx`, `log.csv`, or `curves.png`. Both attempts predate the
-  per-epoch CSV-write fix described in `v3_CHANGELOG.md`'s telemetry
-  entry — this is the same missing-log run that entry was written about.
-
-**Never run (16):** digit `_soap_128`, `_adamw_128`, `_muon_64`,
-`_muon_128`; and, for both uppercase and lowercase, the `_soap_64`,
-`_soap_128`, `_adamw_64`, `_adamw_128`, `_muon_64`, `_muon_128` combos —
-script exists, no output directory yet.
-
-```
-mnist-ocr-ensemble-v3/
-├── .gitignore
-├── CLAUDE.md                          # Claude Code operating rules for this repo
-├── README.md
-├── v3_CHANGELOG.md
-├── requirements.txt
-├── setup_packages.py
-├── run_all_training.ps1               # runs all 44 scripts in sequence, skips completed ones
-├── ocr_pipeline_mnist.py
-├── supplementary_data.py
-│
-├── common/
-│   ├── __init__.py
-│   ├── amp.py
-│   ├── batch_sizing.py
-│   ├── checkpointing.py
-│   ├── cli_logging.py
-│   ├── distributed.py
-│   ├── onnx_export.py
-│   ├── scheduler.py
-│   ├── seeding.py
-│   └── telemetry.py
-│
-├── historical_data/
-│   └── claude_code_prompt.md          # archived prompt from an earlier session — kept for reference only
-│
-├── digit_models/                      # 15 scripts — 10 complete, 1 partial, 4 never run
-│   ├── v3_mnist_digit_soap_16.py
-│   ├── v3_mnist_digit_soap_16/          # COMPLETE
-│   ├── v3_mnist_digit_soap_28.py
-│   ├── v3_mnist_digit_soap_28/          # COMPLETE
-│   ├── v3_mnist_digit_soap_32.py
-│   ├── v3_mnist_digit_soap_32/          # COMPLETE
-│   ├── v3_mnist_digit_soap_64.py
-│   ├── v3_mnist_digit_soap_64/          # COMPLETE
-│   ├── v3_mnist_digit_soap_128.py        # (never run — no directory)
-│   ├── v3_mnist_digit_adamw_16.py
-│   ├── v3_mnist_digit_adamw_16/         # COMPLETE
-│   ├── v3_mnist_digit_adamw_28.py
-│   ├── v3_mnist_digit_adamw_28/         # COMPLETE
-│   ├── v3_mnist_digit_adamw_32.py
-│   ├── v3_mnist_digit_adamw_32/         # COMPLETE
-│   ├── v3_mnist_digit_adamw_64.py
-│   ├── v3_mnist_digit_adamw_64/         # PARTIAL — resumable, no onnx yet
-│   ├── v3_mnist_digit_adamw_128.py       # (never run — no directory)
-│   ├── v3_mnist_digit_muon_16.py
-│   ├── v3_mnist_digit_muon_16/          # COMPLETE
-│   ├── v3_mnist_digit_muon_28.py
-│   ├── v3_mnist_digit_muon_28/          # COMPLETE
-│   ├── v3_mnist_digit_muon_32.py
-│   ├── v3_mnist_digit_muon_32/          # COMPLETE
-│   ├── v3_mnist_digit_muon_64.py         # (never run — no directory)
-│   └── v3_mnist_digit_muon_128.py        # (never run — no directory)
-│
-├── router_models/                     # 5 scripts — 4 complete, 1 with two interrupted attempts
-│   ├── v3_mnist_router_ranger_16.py
-│   ├── v3_mnist_router_ranger_16/       # COMPLETE
-│   ├── v3_mnist_router_ranger_28.py
-│   ├── v3_mnist_router_ranger_28/       # COMPLETE
-│   ├── v3_mnist_router_ranger_32.py
-│   ├── v3_mnist_router_ranger_32/       # COMPLETE
-│   ├── v3_mnist_router_ranger_64.py
-│   ├── v3_mnist_router_ranger_64/       # COMPLETE
-│   ├── v3_mnist_router_ranger_128.py
-│   └── v3_mnist_router_ranger_128/      # two interrupted attempts — no onnx/log.csv/curves.png yet
-│
-├── uppercase_models/                  # 12 scripts — 6 complete, 6 never run
-│   ├── v3_mnist_letter_uc_soap_28.py
-│   ├── v3_mnist_letter_uc_soap_28/      # COMPLETE
-│   ├── v3_mnist_letter_uc_soap_32.py
-│   ├── v3_mnist_letter_uc_soap_32/      # COMPLETE
-│   ├── v3_mnist_letter_uc_soap_64.py     # (never run — no directory)
-│   ├── v3_mnist_letter_uc_soap_128.py    # (never run — no directory)
-│   ├── v3_mnist_letter_uc_adamw_28.py
-│   ├── v3_mnist_letter_uc_adamw_28/     # COMPLETE
-│   ├── v3_mnist_letter_uc_adamw_32.py
-│   ├── v3_mnist_letter_uc_adamw_32/     # COMPLETE
-│   ├── v3_mnist_letter_uc_adamw_64.py    # (never run — no directory)
-│   ├── v3_mnist_letter_uc_adamw_128.py   # (never run — no directory)
-│   ├── v3_mnist_letter_uc_muon_28.py
-│   ├── v3_mnist_letter_uc_muon_28/      # COMPLETE
-│   ├── v3_mnist_letter_uc_muon_32.py
-│   ├── v3_mnist_letter_uc_muon_32/      # COMPLETE
-│   ├── v3_mnist_letter_uc_muon_64.py     # (never run — no directory)
-│   └── v3_mnist_letter_uc_muon_128.py    # (never run — no directory)
-│
-└── lowercase_models/                  # 12 scripts — 6 complete, 6 never run
-    ├── v3_mnist_letter_lc_soap_28.py
-    ├── v3_mnist_letter_lc_soap_28/      # COMPLETE
-    ├── v3_mnist_letter_lc_soap_32.py
-    ├── v3_mnist_letter_lc_soap_32/      # COMPLETE
-    ├── v3_mnist_letter_lc_soap_64.py     # (never run — no directory)
-    ├── v3_mnist_letter_lc_soap_128.py    # (never run — no directory)
-    ├── v3_mnist_letter_lc_adamw_28.py
-    ├── v3_mnist_letter_lc_adamw_28/     # COMPLETE
-    ├── v3_mnist_letter_lc_adamw_32.py
-    ├── v3_mnist_letter_lc_adamw_32/     # COMPLETE
-    ├── v3_mnist_letter_lc_adamw_64.py    # (never run — no directory)
-    ├── v3_mnist_letter_lc_adamw_128.py   # (never run — no directory)
-    ├── v3_mnist_letter_lc_muon_28.py
-    ├── v3_mnist_letter_lc_muon_28/      # COMPLETE
-    ├── v3_mnist_letter_lc_muon_32.py
-    ├── v3_mnist_letter_lc_muon_32/      # COMPLETE
-    ├── v3_mnist_letter_lc_muon_64.py     # (never run — no directory)
-    └── v3_mnist_letter_lc_muon_128.py    # (never run — no directory)
-```
+Every training script creates its own output directory the first time it
+runs — see the projected full layout in the tree above. None of those
+directories currently exist; this section will get a real per-script
+complete/partial/never-run breakdown again once training produces
+something to report.
 
 `__pycache__/` directories under each model folder and under `common/`,
 `.claude/settings.local.json`, `.vscode/settings.json` (Claude Code's

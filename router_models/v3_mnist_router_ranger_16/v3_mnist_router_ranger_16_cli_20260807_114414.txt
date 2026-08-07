@@ -1,0 +1,2441 @@
+
+======================================================================
+[Session start] 2026-08-07T11:44:14
+======================================================================
+
+############################################################
+  ROUTER — 16x16 — DIGIT / UC / LC (+ [UNK] via confidence floor)
+  Seed: GLOBAL_SEED=42 (override with MNIST_SEED env var)
+############################################################
+
+[CPU] 24 logical cores detected — reserving 6 (25%) for the OS, 18 usable (this machine's NUM_WORKERS = 18 DataLoader workers; also the thread count torch.set_num_threads() uses on CPU-only runs)
+[Device] GPU 0/0: NVIDIA GeForce RTX 4080  |  16.0 GB VRAM  |  CUDA 13.0  |  AMP: True
+[Startup VRAM] GPU 0: 1274 MB / 16376 MB in use before this script has allocated anything
+[Startup VRAM] Something is using GPU memory, but Windows' WDDM driver mode doesn't expose which process to nvidia-smi (check Task Manager's Performance > GPU tab instead).
+[Batch] Auto-detecting batch size for 16x16 (5 real training steps per candidate, bottom-up with binary-search refinement)...
+[Batch] Batch size 64 — OK (5 real steps completed)
+[Batch] Batch size 128 — OK (5 real steps completed)
+[Batch] Batch size 256 — OK (5 real steps completed)
+[Batch] Batch size 512 — OK (5 real steps completed)
+[Batch] Batch size 1024 — OK (5 real steps completed)
+[Batch] Batch size 2048 — OK (5 real steps completed)
+[Batch] Batch size 3584 — OK (5 real steps completed)
+[Batch] Batch size 5120 — OK (5 real steps completed)
+[Batch] Batch size 6656 — OK (5 real steps completed)
+[Batch] Batch size 8192 — OK (5 real steps completed)
+[Batch] Batch size 9728 — OK (5 real steps completed)
+[Batch] Batch size 11264 — OK (5 real steps completed)
+[Batch] Batch size 12800 — OK (5 real steps completed)
+[Batch] Batch size 14336 — OK (5 real steps completed)
+[Batch] Batch size 15872 — OK (5 real steps completed)
+[Batch] Batch size 17408 — OK (5 real steps completed)
+[Batch] Batch size 18944 — OK (5 real steps completed)
+[Batch] Batch size 20480 — OK (5 real steps completed)
+[Batch] Batch size 22016 — OK (5 real steps completed)
+[Batch] Batch size 23552 — OK (5 real steps completed)
+[Batch] Batch size 25088 — OK (5 real steps completed)
+[Batch] Batch size 26624 — OK (5 real steps completed)
+[Batch] Batch size 28160 — OK (5 real steps completed)
+[Batch] Batch size 29696 — OK (5 real steps completed)
+[Batch] Batch size 31232 — OK (5 real steps completed)
+[Batch] Batch size 32768 — OK (5 real steps completed)
+[Batch] Batch size 34304 — OK (5 real steps completed)
+[Batch] Batch size 35840 — OK (5 real steps completed)
+[Batch] Batch size 37376 — OK (5 real steps completed)
+[Batch] Batch size 38912 — OK (5 real steps completed)
+[Batch] Batch size 40448 — OK (5 real steps completed)
+[Batch] Batch size 41984 — OK (5 real steps completed)
+[Batch] Batch size 43520 — OK (5 real steps completed)
+[Batch] Batch size 45056 — OK (5 real steps completed)
+[Batch] Batch size 46592 — OK (5 real steps completed)
+[Batch] Batch size 48128 — OK (5 real steps completed)
+[Batch] Batch size 49664 — OK (5 real steps completed)
+[Batch] Batch size 51200 — OK (5 real steps completed)
+[Batch] Batch size 52736 — OK (5 real steps completed)
+[Batch] Batch size 54272 — OK (5 real steps completed)
+[Batch] Batch size 55808 — OK (5 real steps completed)
+[Batch] Batch size 57344 — OK (5 real steps completed)
+[Batch] Batch size 58880 — OK (5 real steps completed)
+[Batch] Batch size 60416 — OK (5 real steps completed)
+[Batch] Batch size 61952 — OK (5 real steps completed)
+[Batch] Batch size 63488 — OK (5 real steps completed)
+[Batch] Batch size 65024 — OK (5 real steps completed)
+[Batch] Batch size 66560 — OK (5 real steps completed)
+[Batch] Batch size 68096 — OK (5 real steps completed)
+[Batch] Batch size 69632 — OK (5 real steps completed)
+[Batch] Batch size 71168 — OK (5 real steps completed)
+[Batch] Batch size 72704 — OK (5 real steps completed)
+[Batch] Batch size 74240 — OK (5 real steps completed)
+[Batch] Batch size 75776 — OK (5 real steps completed)
+[Batch] Batch size 77312 — OK (5 real steps completed)
+[Batch] Batch size 78848 — OK (5 real steps completed)
+[Batch] Batch size 80384 — OK (5 real steps completed)
+[Batch] Batch size 81920 — OK (5 real steps completed)
+[Batch] Batch size 83456 — OK (5 real steps completed)
+[Batch] Batch size 84992 — OK (5 real steps completed)
+[Batch] Batch size 86528 — OK (5 real steps completed)
+[Batch] Batch size 88064 — OK (5 real steps completed)
+[Batch] Batch size 89600 — OK (5 real steps completed)
+[Batch] Batch size 91136 — OK (5 real steps completed)
+[Batch] Batch size 92672 — OK (5 real steps completed)
+[Batch] Batch size 94208 — OK (5 real steps completed)
+[Batch] Batch size 95744 — OK (5 real steps completed)
+[Batch] Batch size 97280 — OK (5 real steps completed)
+[Batch] Batch size 98816 — OK (5 real steps completed)
+[Batch] Batch size 100352 — OK (5 real steps completed)
+[Batch] Batch size 101888 — OK (5 real steps completed)
+[Batch] Batch size 103424 — OK (5 real steps completed)
+[Batch] Batch size 104960 — OK (5 real steps completed)
+[Batch] Batch size 106496 — OK (5 real steps completed)
+[Batch] Batch size 108032 — OK (5 real steps completed)
+[Batch] Batch size 109568 — OK (5 real steps completed)
+[Batch] Batch size 111104 — OK (5 real steps completed)
+[Batch] Batch size 112640 — OK (5 real steps completed)
+[Batch] Batch size 114176 — OK (5 real steps completed)
+[Batch] Batch size 115712 — OK (5 real steps completed)
+[Batch] Batch size 117248 — OK (5 real steps completed)
+[Batch] Batch size 118784 — OK (5 real steps completed)
+[Batch] Batch size 120320 — OK (5 real steps completed)
+[Batch] Batch size 121856 — OK (5 real steps completed)
+[Batch] Batch size 123392 — OK (5 real steps completed)
+[Batch] Batch size 124928 — OK (5 real steps completed)
+[Batch] Batch size 126464 — OK (5 real steps completed)
+[Batch] Batch size 128000 — OK (5 real steps completed)
+[Batch] Batch size 129536 — OK (5 real steps completed)
+[Batch] Batch size 131072 — OK (5 real steps completed)
+[Batch] Batch size 132608 — OK (5 real steps completed)
+[Batch] Batch size 134144 — OK (5 real steps completed)
+[Batch] Batch size 135680 — OK (5 real steps completed)
+[Batch] Batch size 137216 — OK (5 real steps completed)
+[Batch] Batch size 138752 — OK (5 real steps completed)
+[Batch] Batch size 140288 — OK (5 real steps completed)
+[Batch] Batch size 141824 — OK (5 real steps completed)
+[Batch] Batch size 143360 — OK (5 real steps completed)
+[Batch] Batch size 144896 — OK (5 real steps completed)
+[Batch] Batch size 146432 — OK (5 real steps completed)
+[Batch] Batch size 147968 — OK (5 real steps completed)
+[Batch] Batch size 149504 — OK (5 real steps completed)
+[Batch] Batch size 151040 — OK (5 real steps completed)
+[Batch] Batch size 152576 — OK (5 real steps completed)
+[Batch] Batch size 154112 — OK (5 real steps completed)
+[Batch] Batch size 155648 — OK (5 real steps completed)
+[Batch] Batch size 157184 — OK (5 real steps completed)
+[Batch] Batch size 158720 — OK (5 real steps completed)
+[Batch] Batch size 160256 — OK (5 real steps completed)
+[Batch] Batch size 161792 — OK (5 real steps completed)
+[Batch] Batch size 163328 — OK (5 real steps completed)
+[Batch] Batch size 164864 — OK (5 real steps completed)
+[Batch] Batch size 166400 — OK (5 real steps completed)
+[Batch] Batch size 167936 — OK (5 real steps completed)
+[Batch] Batch size 169472 — OK (5 real steps completed)
+[Batch] Batch size 171008 — OK (5 real steps completed)
+[Batch] Batch size 172544 — OK (5 real steps completed)
+[Batch] Batch size 174080 — OK (5 real steps completed)
+[Batch] Batch size 175616 — OK (5 real steps completed)
+[Batch] Batch size 177152 — OK (5 real steps completed)
+[Batch] Batch size 178688 — OK (5 real steps completed)
+[Batch] Batch size 180224 — OK (5 real steps completed)
+[Batch] Batch size 181760 — OK (5 real steps completed)
+[Batch] Batch size 183296 — OK (5 real steps completed)
+[Batch] Batch size 184832 — OK (5 real steps completed)
+[Batch] Batch size 186368 — OK (5 real steps completed)
+[Batch] Batch size 187904 — OK (5 real steps completed)
+[Batch] Batch size 189440 — OK (5 real steps completed)
+[Batch] Batch size 190976 — OK (5 real steps completed)
+[Batch] Batch size 192512 — OK (5 real steps completed)
+[Batch] Batch size 194048 — OK (5 real steps completed)
+[Batch] Batch size 195584 — OK (5 real steps completed)
+[Batch] Batch size 197120 — OK (5 real steps completed)
+[Batch] Batch size 198656 — OK (5 real steps completed)
+[Batch] Batch size 200192 — OK (5 real steps completed)
+[Batch] Batch size 201728 — failed (RuntimeError), trying next
+[Batch] Bracket found: 200192 works, 201728 fails — refining...
+[Batch] Batch size 200960 — failed (RuntimeError), trying next
+[Batch] Batch size 200576 — failed (RuntimeError), trying next
+[Batch] Batch size 200384 — OK (5 real steps completed)
+[Batch] Batch size 200480 — OK (5 real steps completed)
+[Batch] Batch size 200528 — failed (RuntimeError), trying next
+[Batch] Batch size 200504 — failed (RuntimeError), trying next
+[Batch] Batch size 200496 — failed (RuntimeError), trying next
+[Batch] Batch size 200488 — OK (5 real steps completed)
+[Batch] Refined to batch size 200488 (largest confirmed-working, within 8 of the true VRAM ceiling)
+============================================================
+  Router — Ranger (RAdam + Lookahead)  [16x16]
+  PyTorch 2.13.0+cu130  |  AMP: True
+  Output: E:\mnist_v3\router_models\v3_mnist_router_ranger_16
+  Resolution: 16x16  |  Batch: 200488 (auto-detected)
+  Optimizer: Ranger  |  Scheduler: fixed-length warmup -> cosine (per-step)
+  Output classes: ['digit', 'UC', 'LC']  |  ROUTER_UNSURE_FLOOR=0.6
+  Digit sources this tier: {'use_digits': False, 'use_mnist': False, 'use_usps': False, 'use_svhn': False, 'use_ardis': False, 'use_balanced': False, 'use_kaggle': False, 'use_chars_hnd': False, 'use_chars_img': False, 'use_pghwld': False}
+  Normalization: [0,1]  (no mean/std shift)
+============================================================
+[Dataset] Loading USPS (via supplementary_data.load_base_usps)...
+[Dataset] Train: 6,198  |  Val: 1,093  |  Test: 2,007
+[Dataset] Loading digit supplementary data (digit class)...
+  [Supplementary] No supplementary data available — using base MNIST only
+[Dataset] Loading EMNIST Balanced (UC/LC classes)...
+[Dataset] EMNIST Balanced UC/LC — Train: 75,480  |  Val: 13,320  |  Test: 14,800
+[Dataset] Router train set: 6,198 digit + 75,480 UC/LC = 81,678 total
+[Dataset] Router val set:   1,093 digit + 13,320 UC/LC = 14,413 total
+[Dataset] Router test set:  2,007 digit + 14,800 UC/LC = 16,807 total
+[Batch] Capping batch size 200488 -> 5445 to guarantee >= 15 steps/epoch (81,678 train samples)
+[Dataset] Balancing sampler: digit=6,198 (w=0.00016134)  UC=52,985 (w=0.00001887)  LC=22,495 (w=0.00004445)
+
+[Model] OCRRouterNet — 16x16
+  Parameters : 62,579
+  Est. size  : 0.24 MB (float32)
+[Optimizer] Ranger  lr=4.00e-03  (reference=1.00e-03 @ batch=256, scaled by min(5445/256, 4.0)=4.000x)  wd=0.0001  betas=(0.9, 0.999)  lookahead_k=6  alpha=0.5
+[Schedule] Fixed warmup: 100 steps (16 steps/epoch)  ->  cosine decay over ~100 epochs (1,600 steps total — shape target only, PATIENCE governs the actual stop)
+
+[Train] Starting 16x16 — no epoch cap | batch: 5445 | patience: 15
+[Resume] No prior checkpoint found — starting fresh
+  [16x16] Epoch   1  Batch     1/   16  loss: 1.1092  acc: 0.3500
+  [16x16] Epoch   1  Batch     2/   16  loss: 1.1101  acc: 0.3523
+  [16x16] Epoch   1  Batch     3/   16  loss: 1.1106  acc: 0.3489
+  [16x16] Epoch   1  Batch     4/   16  loss: 1.1107  acc: 0.3484
+  [16x16] Epoch   1  Batch     5/   16  loss: 1.1095  acc: 0.3509
+  [16x16] Epoch   1  Batch     6/   16  loss: 1.1099  acc: 0.3504
+  [16x16] Epoch   1  Batch     7/   16  loss: 1.1095  acc: 0.3508
+  [16x16] Epoch   1  Batch     8/   16  loss: 1.1093  acc: 0.3512
+  [16x16] Epoch   1  Batch     9/   16  loss: 1.1093  acc: 0.3501
+  [16x16] Epoch   1  Batch    10/   16  loss: 1.1093  acc: 0.3503
+  [16x16] Epoch   1  Batch    11/   16  loss: 1.1088  acc: 0.3516
+  [16x16] Epoch   1  Batch    12/   16  loss: 1.1089  acc: 0.3516
+  [16x16] Epoch   1  Batch    13/   16  loss: 1.1089  acc: 0.3518
+  [16x16] Epoch   1  Batch    14/   16  loss: 1.1084  acc: 0.3528
+  [16x16] Epoch   1  Batch    15/   16  loss: 1.1077  acc: 0.3543
+  [16x16] Epoch   1  Batch    16/   16  loss: 1.1077  acc: 0.3543
+[16x16] Epoch   1  loss: 1.1077  acc: 0.3543  |  val_loss: 1.0736  val_acc: 0.6532  |  lr: 6.40e-04  [47s]  |  VRAM 2.0/16.0GB  CUDA 28/49%(avg/max)  45/45°C  24W  |  CPU 11%  RAM 27.8/63.2GB  |  wait 46.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 1.0736  saved
+  [16x16] Epoch   2  Batch     1/   16  loss: 1.1019  acc: 0.3807
+  [16x16] Epoch   2  Batch     2/   16  loss: 1.1004  acc: 0.3815
+  [16x16] Epoch   2  Batch     3/   16  loss: 1.1006  acc: 0.3823
+  [16x16] Epoch   2  Batch     4/   16  loss: 1.1015  acc: 0.3803
+  [16x16] Epoch   2  Batch     5/   16  loss: 1.1013  acc: 0.3805
+  [16x16] Epoch   2  Batch     6/   16  loss: 1.1008  acc: 0.3828
+  [16x16] Epoch   2  Batch     7/   16  loss: 1.1008  acc: 0.3844
+  [16x16] Epoch   2  Batch     8/   16  loss: 1.0999  acc: 0.3882
+  [16x16] Epoch   2  Batch     9/   16  loss: 1.0992  acc: 0.3905
+  [16x16] Epoch   2  Batch    10/   16  loss: 1.0992  acc: 0.3909
+  [16x16] Epoch   2  Batch    11/   16  loss: 1.0987  acc: 0.3933
+  [16x16] Epoch   2  Batch    12/   16  loss: 1.0982  acc: 0.3956
+  [16x16] Epoch   2  Batch    13/   16  loss: 1.0976  acc: 0.3980
+  [16x16] Epoch   2  Batch    14/   16  loss: 1.0965  acc: 0.4016
+  [16x16] Epoch   2  Batch    15/   16  loss: 1.0960  acc: 0.4033
+  [16x16] Epoch   2  Batch    16/   16  loss: 1.0960  acc: 0.4033
+[16x16] Epoch   2  loss: 1.0960  acc: 0.4033  |  val_loss: 1.0539  val_acc: 0.6645  |  lr: 1.28e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 50/94%(avg/max)  46/47°C  33W  |  CPU 32%  RAM 27.9/63.2GB  |  wait 2.1s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 1.0539  saved
+  [16x16] Epoch   3  Batch     1/   16  loss: 1.0860  acc: 0.4345
+  [16x16] Epoch   3  Batch     2/   16  loss: 1.0838  acc: 0.4385
+  [16x16] Epoch   3  Batch     3/   16  loss: 1.0805  acc: 0.4470
+  [16x16] Epoch   3  Batch     4/   16  loss: 1.0779  acc: 0.4536
+  [16x16] Epoch   3  Batch     5/   16  loss: 1.0790  acc: 0.4526
+  [16x16] Epoch   3  Batch     6/   16  loss: 1.0777  acc: 0.4556
+  [16x16] Epoch   3  Batch     7/   16  loss: 1.0769  acc: 0.4580
+  [16x16] Epoch   3  Batch     8/   16  loss: 1.0757  acc: 0.4603
+  [16x16] Epoch   3  Batch     9/   16  loss: 1.0745  acc: 0.4624
+  [16x16] Epoch   3  Batch    10/   16  loss: 1.0728  acc: 0.4659
+  [16x16] Epoch   3  Batch    11/   16  loss: 1.0718  acc: 0.4682
+  [16x16] Epoch   3  Batch    12/   16  loss: 1.0710  acc: 0.4695
+  [16x16] Epoch   3  Batch    13/   16  loss: 1.0699  acc: 0.4718
+  [16x16] Epoch   3  Batch    14/   16  loss: 1.0683  acc: 0.4746
+  [16x16] Epoch   3  Batch    15/   16  loss: 1.0664  acc: 0.4778
+  [16x16] Epoch   3  Batch    16/   16  loss: 1.0664  acc: 0.4777
+[16x16] Epoch   3  loss: 1.0664  acc: 0.4777  |  val_loss: 1.0088  val_acc: 0.6595  |  lr: 1.92e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 20/20%(avg/max)  45/45°C  28W  |  CPU 31%  RAM 27.9/63.2GB  |  wait 2.1s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 1.0088  saved
+  [16x16] Epoch   4  Batch     1/   16  loss: 1.0464  acc: 0.5146
+  [16x16] Epoch   4  Batch     2/   16  loss: 1.0440  acc: 0.5180
+  [16x16] Epoch   4  Batch     3/   16  loss: 1.0409  acc: 0.5187
+  [16x16] Epoch   4  Batch     4/   16  loss: 1.0378  acc: 0.5203
+  [16x16] Epoch   4  Batch     5/   16  loss: 1.0341  acc: 0.5254
+  [16x16] Epoch   4  Batch     6/   16  loss: 1.0310  acc: 0.5264
+  [16x16] Epoch   4  Batch     7/   16  loss: 1.0300  acc: 0.5275
+  [16x16] Epoch   4  Batch     8/   16  loss: 1.0280  acc: 0.5303
+  [16x16] Epoch   4  Batch     9/   16  loss: 1.0267  acc: 0.5299
+  [16x16] Epoch   4  Batch    10/   16  loss: 1.0241  acc: 0.5318
+  [16x16] Epoch   4  Batch    11/   16  loss: 1.0215  acc: 0.5329
+  [16x16] Epoch   4  Batch    12/   16  loss: 1.0178  acc: 0.5360
+  [16x16] Epoch   4  Batch    13/   16  loss: 1.0166  acc: 0.5368
+  [16x16] Epoch   4  Batch    14/   16  loss: 1.0146  acc: 0.5381
+  [16x16] Epoch   4  Batch    15/   16  loss: 1.0124  acc: 0.5397
+  [16x16] Epoch   4  Batch    16/   16  loss: 1.0124  acc: 0.5397
+[16x16] Epoch   4  loss: 1.0124  acc: 0.5397  |  val_loss: 0.8177  val_acc: 0.6826  |  lr: 2.56e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/94%(avg/max)  46/46°C  34W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 2.0s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.8177  saved
+  [16x16] Epoch   5  Batch     1/   16  loss: 0.9596  acc: 0.5713
+  [16x16] Epoch   5  Batch     2/   16  loss: 0.9554  acc: 0.5709
+  [16x16] Epoch   5  Batch     3/   16  loss: 0.9605  acc: 0.5692
+  [16x16] Epoch   5  Batch     4/   16  loss: 0.9609  acc: 0.5674
+  [16x16] Epoch   5  Batch     5/   16  loss: 0.9602  acc: 0.5654
+  [16x16] Epoch   5  Batch     6/   16  loss: 0.9594  acc: 0.5629
+  [16x16] Epoch   5  Batch     7/   16  loss: 0.9563  acc: 0.5625
+  [16x16] Epoch   5  Batch     8/   16  loss: 0.9530  acc: 0.5628
+  [16x16] Epoch   5  Batch     9/   16  loss: 0.9513  acc: 0.5637
+  [16x16] Epoch   5  Batch    10/   16  loss: 0.9489  acc: 0.5653
+  [16x16] Epoch   5  Batch    11/   16  loss: 0.9455  acc: 0.5679
+  [16x16] Epoch   5  Batch    12/   16  loss: 0.9426  acc: 0.5691
+  [16x16] Epoch   5  Batch    13/   16  loss: 0.9397  acc: 0.5698
+  [16x16] Epoch   5  Batch    14/   16  loss: 0.9370  acc: 0.5698
+  [16x16] Epoch   5  Batch    15/   16  loss: 0.9358  acc: 0.5697
+  [16x16] Epoch   5  Batch    16/   16  loss: 0.9358  acc: 0.5698
+[16x16] Epoch   5  loss: 0.9358  acc: 0.5698  |  val_loss: 0.7687  val_acc: 0.7187  |  lr: 3.20e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 4/4%(avg/max)  45/45°C  28W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.7687  saved
+  [16x16] Epoch   6  Batch     1/   16  loss: 0.8949  acc: 0.5805
+  [16x16] Epoch   6  Batch     2/   16  loss: 0.8918  acc: 0.5776
+  [16x16] Epoch   6  Batch     3/   16  loss: 0.8887  acc: 0.5783
+  [16x16] Epoch   6  Batch     4/   16  loss: 0.8841  acc: 0.5802
+  [16x16] Epoch   6  Batch     5/   16  loss: 0.8854  acc: 0.5789
+  [16x16] Epoch   6  Batch     6/   16  loss: 0.8859  acc: 0.5777
+  [16x16] Epoch   6  Batch     7/   16  loss: 0.8831  acc: 0.5796
+  [16x16] Epoch   6  Batch     8/   16  loss: 0.8810  acc: 0.5803
+  [16x16] Epoch   6  Batch     9/   16  loss: 0.8780  acc: 0.5813
+  [16x16] Epoch   6  Batch    10/   16  loss: 0.8747  acc: 0.5822
+  [16x16] Epoch   6  Batch    11/   16  loss: 0.8733  acc: 0.5826
+  [16x16] Epoch   6  Batch    12/   16  loss: 0.8716  acc: 0.5832
+  [16x16] Epoch   6  Batch    13/   16  loss: 0.8699  acc: 0.5830
+  [16x16] Epoch   6  Batch    14/   16  loss: 0.8672  acc: 0.5850
+  [16x16] Epoch   6  Batch    15/   16  loss: 0.8644  acc: 0.5857
+  [16x16] Epoch   6  Batch    16/   16  loss: 0.8644  acc: 0.5857
+[16x16] Epoch   6  loss: 0.8644  acc: 0.5857  |  val_loss: 0.8062  val_acc: 0.6929  |  lr: 3.84e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/96%(avg/max)  46/46°C  32W  |  CPU 37%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch   7  Batch     1/   16  loss: 0.8353  acc: 0.5974
+  [16x16] Epoch   7  Batch     2/   16  loss: 0.8346  acc: 0.5917
+  [16x16] Epoch   7  Batch     3/   16  loss: 0.8275  acc: 0.5943
+  [16x16] Epoch   7  Batch     4/   16  loss: 0.8221  acc: 0.5988
+  [16x16] Epoch   7  Batch     5/   16  loss: 0.8178  acc: 0.6005
+  [16x16] Epoch   7  Batch     6/   16  loss: 0.8125  acc: 0.6039
+  [16x16] Epoch   7  Batch     7/   16  loss: 0.8117  acc: 0.6039
+  [16x16] Epoch   7  Batch     8/   16  loss: 0.8081  acc: 0.6065
+  [16x16] Epoch   7  Batch     9/   16  loss: 0.8056  acc: 0.6074
+  [16x16] Epoch   7  Batch    10/   16  loss: 0.8026  acc: 0.6090
+  [16x16] Epoch   7  Batch    11/   16  loss: 0.7998  acc: 0.6108
+  [16x16] Epoch   7  Batch    12/   16  loss: 0.7965  acc: 0.6124
+  [16x16] Epoch   7  Batch    13/   16  loss: 0.7943  acc: 0.6144
+  [16x16] Epoch   7  Batch    14/   16  loss: 0.7926  acc: 0.6152
+  [16x16] Epoch   7  Batch    15/   16  loss: 0.7895  acc: 0.6177
+  [16x16] Epoch   7  Batch    16/   16  loss: 0.7895  acc: 0.6177
+[16x16] Epoch   7  loss: 0.7895  acc: 0.6177  |  val_loss: 0.8296  val_acc: 0.6921  |  lr: 4.00e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 2/2%(avg/max)  44/44°C  29W  |  CPU 38%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch   8  Batch     1/   16  loss: 0.7391  acc: 0.6470
+  [16x16] Epoch   8  Batch     2/   16  loss: 0.7372  acc: 0.6590
+  [16x16] Epoch   8  Batch     3/   16  loss: 0.7398  acc: 0.6577
+  [16x16] Epoch   8  Batch     4/   16  loss: 0.7377  acc: 0.6607
+  [16x16] Epoch   8  Batch     5/   16  loss: 0.7354  acc: 0.6630
+  [16x16] Epoch   8  Batch     6/   16  loss: 0.7335  acc: 0.6638
+  [16x16] Epoch   8  Batch     7/   16  loss: 0.7313  acc: 0.6651
+  [16x16] Epoch   8  Batch     8/   16  loss: 0.7283  acc: 0.6673
+  [16x16] Epoch   8  Batch     9/   16  loss: 0.7269  acc: 0.6678
+  [16x16] Epoch   8  Batch    10/   16  loss: 0.7244  acc: 0.6706
+  [16x16] Epoch   8  Batch    11/   16  loss: 0.7229  acc: 0.6717
+  [16x16] Epoch   8  Batch    12/   16  loss: 0.7206  acc: 0.6734
+  [16x16] Epoch   8  Batch    13/   16  loss: 0.7184  acc: 0.6753
+  [16x16] Epoch   8  Batch    14/   16  loss: 0.7155  acc: 0.6773
+  [16x16] Epoch   8  Batch    15/   16  loss: 0.7132  acc: 0.6791
+  [16x16] Epoch   8  Batch    16/   16  loss: 0.7132  acc: 0.6791
+[16x16] Epoch   8  loss: 0.7132  acc: 0.6791  |  val_loss: 0.6444  val_acc: 0.7636  |  lr: 4.00e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 16/31%(avg/max)  44/45°C  31W  |  CPU 30%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.6444  saved
+  [16x16] Epoch   9  Batch     1/   16  loss: 0.6818  acc: 0.7036
+  [16x16] Epoch   9  Batch     2/   16  loss: 0.6839  acc: 0.6969
+  [16x16] Epoch   9  Batch     3/   16  loss: 0.6784  acc: 0.6985
+  [16x16] Epoch   9  Batch     4/   16  loss: 0.6743  acc: 0.7008
+  [16x16] Epoch   9  Batch     5/   16  loss: 0.6727  acc: 0.7045
+  [16x16] Epoch   9  Batch     6/   16  loss: 0.6718  acc: 0.7052
+  [16x16] Epoch   9  Batch     7/   16  loss: 0.6713  acc: 0.7048
+  [16x16] Epoch   9  Batch     8/   16  loss: 0.6695  acc: 0.7059
+  [16x16] Epoch   9  Batch     9/   16  loss: 0.6678  acc: 0.7074
+  [16x16] Epoch   9  Batch    10/   16  loss: 0.6645  acc: 0.7093
+  [16x16] Epoch   9  Batch    11/   16  loss: 0.6642  acc: 0.7090
+  [16x16] Epoch   9  Batch    12/   16  loss: 0.6634  acc: 0.7105
+  [16x16] Epoch   9  Batch    13/   16  loss: 0.6618  acc: 0.7124
+  [16x16] Epoch   9  Batch    14/   16  loss: 0.6604  acc: 0.7135
+  [16x16] Epoch   9  Batch    15/   16  loss: 0.6585  acc: 0.7155
+  [16x16] Epoch   9  Batch    16/   16  loss: 0.6585  acc: 0.7155
+[16x16] Epoch   9  loss: 0.6585  acc: 0.7155  |  val_loss: 0.6940  val_acc: 0.7287  |  lr: 3.99e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/96%(avg/max)  44/45°C  30W  |  CPU 29%  RAM 27.7/63.2GB  |  wait 2.1s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  10  Batch     1/   16  loss: 0.6462  acc: 0.7324
+  [16x16] Epoch  10  Batch     2/   16  loss: 0.6372  acc: 0.7410
+  [16x16] Epoch  10  Batch     3/   16  loss: 0.6331  acc: 0.7455
+  [16x16] Epoch  10  Batch     4/   16  loss: 0.6323  acc: 0.7438
+  [16x16] Epoch  10  Batch     5/   16  loss: 0.6274  acc: 0.7474
+  [16x16] Epoch  10  Batch     6/   16  loss: 0.6265  acc: 0.7473
+  [16x16] Epoch  10  Batch     7/   16  loss: 0.6246  acc: 0.7484
+  [16x16] Epoch  10  Batch     8/   16  loss: 0.6228  acc: 0.7496
+  [16x16] Epoch  10  Batch     9/   16  loss: 0.6218  acc: 0.7505
+  [16x16] Epoch  10  Batch    10/   16  loss: 0.6215  acc: 0.7506
+  [16x16] Epoch  10  Batch    11/   16  loss: 0.6206  acc: 0.7512
+  [16x16] Epoch  10  Batch    12/   16  loss: 0.6191  acc: 0.7523
+  [16x16] Epoch  10  Batch    13/   16  loss: 0.6182  acc: 0.7529
+  [16x16] Epoch  10  Batch    14/   16  loss: 0.6171  acc: 0.7540
+  [16x16] Epoch  10  Batch    15/   16  loss: 0.6162  acc: 0.7550
+  [16x16] Epoch  10  Batch    16/   16  loss: 0.6162  acc: 0.7550
+[16x16] Epoch  10  loss: 0.6162  acc: 0.7550  |  val_loss: 0.6772  val_acc: 0.7536  |  lr: 3.98e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 29/29%(avg/max)  44/44°C  32W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  11  Batch     1/   16  loss: 0.5914  acc: 0.7723
+  [16x16] Epoch  11  Batch     2/   16  loss: 0.5876  acc: 0.7741
+  [16x16] Epoch  11  Batch     3/   16  loss: 0.5935  acc: 0.7690
+  [16x16] Epoch  11  Batch     4/   16  loss: 0.5956  acc: 0.7679
+  [16x16] Epoch  11  Batch     5/   16  loss: 0.5935  acc: 0.7687
+  [16x16] Epoch  11  Batch     6/   16  loss: 0.5920  acc: 0.7703
+  [16x16] Epoch  11  Batch     7/   16  loss: 0.5914  acc: 0.7710
+  [16x16] Epoch  11  Batch     8/   16  loss: 0.5898  acc: 0.7723
+  [16x16] Epoch  11  Batch     9/   16  loss: 0.5892  acc: 0.7729
+  [16x16] Epoch  11  Batch    10/   16  loss: 0.5882  acc: 0.7739
+  [16x16] Epoch  11  Batch    11/   16  loss: 0.5854  acc: 0.7762
+  [16x16] Epoch  11  Batch    12/   16  loss: 0.5847  acc: 0.7760
+  [16x16] Epoch  11  Batch    13/   16  loss: 0.5836  acc: 0.7766
+  [16x16] Epoch  11  Batch    14/   16  loss: 0.5821  acc: 0.7772
+  [16x16] Epoch  11  Batch    15/   16  loss: 0.5805  acc: 0.7783
+  [16x16] Epoch  11  Batch    16/   16  loss: 0.5805  acc: 0.7783
+[16x16] Epoch  11  loss: 0.5805  acc: 0.7783  |  val_loss: 0.5172  val_acc: 0.8404  |  lr: 3.97e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/94%(avg/max)  44/45°C  31W  |  CPU 30%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.5172  saved
+  [16x16] Epoch  12  Batch     1/   16  loss: 0.5858  acc: 0.7776
+  [16x16] Epoch  12  Batch     2/   16  loss: 0.5785  acc: 0.7824
+  [16x16] Epoch  12  Batch     3/   16  loss: 0.5731  acc: 0.7868
+  [16x16] Epoch  12  Batch     4/   16  loss: 0.5715  acc: 0.7874
+  [16x16] Epoch  12  Batch     5/   16  loss: 0.5703  acc: 0.7882
+  [16x16] Epoch  12  Batch     6/   16  loss: 0.5684  acc: 0.7886
+  [16x16] Epoch  12  Batch     7/   16  loss: 0.5672  acc: 0.7879
+  [16x16] Epoch  12  Batch     8/   16  loss: 0.5656  acc: 0.7893
+  [16x16] Epoch  12  Batch     9/   16  loss: 0.5641  acc: 0.7904
+  [16x16] Epoch  12  Batch    10/   16  loss: 0.5615  acc: 0.7924
+  [16x16] Epoch  12  Batch    11/   16  loss: 0.5613  acc: 0.7927
+  [16x16] Epoch  12  Batch    12/   16  loss: 0.5600  acc: 0.7940
+  [16x16] Epoch  12  Batch    13/   16  loss: 0.5587  acc: 0.7950
+  [16x16] Epoch  12  Batch    14/   16  loss: 0.5577  acc: 0.7955
+  [16x16] Epoch  12  Batch    15/   16  loss: 0.5562  acc: 0.7965
+  [16x16] Epoch  12  Batch    16/   16  loss: 0.5562  acc: 0.7965
+[16x16] Epoch  12  loss: 0.5562  acc: 0.7965  |  val_loss: 0.5678  val_acc: 0.7987  |  lr: 3.96e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 20/38%(avg/max)  44/44°C  34W  |  CPU 34%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  13  Batch     1/   16  loss: 0.5457  acc: 0.8072
+  [16x16] Epoch  13  Batch     2/   16  loss: 0.5472  acc: 0.8047
+  [16x16] Epoch  13  Batch     3/   16  loss: 0.5478  acc: 0.8012
+  [16x16] Epoch  13  Batch     4/   16  loss: 0.5450  acc: 0.8043
+  [16x16] Epoch  13  Batch     5/   16  loss: 0.5421  acc: 0.8059
+  [16x16] Epoch  13  Batch     6/   16  loss: 0.5399  acc: 0.8065
+  [16x16] Epoch  13  Batch     7/   16  loss: 0.5392  acc: 0.8075
+  [16x16] Epoch  13  Batch     8/   16  loss: 0.5375  acc: 0.8086
+  [16x16] Epoch  13  Batch     9/   16  loss: 0.5360  acc: 0.8098
+  [16x16] Epoch  13  Batch    10/   16  loss: 0.5342  acc: 0.8107
+  [16x16] Epoch  13  Batch    11/   16  loss: 0.5331  acc: 0.8114
+  [16x16] Epoch  13  Batch    12/   16  loss: 0.5317  acc: 0.8123
+  [16x16] Epoch  13  Batch    13/   16  loss: 0.5309  acc: 0.8126
+  [16x16] Epoch  13  Batch    14/   16  loss: 0.5294  acc: 0.8141
+  [16x16] Epoch  13  Batch    15/   16  loss: 0.5282  acc: 0.8152
+  [16x16] Epoch  13  Batch    16/   16  loss: 0.5282  acc: 0.8152
+[16x16] Epoch  13  loss: 0.5282  acc: 0.8152  |  val_loss: 0.4705  val_acc: 0.8701  |  lr: 3.95e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/96%(avg/max)  44/44°C  32W  |  CPU 30%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.4705  saved
+  [16x16] Epoch  14  Batch     1/   16  loss: 0.5223  acc: 0.8158
+  [16x16] Epoch  14  Batch     2/   16  loss: 0.5129  acc: 0.8248
+  [16x16] Epoch  14  Batch     3/   16  loss: 0.5114  acc: 0.8251
+  [16x16] Epoch  14  Batch     4/   16  loss: 0.5111  acc: 0.8260
+  [16x16] Epoch  14  Batch     5/   16  loss: 0.5103  acc: 0.8265
+  [16x16] Epoch  14  Batch     6/   16  loss: 0.5113  acc: 0.8253
+  [16x16] Epoch  14  Batch     7/   16  loss: 0.5097  acc: 0.8268
+  [16x16] Epoch  14  Batch     8/   16  loss: 0.5082  acc: 0.8276
+  [16x16] Epoch  14  Batch     9/   16  loss: 0.5071  acc: 0.8280
+  [16x16] Epoch  14  Batch    10/   16  loss: 0.5073  acc: 0.8278
+  [16x16] Epoch  14  Batch    11/   16  loss: 0.5072  acc: 0.8277
+  [16x16] Epoch  14  Batch    12/   16  loss: 0.5069  acc: 0.8283
+  [16x16] Epoch  14  Batch    13/   16  loss: 0.5069  acc: 0.8286
+  [16x16] Epoch  14  Batch    14/   16  loss: 0.5057  acc: 0.8298
+  [16x16] Epoch  14  Batch    15/   16  loss: 0.5041  acc: 0.8308
+  [16x16] Epoch  14  Batch    16/   16  loss: 0.5041  acc: 0.8308
+[16x16] Epoch  14  loss: 0.5041  acc: 0.8308  |  val_loss: 0.4292  val_acc: 0.8743  |  lr: 3.93e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/26%(avg/max)  44/44°C  33W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.4292  saved
+  [16x16] Epoch  15  Batch     1/   16  loss: 0.4969  acc: 0.8382
+  [16x16] Epoch  15  Batch     2/   16  loss: 0.4939  acc: 0.8388
+  [16x16] Epoch  15  Batch     3/   16  loss: 0.4949  acc: 0.8375
+  [16x16] Epoch  15  Batch     4/   16  loss: 0.4974  acc: 0.8343
+  [16x16] Epoch  15  Batch     5/   16  loss: 0.4966  acc: 0.8346
+  [16x16] Epoch  15  Batch     6/   16  loss: 0.4952  acc: 0.8352
+  [16x16] Epoch  15  Batch     7/   16  loss: 0.4913  acc: 0.8378
+  [16x16] Epoch  15  Batch     8/   16  loss: 0.4898  acc: 0.8391
+  [16x16] Epoch  15  Batch     9/   16  loss: 0.4892  acc: 0.8403
+  [16x16] Epoch  15  Batch    10/   16  loss: 0.4889  acc: 0.8404
+  [16x16] Epoch  15  Batch    11/   16  loss: 0.4886  acc: 0.8411
+  [16x16] Epoch  15  Batch    12/   16  loss: 0.4886  acc: 0.8407
+  [16x16] Epoch  15  Batch    13/   16  loss: 0.4877  acc: 0.8412
+  [16x16] Epoch  15  Batch    14/   16  loss: 0.4878  acc: 0.8412
+  [16x16] Epoch  15  Batch    15/   16  loss: 0.4867  acc: 0.8420
+  [16x16] Epoch  15  Batch    16/   16  loss: 0.4867  acc: 0.8420
+[16x16] Epoch  15  loss: 0.4867  acc: 0.8420  |  val_loss: 0.4487  val_acc: 0.8603  |  lr: 3.92e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/93%(avg/max)  44/45°C  33W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  16  Batch     1/   16  loss: 0.5020  acc: 0.8294
+  [16x16] Epoch  16  Batch     2/   16  loss: 0.4906  acc: 0.8408
+  [16x16] Epoch  16  Batch     3/   16  loss: 0.4897  acc: 0.8411
+  [16x16] Epoch  16  Batch     4/   16  loss: 0.4893  acc: 0.8416
+  [16x16] Epoch  16  Batch     5/   16  loss: 0.4857  acc: 0.8424
+  [16x16] Epoch  16  Batch     6/   16  loss: 0.4846  acc: 0.8429
+  [16x16] Epoch  16  Batch     7/   16  loss: 0.4831  acc: 0.8440
+  [16x16] Epoch  16  Batch     8/   16  loss: 0.4802  acc: 0.8458
+  [16x16] Epoch  16  Batch     9/   16  loss: 0.4798  acc: 0.8458
+  [16x16] Epoch  16  Batch    10/   16  loss: 0.4786  acc: 0.8468
+  [16x16] Epoch  16  Batch    11/   16  loss: 0.4773  acc: 0.8475
+  [16x16] Epoch  16  Batch    12/   16  loss: 0.4757  acc: 0.8484
+  [16x16] Epoch  16  Batch    13/   16  loss: 0.4745  acc: 0.8495
+  [16x16] Epoch  16  Batch    14/   16  loss: 0.4739  acc: 0.8500
+  [16x16] Epoch  16  Batch    15/   16  loss: 0.4737  acc: 0.8504
+  [16x16] Epoch  16  Batch    16/   16  loss: 0.4737  acc: 0.8504
+[16x16] Epoch  16  loss: 0.4737  acc: 0.8504  |  val_loss: 0.5322  val_acc: 0.8098  |  lr: 3.90e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 27/27%(avg/max)  43/43°C  29W  |  CPU 31%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  17  Batch     1/   16  loss: 0.4728  acc: 0.8529
+  [16x16] Epoch  17  Batch     2/   16  loss: 0.4740  acc: 0.8507
+  [16x16] Epoch  17  Batch     3/   16  loss: 0.4739  acc: 0.8527
+  [16x16] Epoch  17  Batch     4/   16  loss: 0.4697  acc: 0.8549
+  [16x16] Epoch  17  Batch     5/   16  loss: 0.4679  acc: 0.8552
+  [16x16] Epoch  17  Batch     6/   16  loss: 0.4681  acc: 0.8547
+  [16x16] Epoch  17  Batch     7/   16  loss: 0.4671  acc: 0.8551
+  [16x16] Epoch  17  Batch     8/   16  loss: 0.4658  acc: 0.8562
+  [16x16] Epoch  17  Batch     9/   16  loss: 0.4654  acc: 0.8563
+  [16x16] Epoch  17  Batch    10/   16  loss: 0.4647  acc: 0.8570
+  [16x16] Epoch  17  Batch    11/   16  loss: 0.4633  acc: 0.8578
+  [16x16] Epoch  17  Batch    12/   16  loss: 0.4623  acc: 0.8586
+  [16x16] Epoch  17  Batch    13/   16  loss: 0.4616  acc: 0.8588
+  [16x16] Epoch  17  Batch    14/   16  loss: 0.4607  acc: 0.8595
+  [16x16] Epoch  17  Batch    15/   16  loss: 0.4595  acc: 0.8602
+  [16x16] Epoch  17  Batch    16/   16  loss: 0.4594  acc: 0.8602
+[16x16] Epoch  17  loss: 0.4594  acc: 0.8602  |  val_loss: 0.4379  val_acc: 0.8798  |  lr: 3.87e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/96%(avg/max)  44/44°C  32W  |  CPU 31%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  18  Batch     1/   16  loss: 0.4516  acc: 0.8657
+  [16x16] Epoch  18  Batch     2/   16  loss: 0.4527  acc: 0.8624
+  [16x16] Epoch  18  Batch     3/   16  loss: 0.4524  acc: 0.8643
+  [16x16] Epoch  18  Batch     4/   16  loss: 0.4513  acc: 0.8648
+  [16x16] Epoch  18  Batch     5/   16  loss: 0.4493  acc: 0.8655
+  [16x16] Epoch  18  Batch     6/   16  loss: 0.4480  acc: 0.8665
+  [16x16] Epoch  18  Batch     7/   16  loss: 0.4482  acc: 0.8671
+  [16x16] Epoch  18  Batch     8/   16  loss: 0.4453  acc: 0.8689
+  [16x16] Epoch  18  Batch     9/   16  loss: 0.4440  acc: 0.8699
+  [16x16] Epoch  18  Batch    10/   16  loss: 0.4449  acc: 0.8694
+  [16x16] Epoch  18  Batch    11/   16  loss: 0.4445  acc: 0.8694
+  [16x16] Epoch  18  Batch    12/   16  loss: 0.4447  acc: 0.8695
+  [16x16] Epoch  18  Batch    13/   16  loss: 0.4433  acc: 0.8699
+  [16x16] Epoch  18  Batch    14/   16  loss: 0.4431  acc: 0.8701
+  [16x16] Epoch  18  Batch    15/   16  loss: 0.4426  acc: 0.8705
+  [16x16] Epoch  18  Batch    16/   16  loss: 0.4426  acc: 0.8705
+[16x16] Epoch  18  loss: 0.4426  acc: 0.8705  |  val_loss: 0.3667  val_acc: 0.9161  |  lr: 3.85e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/26%(avg/max)  43/43°C  32W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3667  saved
+  [16x16] Epoch  19  Batch     1/   16  loss: 0.4461  acc: 0.8663
+  [16x16] Epoch  19  Batch     2/   16  loss: 0.4394  acc: 0.8724
+  [16x16] Epoch  19  Batch     3/   16  loss: 0.4349  acc: 0.8760
+  [16x16] Epoch  19  Batch     4/   16  loss: 0.4367  acc: 0.8750
+  [16x16] Epoch  19  Batch     5/   16  loss: 0.4364  acc: 0.8747
+  [16x16] Epoch  19  Batch     6/   16  loss: 0.4383  acc: 0.8729
+  [16x16] Epoch  19  Batch     7/   16  loss: 0.4369  acc: 0.8735
+  [16x16] Epoch  19  Batch     8/   16  loss: 0.4358  acc: 0.8742
+  [16x16] Epoch  19  Batch     9/   16  loss: 0.4357  acc: 0.8742
+  [16x16] Epoch  19  Batch    10/   16  loss: 0.4351  acc: 0.8746
+  [16x16] Epoch  19  Batch    11/   16  loss: 0.4345  acc: 0.8748
+  [16x16] Epoch  19  Batch    12/   16  loss: 0.4351  acc: 0.8747
+  [16x16] Epoch  19  Batch    13/   16  loss: 0.4350  acc: 0.8751
+  [16x16] Epoch  19  Batch    14/   16  loss: 0.4340  acc: 0.8759
+  [16x16] Epoch  19  Batch    15/   16  loss: 0.4329  acc: 0.8764
+  [16x16] Epoch  19  Batch    16/   16  loss: 0.4329  acc: 0.8764
+[16x16] Epoch  19  loss: 0.4329  acc: 0.8764  |  val_loss: 0.3839  val_acc: 0.9017  |  lr: 3.82e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 2/2%(avg/max)  43/43°C  30W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  20  Batch     1/   16  loss: 0.4415  acc: 0.8702
+  [16x16] Epoch  20  Batch     2/   16  loss: 0.4372  acc: 0.8732
+  [16x16] Epoch  20  Batch     3/   16  loss: 0.4342  acc: 0.8751
+  [16x16] Epoch  20  Batch     4/   16  loss: 0.4336  acc: 0.8746
+  [16x16] Epoch  20  Batch     5/   16  loss: 0.4308  acc: 0.8767
+  [16x16] Epoch  20  Batch     6/   16  loss: 0.4275  acc: 0.8790
+  [16x16] Epoch  20  Batch     7/   16  loss: 0.4277  acc: 0.8788
+  [16x16] Epoch  20  Batch     8/   16  loss: 0.4266  acc: 0.8795
+  [16x16] Epoch  20  Batch     9/   16  loss: 0.4262  acc: 0.8803
+  [16x16] Epoch  20  Batch    10/   16  loss: 0.4248  acc: 0.8810
+  [16x16] Epoch  20  Batch    11/   16  loss: 0.4244  acc: 0.8816
+  [16x16] Epoch  20  Batch    12/   16  loss: 0.4241  acc: 0.8820
+  [16x16] Epoch  20  Batch    13/   16  loss: 0.4231  acc: 0.8824
+  [16x16] Epoch  20  Batch    14/   16  loss: 0.4232  acc: 0.8820
+  [16x16] Epoch  20  Batch    15/   16  loss: 0.4226  acc: 0.8822
+  [16x16] Epoch  20  Batch    16/   16  loss: 0.4226  acc: 0.8822
+[16x16] Epoch  20  loss: 0.4226  acc: 0.8822  |  val_loss: 0.3599  val_acc: 0.9191  |  lr: 3.80e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 15/28%(avg/max)  43/43°C  31W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3599  saved
+  [16x16] Epoch  21  Batch     1/   16  loss: 0.4098  acc: 0.8885
+  [16x16] Epoch  21  Batch     2/   16  loss: 0.4153  acc: 0.8848
+  [16x16] Epoch  21  Batch     3/   16  loss: 0.4180  acc: 0.8848
+  [16x16] Epoch  21  Batch     4/   16  loss: 0.4157  acc: 0.8865
+  [16x16] Epoch  21  Batch     5/   16  loss: 0.4184  acc: 0.8849
+  [16x16] Epoch  21  Batch     6/   16  loss: 0.4161  acc: 0.8862
+  [16x16] Epoch  21  Batch     7/   16  loss: 0.4147  acc: 0.8872
+  [16x16] Epoch  21  Batch     8/   16  loss: 0.4139  acc: 0.8874
+  [16x16] Epoch  21  Batch     9/   16  loss: 0.4144  acc: 0.8871
+  [16x16] Epoch  21  Batch    10/   16  loss: 0.4143  acc: 0.8872
+  [16x16] Epoch  21  Batch    11/   16  loss: 0.4141  acc: 0.8875
+  [16x16] Epoch  21  Batch    12/   16  loss: 0.4145  acc: 0.8871
+  [16x16] Epoch  21  Batch    13/   16  loss: 0.4145  acc: 0.8869
+  [16x16] Epoch  21  Batch    14/   16  loss: 0.4149  acc: 0.8865
+  [16x16] Epoch  21  Batch    15/   16  loss: 0.4145  acc: 0.8869
+  [16x16] Epoch  21  Batch    16/   16  loss: 0.4145  acc: 0.8869
+[16x16] Epoch  21  loss: 0.4145  acc: 0.8869  |  val_loss: 0.4059  val_acc: 0.8932  |  lr: 3.76e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 42/66%(avg/max)  43/43°C  33W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 2.1s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  22  Batch     1/   16  loss: 0.4417  acc: 0.8694
+  [16x16] Epoch  22  Batch     2/   16  loss: 0.4394  acc: 0.8747
+  [16x16] Epoch  22  Batch     3/   16  loss: 0.4280  acc: 0.8809
+  [16x16] Epoch  22  Batch     4/   16  loss: 0.4290  acc: 0.8811
+  [16x16] Epoch  22  Batch     5/   16  loss: 0.4265  acc: 0.8819
+  [16x16] Epoch  22  Batch     6/   16  loss: 0.4263  acc: 0.8821
+  [16x16] Epoch  22  Batch     7/   16  loss: 0.4256  acc: 0.8821
+  [16x16] Epoch  22  Batch     8/   16  loss: 0.4226  acc: 0.8837
+  [16x16] Epoch  22  Batch     9/   16  loss: 0.4213  acc: 0.8845
+  [16x16] Epoch  22  Batch    10/   16  loss: 0.4203  acc: 0.8848
+  [16x16] Epoch  22  Batch    11/   16  loss: 0.4188  acc: 0.8856
+  [16x16] Epoch  22  Batch    12/   16  loss: 0.4183  acc: 0.8856
+  [16x16] Epoch  22  Batch    13/   16  loss: 0.4167  acc: 0.8866
+  [16x16] Epoch  22  Batch    14/   16  loss: 0.4159  acc: 0.8870
+  [16x16] Epoch  22  Batch    15/   16  loss: 0.4160  acc: 0.8869
+  [16x16] Epoch  22  Batch    16/   16  loss: 0.4160  acc: 0.8869
+[16x16] Epoch  22  loss: 0.4160  acc: 0.8869  |  val_loss: 0.5678  val_acc: 0.7962  |  lr: 3.73e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 16/22%(avg/max)  44/44°C  52W  |  CPU 37%  RAM 27.8/63.2GB  |  wait 2.2s/compute 0.1s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  23  Batch     1/   16  loss: 0.4363  acc: 0.8720
+  [16x16] Epoch  23  Batch     2/   16  loss: 0.4320  acc: 0.8737
+  [16x16] Epoch  23  Batch     3/   16  loss: 0.4304  acc: 0.8751
+  [16x16] Epoch  23  Batch     4/   16  loss: 0.4306  acc: 0.8750
+  [16x16] Epoch  23  Batch     5/   16  loss: 0.4248  acc: 0.8794
+  [16x16] Epoch  23  Batch     6/   16  loss: 0.4224  acc: 0.8812
+  [16x16] Epoch  23  Batch     7/   16  loss: 0.4209  acc: 0.8823
+  [16x16] Epoch  23  Batch     8/   16  loss: 0.4188  acc: 0.8842
+  [16x16] Epoch  23  Batch     9/   16  loss: 0.4195  acc: 0.8840
+  [16x16] Epoch  23  Batch    10/   16  loss: 0.4183  acc: 0.8849
+  [16x16] Epoch  23  Batch    11/   16  loss: 0.4172  acc: 0.8858
+  [16x16] Epoch  23  Batch    12/   16  loss: 0.4159  acc: 0.8865
+  [16x16] Epoch  23  Batch    13/   16  loss: 0.4147  acc: 0.8872
+  [16x16] Epoch  23  Batch    14/   16  loss: 0.4137  acc: 0.8877
+  [16x16] Epoch  23  Batch    15/   16  loss: 0.4129  acc: 0.8884
+  [16x16] Epoch  23  Batch    16/   16  loss: 0.4129  acc: 0.8884
+[16x16] Epoch  23  loss: 0.4129  acc: 0.8884  |  val_loss: 0.3521  val_acc: 0.9220  |  lr: 3.70e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  43/43°C  39W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 2.0s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3521  saved
+  [16x16] Epoch  24  Batch     1/   16  loss: 0.3975  acc: 0.8966
+  [16x16] Epoch  24  Batch     2/   16  loss: 0.3963  acc: 0.8955
+  [16x16] Epoch  24  Batch     3/   16  loss: 0.3985  acc: 0.8939
+  [16x16] Epoch  24  Batch     4/   16  loss: 0.4015  acc: 0.8930
+  [16x16] Epoch  24  Batch     5/   16  loss: 0.4028  acc: 0.8926
+  [16x16] Epoch  24  Batch     6/   16  loss: 0.4025  acc: 0.8928
+  [16x16] Epoch  24  Batch     7/   16  loss: 0.4009  acc: 0.8942
+  [16x16] Epoch  24  Batch     8/   16  loss: 0.4019  acc: 0.8939
+  [16x16] Epoch  24  Batch     9/   16  loss: 0.4020  acc: 0.8939
+  [16x16] Epoch  24  Batch    10/   16  loss: 0.4013  acc: 0.8939
+  [16x16] Epoch  24  Batch    11/   16  loss: 0.4006  acc: 0.8944
+  [16x16] Epoch  24  Batch    12/   16  loss: 0.3995  acc: 0.8950
+  [16x16] Epoch  24  Batch    13/   16  loss: 0.4000  acc: 0.8949
+  [16x16] Epoch  24  Batch    14/   16  loss: 0.4000  acc: 0.8953
+  [16x16] Epoch  24  Batch    15/   16  loss: 0.3994  acc: 0.8958
+  [16x16] Epoch  24  Batch    16/   16  loss: 0.3994  acc: 0.8958
+[16x16] Epoch  24  loss: 0.3994  acc: 0.8958  |  val_loss: 0.3466  val_acc: 0.9226  |  lr: 3.66e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 12/24%(avg/max)  43/43°C  35W  |  CPU 36%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3466  saved
+  [16x16] Epoch  25  Batch     1/   16  loss: 0.4009  acc: 0.8959
+  [16x16] Epoch  25  Batch     2/   16  loss: 0.3998  acc: 0.8973
+  [16x16] Epoch  25  Batch     3/   16  loss: 0.3969  acc: 0.8976
+  [16x16] Epoch  25  Batch     4/   16  loss: 0.3970  acc: 0.8977
+  [16x16] Epoch  25  Batch     5/   16  loss: 0.3971  acc: 0.8974
+  [16x16] Epoch  25  Batch     6/   16  loss: 0.3972  acc: 0.8977
+  [16x16] Epoch  25  Batch     7/   16  loss: 0.3978  acc: 0.8977
+  [16x16] Epoch  25  Batch     8/   16  loss: 0.3968  acc: 0.8983
+  [16x16] Epoch  25  Batch     9/   16  loss: 0.3968  acc: 0.8982
+  [16x16] Epoch  25  Batch    10/   16  loss: 0.3973  acc: 0.8982
+  [16x16] Epoch  25  Batch    11/   16  loss: 0.3973  acc: 0.8982
+  [16x16] Epoch  25  Batch    12/   16  loss: 0.3963  acc: 0.8986
+  [16x16] Epoch  25  Batch    13/   16  loss: 0.3962  acc: 0.8986
+  [16x16] Epoch  25  Batch    14/   16  loss: 0.3960  acc: 0.8986
+  [16x16] Epoch  25  Batch    15/   16  loss: 0.3948  acc: 0.8990
+  [16x16] Epoch  25  Batch    16/   16  loss: 0.3948  acc: 0.8990
+[16x16] Epoch  25  loss: 0.3948  acc: 0.8990  |  val_loss: 0.3742  val_acc: 0.9098  |  lr: 3.62e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 27/54%(avg/max)  43/43°C  35W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  26  Batch     1/   16  loss: 0.3982  acc: 0.8992
+  [16x16] Epoch  26  Batch     2/   16  loss: 0.3974  acc: 0.8993
+  [16x16] Epoch  26  Batch     3/   16  loss: 0.3945  acc: 0.9006
+  [16x16] Epoch  26  Batch     4/   16  loss: 0.3939  acc: 0.9011
+  [16x16] Epoch  26  Batch     5/   16  loss: 0.3923  acc: 0.9026
+  [16x16] Epoch  26  Batch     6/   16  loss: 0.3920  acc: 0.9018
+  [16x16] Epoch  26  Batch     7/   16  loss: 0.3919  acc: 0.9020
+  [16x16] Epoch  26  Batch     8/   16  loss: 0.3923  acc: 0.9017
+  [16x16] Epoch  26  Batch     9/   16  loss: 0.3915  acc: 0.9017
+  [16x16] Epoch  26  Batch    10/   16  loss: 0.3918  acc: 0.9012
+  [16x16] Epoch  26  Batch    11/   16  loss: 0.3914  acc: 0.9016
+  [16x16] Epoch  26  Batch    12/   16  loss: 0.3906  acc: 0.9021
+  [16x16] Epoch  26  Batch    13/   16  loss: 0.3902  acc: 0.9020
+  [16x16] Epoch  26  Batch    14/   16  loss: 0.3899  acc: 0.9021
+  [16x16] Epoch  26  Batch    15/   16  loss: 0.3900  acc: 0.9023
+  [16x16] Epoch  26  Batch    16/   16  loss: 0.3900  acc: 0.9023
+[16x16] Epoch  26  loss: 0.3900  acc: 0.9023  |  val_loss: 0.3478  val_acc: 0.9226  |  lr: 3.58e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 46/93%(avg/max)  42/43°C  36W  |  CPU 36%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  27  Batch     1/   16  loss: 0.3899  acc: 0.9045
+  [16x16] Epoch  27  Batch     2/   16  loss: 0.3846  acc: 0.9039
+  [16x16] Epoch  27  Batch     3/   16  loss: 0.3836  acc: 0.9052
+  [16x16] Epoch  27  Batch     4/   16  loss: 0.3818  acc: 0.9070
+  [16x16] Epoch  27  Batch     5/   16  loss: 0.3831  acc: 0.9063
+  [16x16] Epoch  27  Batch     6/   16  loss: 0.3834  acc: 0.9057
+  [16x16] Epoch  27  Batch     7/   16  loss: 0.3847  acc: 0.9048
+  [16x16] Epoch  27  Batch     8/   16  loss: 0.3852  acc: 0.9041
+  [16x16] Epoch  27  Batch     9/   16  loss: 0.3855  acc: 0.9041
+  [16x16] Epoch  27  Batch    10/   16  loss: 0.3846  acc: 0.9043
+  [16x16] Epoch  27  Batch    11/   16  loss: 0.3843  acc: 0.9042
+  [16x16] Epoch  27  Batch    12/   16  loss: 0.3847  acc: 0.9039
+  [16x16] Epoch  27  Batch    13/   16  loss: 0.3840  acc: 0.9041
+  [16x16] Epoch  27  Batch    14/   16  loss: 0.3840  acc: 0.9041
+  [16x16] Epoch  27  Batch    15/   16  loss: 0.3832  acc: 0.9045
+  [16x16] Epoch  27  Batch    16/   16  loss: 0.3832  acc: 0.9045
+[16x16] Epoch  27  loss: 0.3832  acc: 0.9045  |  val_loss: 0.4066  val_acc: 0.8909  |  lr: 3.54e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  42/43°C  32W  |  CPU 34%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  28  Batch     1/   16  loss: 0.4011  acc: 0.8988
+  [16x16] Epoch  28  Batch     2/   16  loss: 0.3991  acc: 0.8987
+  [16x16] Epoch  28  Batch     3/   16  loss: 0.3892  acc: 0.9044
+  [16x16] Epoch  28  Batch     4/   16  loss: 0.3917  acc: 0.9014
+  [16x16] Epoch  28  Batch     5/   16  loss: 0.3919  acc: 0.9012
+  [16x16] Epoch  28  Batch     6/   16  loss: 0.3911  acc: 0.9015
+  [16x16] Epoch  28  Batch     7/   16  loss: 0.3903  acc: 0.9015
+  [16x16] Epoch  28  Batch     8/   16  loss: 0.3901  acc: 0.9015
+  [16x16] Epoch  28  Batch     9/   16  loss: 0.3895  acc: 0.9018
+  [16x16] Epoch  28  Batch    10/   16  loss: 0.3885  acc: 0.9022
+  [16x16] Epoch  28  Batch    11/   16  loss: 0.3881  acc: 0.9026
+  [16x16] Epoch  28  Batch    12/   16  loss: 0.3874  acc: 0.9030
+  [16x16] Epoch  28  Batch    13/   16  loss: 0.3863  acc: 0.9035
+  [16x16] Epoch  28  Batch    14/   16  loss: 0.3854  acc: 0.9041
+  [16x16] Epoch  28  Batch    15/   16  loss: 0.3848  acc: 0.9048
+  [16x16] Epoch  28  Batch    16/   16  loss: 0.3848  acc: 0.9048
+[16x16] Epoch  28  loss: 0.3848  acc: 0.9048  |  val_loss: 0.3395  val_acc: 0.9247  |  lr: 3.50e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/96%(avg/max)  42/43°C  31W  |  CPU 31%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3395  saved
+  [16x16] Epoch  29  Batch     1/   16  loss: 0.3848  acc: 0.9039
+  [16x16] Epoch  29  Batch     2/   16  loss: 0.3844  acc: 0.9049
+  [16x16] Epoch  29  Batch     3/   16  loss: 0.3823  acc: 0.9065
+  [16x16] Epoch  29  Batch     4/   16  loss: 0.3817  acc: 0.9074
+  [16x16] Epoch  29  Batch     5/   16  loss: 0.3809  acc: 0.9082
+  [16x16] Epoch  29  Batch     6/   16  loss: 0.3804  acc: 0.9082
+  [16x16] Epoch  29  Batch     7/   16  loss: 0.3829  acc: 0.9071
+  [16x16] Epoch  29  Batch     8/   16  loss: 0.3822  acc: 0.9072
+  [16x16] Epoch  29  Batch     9/   16  loss: 0.3816  acc: 0.9074
+  [16x16] Epoch  29  Batch    10/   16  loss: 0.3817  acc: 0.9073
+  [16x16] Epoch  29  Batch    11/   16  loss: 0.3808  acc: 0.9076
+  [16x16] Epoch  29  Batch    12/   16  loss: 0.3813  acc: 0.9073
+  [16x16] Epoch  29  Batch    13/   16  loss: 0.3811  acc: 0.9071
+  [16x16] Epoch  29  Batch    14/   16  loss: 0.3802  acc: 0.9076
+  [16x16] Epoch  29  Batch    15/   16  loss: 0.3801  acc: 0.9077
+  [16x16] Epoch  29  Batch    16/   16  loss: 0.3801  acc: 0.9077
+[16x16] Epoch  29  loss: 0.3801  acc: 0.9077  |  val_loss: 0.3425  val_acc: 0.9274  |  lr: 3.45e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 40/79%(avg/max)  42/43°C  34W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  30  Batch     1/   16  loss: 0.3697  acc: 0.9095
+  [16x16] Epoch  30  Batch     2/   16  loss: 0.3683  acc: 0.9140
+  [16x16] Epoch  30  Batch     3/   16  loss: 0.3687  acc: 0.9139
+  [16x16] Epoch  30  Batch     4/   16  loss: 0.3695  acc: 0.9129
+  [16x16] Epoch  30  Batch     5/   16  loss: 0.3726  acc: 0.9106
+  [16x16] Epoch  30  Batch     6/   16  loss: 0.3747  acc: 0.9096
+  [16x16] Epoch  30  Batch     7/   16  loss: 0.3754  acc: 0.9095
+  [16x16] Epoch  30  Batch     8/   16  loss: 0.3756  acc: 0.9089
+  [16x16] Epoch  30  Batch     9/   16  loss: 0.3747  acc: 0.9094
+  [16x16] Epoch  30  Batch    10/   16  loss: 0.3749  acc: 0.9093
+  [16x16] Epoch  30  Batch    11/   16  loss: 0.3769  acc: 0.9084
+  [16x16] Epoch  30  Batch    12/   16  loss: 0.3761  acc: 0.9093
+  [16x16] Epoch  30  Batch    13/   16  loss: 0.3755  acc: 0.9096
+  [16x16] Epoch  30  Batch    14/   16  loss: 0.3764  acc: 0.9093
+  [16x16] Epoch  30  Batch    15/   16  loss: 0.3754  acc: 0.9099
+  [16x16] Epoch  30  Batch    16/   16  loss: 0.3754  acc: 0.9099
+[16x16] Epoch  30  loss: 0.3754  acc: 0.9099  |  val_loss: 0.3486  val_acc: 0.9224  |  lr: 3.41e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 35/70%(avg/max)  42/43°C  32W  |  CPU 33%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  31  Batch     1/   16  loss: 0.3750  acc: 0.9106
+  [16x16] Epoch  31  Batch     2/   16  loss: 0.3800  acc: 0.9081
+  [16x16] Epoch  31  Batch     3/   16  loss: 0.3730  acc: 0.9120
+  [16x16] Epoch  31  Batch     4/   16  loss: 0.3743  acc: 0.9114
+  [16x16] Epoch  31  Batch     5/   16  loss: 0.3738  acc: 0.9108
+  [16x16] Epoch  31  Batch     6/   16  loss: 0.3725  acc: 0.9116
+  [16x16] Epoch  31  Batch     7/   16  loss: 0.3741  acc: 0.9105
+  [16x16] Epoch  31  Batch     8/   16  loss: 0.3743  acc: 0.9105
+  [16x16] Epoch  31  Batch     9/   16  loss: 0.3744  acc: 0.9104
+  [16x16] Epoch  31  Batch    10/   16  loss: 0.3735  acc: 0.9111
+  [16x16] Epoch  31  Batch    11/   16  loss: 0.3734  acc: 0.9112
+  [16x16] Epoch  31  Batch    12/   16  loss: 0.3723  acc: 0.9118
+  [16x16] Epoch  31  Batch    13/   16  loss: 0.3725  acc: 0.9117
+  [16x16] Epoch  31  Batch    14/   16  loss: 0.3719  acc: 0.9119
+  [16x16] Epoch  31  Batch    15/   16  loss: 0.3713  acc: 0.9121
+  [16x16] Epoch  31  Batch    16/   16  loss: 0.3714  acc: 0.9121
+[16x16] Epoch  31  loss: 0.3714  acc: 0.9121  |  val_loss: 0.3233  val_acc: 0.9322  |  lr: 3.36e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 36/73%(avg/max)  42/43°C  31W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3233  saved
+  [16x16] Epoch  32  Batch     1/   16  loss: 0.3756  acc: 0.9111
+  [16x16] Epoch  32  Batch     2/   16  loss: 0.3751  acc: 0.9087
+  [16x16] Epoch  32  Batch     3/   16  loss: 0.3757  acc: 0.9101
+  [16x16] Epoch  32  Batch     4/   16  loss: 0.3739  acc: 0.9113
+  [16x16] Epoch  32  Batch     5/   16  loss: 0.3717  acc: 0.9123
+  [16x16] Epoch  32  Batch     6/   16  loss: 0.3716  acc: 0.9125
+  [16x16] Epoch  32  Batch     7/   16  loss: 0.3711  acc: 0.9124
+  [16x16] Epoch  32  Batch     8/   16  loss: 0.3716  acc: 0.9121
+  [16x16] Epoch  32  Batch     9/   16  loss: 0.3732  acc: 0.9113
+  [16x16] Epoch  32  Batch    10/   16  loss: 0.3729  acc: 0.9118
+  [16x16] Epoch  32  Batch    11/   16  loss: 0.3726  acc: 0.9120
+  [16x16] Epoch  32  Batch    12/   16  loss: 0.3716  acc: 0.9124
+  [16x16] Epoch  32  Batch    13/   16  loss: 0.3711  acc: 0.9127
+  [16x16] Epoch  32  Batch    14/   16  loss: 0.3709  acc: 0.9127
+  [16x16] Epoch  32  Batch    15/   16  loss: 0.3704  acc: 0.9128
+  [16x16] Epoch  32  Batch    16/   16  loss: 0.3704  acc: 0.9128
+[16x16] Epoch  32  loss: 0.3704  acc: 0.9128  |  val_loss: 0.3408  val_acc: 0.9268  |  lr: 3.31e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  42/43°C  32W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  33  Batch     1/   16  loss: 0.3569  acc: 0.9207
+  [16x16] Epoch  33  Batch     2/   16  loss: 0.3613  acc: 0.9169
+  [16x16] Epoch  33  Batch     3/   16  loss: 0.3621  acc: 0.9159
+  [16x16] Epoch  33  Batch     4/   16  loss: 0.3645  acc: 0.9141
+  [16x16] Epoch  33  Batch     5/   16  loss: 0.3650  acc: 0.9140
+  [16x16] Epoch  33  Batch     6/   16  loss: 0.3631  acc: 0.9152
+  [16x16] Epoch  33  Batch     7/   16  loss: 0.3624  acc: 0.9159
+  [16x16] Epoch  33  Batch     8/   16  loss: 0.3619  acc: 0.9162
+  [16x16] Epoch  33  Batch     9/   16  loss: 0.3620  acc: 0.9165
+  [16x16] Epoch  33  Batch    10/   16  loss: 0.3616  acc: 0.9167
+  [16x16] Epoch  33  Batch    11/   16  loss: 0.3615  acc: 0.9167
+  [16x16] Epoch  33  Batch    12/   16  loss: 0.3611  acc: 0.9168
+  [16x16] Epoch  33  Batch    13/   16  loss: 0.3603  acc: 0.9172
+  [16x16] Epoch  33  Batch    14/   16  loss: 0.3605  acc: 0.9170
+  [16x16] Epoch  33  Batch    15/   16  loss: 0.3607  acc: 0.9172
+  [16x16] Epoch  33  Batch    16/   16  loss: 0.3607  acc: 0.9172
+[16x16] Epoch  33  loss: 0.3607  acc: 0.9172  |  val_loss: 0.3254  val_acc: 0.9325  |  lr: 3.26e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/96%(avg/max)  42/42°C  32W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  34  Batch     1/   16  loss: 0.3780  acc: 0.9096
+  [16x16] Epoch  34  Batch     2/   16  loss: 0.3740  acc: 0.9114
+  [16x16] Epoch  34  Batch     3/   16  loss: 0.3709  acc: 0.9131
+  [16x16] Epoch  34  Batch     4/   16  loss: 0.3679  acc: 0.9140
+  [16x16] Epoch  34  Batch     5/   16  loss: 0.3659  acc: 0.9152
+  [16x16] Epoch  34  Batch     6/   16  loss: 0.3645  acc: 0.9157
+  [16x16] Epoch  34  Batch     7/   16  loss: 0.3658  acc: 0.9150
+  [16x16] Epoch  34  Batch     8/   16  loss: 0.3650  acc: 0.9154
+  [16x16] Epoch  34  Batch     9/   16  loss: 0.3647  acc: 0.9155
+  [16x16] Epoch  34  Batch    10/   16  loss: 0.3631  acc: 0.9166
+  [16x16] Epoch  34  Batch    11/   16  loss: 0.3628  acc: 0.9166
+  [16x16] Epoch  34  Batch    12/   16  loss: 0.3618  acc: 0.9174
+  [16x16] Epoch  34  Batch    13/   16  loss: 0.3614  acc: 0.9175
+  [16x16] Epoch  34  Batch    14/   16  loss: 0.3609  acc: 0.9177
+  [16x16] Epoch  34  Batch    15/   16  loss: 0.3611  acc: 0.9176
+  [16x16] Epoch  34  Batch    16/   16  loss: 0.3611  acc: 0.9176
+[16x16] Epoch  34  loss: 0.3611  acc: 0.9176  |  val_loss: 0.3824  val_acc: 0.9053  |  lr: 3.21e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 45/90%(avg/max)  42/43°C  35W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  35  Batch     1/   16  loss: 0.3623  acc: 0.9164
+  [16x16] Epoch  35  Batch     2/   16  loss: 0.3671  acc: 0.9151
+  [16x16] Epoch  35  Batch     3/   16  loss: 0.3673  acc: 0.9136
+  [16x16] Epoch  35  Batch     4/   16  loss: 0.3654  acc: 0.9135
+  [16x16] Epoch  35  Batch     5/   16  loss: 0.3666  acc: 0.9127
+  [16x16] Epoch  35  Batch     6/   16  loss: 0.3658  acc: 0.9135
+  [16x16] Epoch  35  Batch     7/   16  loss: 0.3639  acc: 0.9146
+  [16x16] Epoch  35  Batch     8/   16  loss: 0.3635  acc: 0.9145
+  [16x16] Epoch  35  Batch     9/   16  loss: 0.3633  acc: 0.9146
+  [16x16] Epoch  35  Batch    10/   16  loss: 0.3630  acc: 0.9148
+  [16x16] Epoch  35  Batch    11/   16  loss: 0.3625  acc: 0.9150
+  [16x16] Epoch  35  Batch    12/   16  loss: 0.3614  acc: 0.9155
+  [16x16] Epoch  35  Batch    13/   16  loss: 0.3611  acc: 0.9161
+  [16x16] Epoch  35  Batch    14/   16  loss: 0.3608  acc: 0.9163
+  [16x16] Epoch  35  Batch    15/   16  loss: 0.3602  acc: 0.9167
+  [16x16] Epoch  35  Batch    16/   16  loss: 0.3602  acc: 0.9167
+[16x16] Epoch  35  loss: 0.3602  acc: 0.9167  |  val_loss: 0.3350  val_acc: 0.9285  |  lr: 3.15e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  42/43°C  33W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  36  Batch     1/   16  loss: 0.3729  acc: 0.9140
+  [16x16] Epoch  36  Batch     2/   16  loss: 0.3633  acc: 0.9174
+  [16x16] Epoch  36  Batch     3/   16  loss: 0.3600  acc: 0.9180
+  [16x16] Epoch  36  Batch     4/   16  loss: 0.3595  acc: 0.9178
+  [16x16] Epoch  36  Batch     5/   16  loss: 0.3608  acc: 0.9176
+  [16x16] Epoch  36  Batch     6/   16  loss: 0.3601  acc: 0.9184
+  [16x16] Epoch  36  Batch     7/   16  loss: 0.3599  acc: 0.9184
+  [16x16] Epoch  36  Batch     8/   16  loss: 0.3587  acc: 0.9187
+  [16x16] Epoch  36  Batch     9/   16  loss: 0.3601  acc: 0.9179
+  [16x16] Epoch  36  Batch    10/   16  loss: 0.3593  acc: 0.9182
+  [16x16] Epoch  36  Batch    11/   16  loss: 0.3592  acc: 0.9184
+  [16x16] Epoch  36  Batch    12/   16  loss: 0.3584  acc: 0.9188
+  [16x16] Epoch  36  Batch    13/   16  loss: 0.3575  acc: 0.9192
+  [16x16] Epoch  36  Batch    14/   16  loss: 0.3562  acc: 0.9198
+  [16x16] Epoch  36  Batch    15/   16  loss: 0.3562  acc: 0.9199
+  [16x16] Epoch  36  Batch    16/   16  loss: 0.3562  acc: 0.9199
+[16x16] Epoch  36  loss: 0.3562  acc: 0.9199  |  val_loss: 0.3116  val_acc: 0.9389  |  lr: 3.10e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 38/77%(avg/max)  42/42°C  30W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.3116  saved
+  [16x16] Epoch  37  Batch     1/   16  loss: 0.3606  acc: 0.9188
+  [16x16] Epoch  37  Batch     2/   16  loss: 0.3613  acc: 0.9180
+  [16x16] Epoch  37  Batch     3/   16  loss: 0.3588  acc: 0.9192
+  [16x16] Epoch  37  Batch     4/   16  loss: 0.3569  acc: 0.9205
+  [16x16] Epoch  37  Batch     5/   16  loss: 0.3557  acc: 0.9206
+  [16x16] Epoch  37  Batch     6/   16  loss: 0.3569  acc: 0.9194
+  [16x16] Epoch  37  Batch     7/   16  loss: 0.3565  acc: 0.9201
+  [16x16] Epoch  37  Batch     8/   16  loss: 0.3565  acc: 0.9201
+  [16x16] Epoch  37  Batch     9/   16  loss: 0.3571  acc: 0.9195
+  [16x16] Epoch  37  Batch    10/   16  loss: 0.3564  acc: 0.9203
+  [16x16] Epoch  37  Batch    11/   16  loss: 0.3561  acc: 0.9206
+  [16x16] Epoch  37  Batch    12/   16  loss: 0.3555  acc: 0.9212
+  [16x16] Epoch  37  Batch    13/   16  loss: 0.3546  acc: 0.9216
+  [16x16] Epoch  37  Batch    14/   16  loss: 0.3543  acc: 0.9217
+  [16x16] Epoch  37  Batch    15/   16  loss: 0.3546  acc: 0.9215
+  [16x16] Epoch  37  Batch    16/   16  loss: 0.3546  acc: 0.9215
+[16x16] Epoch  37  loss: 0.3546  acc: 0.9215  |  val_loss: 0.3329  val_acc: 0.9326  |  lr: 3.04e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 45/90%(avg/max)  42/43°C  40W  |  CPU 37%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  38  Batch     1/   16  loss: 0.3490  acc: 0.9242
+  [16x16] Epoch  38  Batch     2/   16  loss: 0.3532  acc: 0.9214
+  [16x16] Epoch  38  Batch     3/   16  loss: 0.3534  acc: 0.9213
+  [16x16] Epoch  38  Batch     4/   16  loss: 0.3547  acc: 0.9205
+  [16x16] Epoch  38  Batch     5/   16  loss: 0.3555  acc: 0.9202
+  [16x16] Epoch  38  Batch     6/   16  loss: 0.3545  acc: 0.9207
+  [16x16] Epoch  38  Batch     7/   16  loss: 0.3532  acc: 0.9209
+  [16x16] Epoch  38  Batch     8/   16  loss: 0.3529  acc: 0.9216
+  [16x16] Epoch  38  Batch     9/   16  loss: 0.3526  acc: 0.9218
+  [16x16] Epoch  38  Batch    10/   16  loss: 0.3525  acc: 0.9218
+  [16x16] Epoch  38  Batch    11/   16  loss: 0.3526  acc: 0.9213
+  [16x16] Epoch  38  Batch    12/   16  loss: 0.3524  acc: 0.9212
+  [16x16] Epoch  38  Batch    13/   16  loss: 0.3528  acc: 0.9210
+  [16x16] Epoch  38  Batch    14/   16  loss: 0.3533  acc: 0.9208
+  [16x16] Epoch  38  Batch    15/   16  loss: 0.3524  acc: 0.9213
+  [16x16] Epoch  38  Batch    16/   16  loss: 0.3524  acc: 0.9213
+[16x16] Epoch  38  loss: 0.3524  acc: 0.9213  |  val_loss: 0.3600  val_acc: 0.9152  |  lr: 2.98e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 42/85%(avg/max)  43/44°C  34W  |  CPU 34%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  39  Batch     1/   16  loss: 0.3590  acc: 0.9175
+  [16x16] Epoch  39  Batch     2/   16  loss: 0.3538  acc: 0.9208
+  [16x16] Epoch  39  Batch     3/   16  loss: 0.3485  acc: 0.9235
+  [16x16] Epoch  39  Batch     4/   16  loss: 0.3500  acc: 0.9226
+  [16x16] Epoch  39  Batch     5/   16  loss: 0.3503  acc: 0.9227
+  [16x16] Epoch  39  Batch     6/   16  loss: 0.3492  acc: 0.9231
+  [16x16] Epoch  39  Batch     7/   16  loss: 0.3492  acc: 0.9236
+  [16x16] Epoch  39  Batch     8/   16  loss: 0.3490  acc: 0.9239
+  [16x16] Epoch  39  Batch     9/   16  loss: 0.3498  acc: 0.9235
+  [16x16] Epoch  39  Batch    10/   16  loss: 0.3491  acc: 0.9239
+  [16x16] Epoch  39  Batch    11/   16  loss: 0.3490  acc: 0.9237
+  [16x16] Epoch  39  Batch    12/   16  loss: 0.3484  acc: 0.9241
+  [16x16] Epoch  39  Batch    13/   16  loss: 0.3482  acc: 0.9241
+  [16x16] Epoch  39  Batch    14/   16  loss: 0.3485  acc: 0.9240
+  [16x16] Epoch  39  Batch    15/   16  loss: 0.3489  acc: 0.9239
+  [16x16] Epoch  39  Batch    16/   16  loss: 0.3489  acc: 0.9239
+[16x16] Epoch  39  loss: 0.3489  acc: 0.9239  |  val_loss: 0.3394  val_acc: 0.9269  |  lr: 2.92e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  42/42°C  40W  |  CPU 30%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  40  Batch     1/   16  loss: 0.3526  acc: 0.9234
+  [16x16] Epoch  40  Batch     2/   16  loss: 0.3564  acc: 0.9217
+  [16x16] Epoch  40  Batch     3/   16  loss: 0.3564  acc: 0.9224
+  [16x16] Epoch  40  Batch     4/   16  loss: 0.3523  acc: 0.9236
+  [16x16] Epoch  40  Batch     5/   16  loss: 0.3513  acc: 0.9237
+  [16x16] Epoch  40  Batch     6/   16  loss: 0.3506  acc: 0.9242
+  [16x16] Epoch  40  Batch     7/   16  loss: 0.3504  acc: 0.9240
+  [16x16] Epoch  40  Batch     8/   16  loss: 0.3513  acc: 0.9231
+  [16x16] Epoch  40  Batch     9/   16  loss: 0.3509  acc: 0.9230
+  [16x16] Epoch  40  Batch    10/   16  loss: 0.3498  acc: 0.9232
+  [16x16] Epoch  40  Batch    11/   16  loss: 0.3486  acc: 0.9240
+  [16x16] Epoch  40  Batch    12/   16  loss: 0.3486  acc: 0.9238
+  [16x16] Epoch  40  Batch    13/   16  loss: 0.3479  acc: 0.9243
+  [16x16] Epoch  40  Batch    14/   16  loss: 0.3484  acc: 0.9237
+  [16x16] Epoch  40  Batch    15/   16  loss: 0.3475  acc: 0.9242
+  [16x16] Epoch  40  Batch    16/   16  loss: 0.3475  acc: 0.9242
+[16x16] Epoch  40  loss: 0.3475  acc: 0.9242  |  val_loss: 0.3492  val_acc: 0.9197  |  lr: 2.86e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  42/42°C  31W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  41  Batch     1/   16  loss: 0.3493  acc: 0.9264
+  [16x16] Epoch  41  Batch     2/   16  loss: 0.3543  acc: 0.9220
+  [16x16] Epoch  41  Batch     3/   16  loss: 0.3536  acc: 0.9219
+  [16x16] Epoch  41  Batch     4/   16  loss: 0.3540  acc: 0.9210
+  [16x16] Epoch  41  Batch     5/   16  loss: 0.3536  acc: 0.9214
+  [16x16] Epoch  41  Batch     6/   16  loss: 0.3537  acc: 0.9213
+  [16x16] Epoch  41  Batch     7/   16  loss: 0.3519  acc: 0.9216
+  [16x16] Epoch  41  Batch     8/   16  loss: 0.3515  acc: 0.9219
+  [16x16] Epoch  41  Batch     9/   16  loss: 0.3506  acc: 0.9223
+  [16x16] Epoch  41  Batch    10/   16  loss: 0.3500  acc: 0.9226
+  [16x16] Epoch  41  Batch    11/   16  loss: 0.3494  acc: 0.9231
+  [16x16] Epoch  41  Batch    12/   16  loss: 0.3497  acc: 0.9228
+  [16x16] Epoch  41  Batch    13/   16  loss: 0.3497  acc: 0.9230
+  [16x16] Epoch  41  Batch    14/   16  loss: 0.3491  acc: 0.9234
+  [16x16] Epoch  41  Batch    15/   16  loss: 0.3489  acc: 0.9235
+  [16x16] Epoch  41  Batch    16/   16  loss: 0.3489  acc: 0.9235
+[16x16] Epoch  41  loss: 0.3489  acc: 0.9235  |  val_loss: 0.3361  val_acc: 0.9248  |  lr: 2.80e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 35%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch  42  Batch     1/   16  loss: 0.3556  acc: 0.9192
+  [16x16] Epoch  42  Batch     2/   16  loss: 0.3468  acc: 0.9244
+  [16x16] Epoch  42  Batch     3/   16  loss: 0.3483  acc: 0.9242
+  [16x16] Epoch  42  Batch     4/   16  loss: 0.3452  acc: 0.9258
+  [16x16] Epoch  42  Batch     5/   16  loss: 0.3457  acc: 0.9257
+  [16x16] Epoch  42  Batch     6/   16  loss: 0.3455  acc: 0.9256
+  [16x16] Epoch  42  Batch     7/   16  loss: 0.3442  acc: 0.9260
+  [16x16] Epoch  42  Batch     8/   16  loss: 0.3439  acc: 0.9266
+  [16x16] Epoch  42  Batch     9/   16  loss: 0.3450  acc: 0.9258
+  [16x16] Epoch  42  Batch    10/   16  loss: 0.3439  acc: 0.9262
+  [16x16] Epoch  42  Batch    11/   16  loss: 0.3444  acc: 0.9260
+  [16x16] Epoch  42  Batch    12/   16  loss: 0.3453  acc: 0.9257
+  [16x16] Epoch  42  Batch    13/   16  loss: 0.3461  acc: 0.9253
+  [16x16] Epoch  42  Batch    14/   16  loss: 0.3459  acc: 0.9253
+  [16x16] Epoch  42  Batch    15/   16  loss: 0.3451  acc: 0.9258
+  [16x16] Epoch  42  Batch    16/   16  loss: 0.3451  acc: 0.9258
+[16x16] Epoch  42  loss: 0.3451  acc: 0.9258  |  val_loss: 0.2990  val_acc: 0.9423  |  lr: 2.74e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  32W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2990  saved
+  [16x16] Epoch  43  Batch     1/   16  loss: 0.3484  acc: 0.9210
+  [16x16] Epoch  43  Batch     2/   16  loss: 0.3459  acc: 0.9242
+  [16x16] Epoch  43  Batch     3/   16  loss: 0.3450  acc: 0.9253
+  [16x16] Epoch  43  Batch     4/   16  loss: 0.3452  acc: 0.9249
+  [16x16] Epoch  43  Batch     5/   16  loss: 0.3439  acc: 0.9261
+  [16x16] Epoch  43  Batch     6/   16  loss: 0.3431  acc: 0.9262
+  [16x16] Epoch  43  Batch     7/   16  loss: 0.3435  acc: 0.9259
+  [16x16] Epoch  43  Batch     8/   16  loss: 0.3446  acc: 0.9251
+  [16x16] Epoch  43  Batch     9/   16  loss: 0.3442  acc: 0.9255
+  [16x16] Epoch  43  Batch    10/   16  loss: 0.3436  acc: 0.9261
+  [16x16] Epoch  43  Batch    11/   16  loss: 0.3435  acc: 0.9262
+  [16x16] Epoch  43  Batch    12/   16  loss: 0.3420  acc: 0.9268
+  [16x16] Epoch  43  Batch    13/   16  loss: 0.3419  acc: 0.9269
+  [16x16] Epoch  43  Batch    14/   16  loss: 0.3416  acc: 0.9273
+  [16x16] Epoch  43  Batch    15/   16  loss: 0.3422  acc: 0.9271
+  [16x16] Epoch  43  Batch    16/   16  loss: 0.3422  acc: 0.9271
+[16x16] Epoch  43  loss: 0.3422  acc: 0.9271  |  val_loss: 0.3012  val_acc: 0.9437  |  lr: 2.68e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 31%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  44  Batch     1/   16  loss: 0.3397  acc: 0.9304
+  [16x16] Epoch  44  Batch     2/   16  loss: 0.3389  acc: 0.9287
+  [16x16] Epoch  44  Batch     3/   16  loss: 0.3423  acc: 0.9272
+  [16x16] Epoch  44  Batch     4/   16  loss: 0.3409  acc: 0.9283
+  [16x16] Epoch  44  Batch     5/   16  loss: 0.3446  acc: 0.9256
+  [16x16] Epoch  44  Batch     6/   16  loss: 0.3429  acc: 0.9268
+  [16x16] Epoch  44  Batch     7/   16  loss: 0.3427  acc: 0.9270
+  [16x16] Epoch  44  Batch     8/   16  loss: 0.3413  acc: 0.9278
+  [16x16] Epoch  44  Batch     9/   16  loss: 0.3404  acc: 0.9284
+  [16x16] Epoch  44  Batch    10/   16  loss: 0.3411  acc: 0.9280
+  [16x16] Epoch  44  Batch    11/   16  loss: 0.3410  acc: 0.9279
+  [16x16] Epoch  44  Batch    12/   16  loss: 0.3403  acc: 0.9282
+  [16x16] Epoch  44  Batch    13/   16  loss: 0.3398  acc: 0.9286
+  [16x16] Epoch  44  Batch    14/   16  loss: 0.3391  acc: 0.9292
+  [16x16] Epoch  44  Batch    15/   16  loss: 0.3390  acc: 0.9293
+  [16x16] Epoch  44  Batch    16/   16  loss: 0.3389  acc: 0.9293
+[16x16] Epoch  44  loss: 0.3389  acc: 0.9293  |  val_loss: 0.2958  val_acc: 0.9462  |  lr: 2.61e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 1/1%(avg/max)  42/42°C  32W  |  CPU 33%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2958  saved
+  [16x16] Epoch  45  Batch     1/   16  loss: 0.3438  acc: 0.9267
+  [16x16] Epoch  45  Batch     2/   16  loss: 0.3384  acc: 0.9314
+  [16x16] Epoch  45  Batch     3/   16  loss: 0.3387  acc: 0.9303
+  [16x16] Epoch  45  Batch     4/   16  loss: 0.3398  acc: 0.9292
+  [16x16] Epoch  45  Batch     5/   16  loss: 0.3399  acc: 0.9288
+  [16x16] Epoch  45  Batch     6/   16  loss: 0.3391  acc: 0.9295
+  [16x16] Epoch  45  Batch     7/   16  loss: 0.3399  acc: 0.9288
+  [16x16] Epoch  45  Batch     8/   16  loss: 0.3380  acc: 0.9296
+  [16x16] Epoch  45  Batch     9/   16  loss: 0.3379  acc: 0.9301
+  [16x16] Epoch  45  Batch    10/   16  loss: 0.3378  acc: 0.9303
+  [16x16] Epoch  45  Batch    11/   16  loss: 0.3380  acc: 0.9299
+  [16x16] Epoch  45  Batch    12/   16  loss: 0.3370  acc: 0.9303
+  [16x16] Epoch  45  Batch    13/   16  loss: 0.3372  acc: 0.9301
+  [16x16] Epoch  45  Batch    14/   16  loss: 0.3364  acc: 0.9305
+  [16x16] Epoch  45  Batch    15/   16  loss: 0.3361  acc: 0.9306
+  [16x16] Epoch  45  Batch    16/   16  loss: 0.3362  acc: 0.9306
+[16x16] Epoch  45  loss: 0.3362  acc: 0.9306  |  val_loss: 0.3227  val_acc: 0.9305  |  lr: 2.55e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 1/1%(avg/max)  42/42°C  31W  |  CPU 32%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  46  Batch     1/   16  loss: 0.3451  acc: 0.9260
+  [16x16] Epoch  46  Batch     2/   16  loss: 0.3437  acc: 0.9272
+  [16x16] Epoch  46  Batch     3/   16  loss: 0.3432  acc: 0.9276
+  [16x16] Epoch  46  Batch     4/   16  loss: 0.3410  acc: 0.9282
+  [16x16] Epoch  46  Batch     5/   16  loss: 0.3405  acc: 0.9274
+  [16x16] Epoch  46  Batch     6/   16  loss: 0.3395  acc: 0.9287
+  [16x16] Epoch  46  Batch     7/   16  loss: 0.3386  acc: 0.9293
+  [16x16] Epoch  46  Batch     8/   16  loss: 0.3399  acc: 0.9290
+  [16x16] Epoch  46  Batch     9/   16  loss: 0.3384  acc: 0.9299
+  [16x16] Epoch  46  Batch    10/   16  loss: 0.3384  acc: 0.9301
+  [16x16] Epoch  46  Batch    11/   16  loss: 0.3385  acc: 0.9296
+  [16x16] Epoch  46  Batch    12/   16  loss: 0.3380  acc: 0.9298
+  [16x16] Epoch  46  Batch    13/   16  loss: 0.3380  acc: 0.9294
+  [16x16] Epoch  46  Batch    14/   16  loss: 0.3374  acc: 0.9294
+  [16x16] Epoch  46  Batch    15/   16  loss: 0.3372  acc: 0.9295
+  [16x16] Epoch  46  Batch    16/   16  loss: 0.3372  acc: 0.9295
+[16x16] Epoch  46  loss: 0.3372  acc: 0.9295  |  val_loss: 0.2974  val_acc: 0.9444  |  lr: 2.49e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 16/33%(avg/max)  42/42°C  36W  |  CPU 34%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  47  Batch     1/   16  loss: 0.3421  acc: 0.9291
+  [16x16] Epoch  47  Batch     2/   16  loss: 0.3393  acc: 0.9287
+  [16x16] Epoch  47  Batch     3/   16  loss: 0.3390  acc: 0.9288
+  [16x16] Epoch  47  Batch     4/   16  loss: 0.3410  acc: 0.9279
+  [16x16] Epoch  47  Batch     5/   16  loss: 0.3427  acc: 0.9274
+  [16x16] Epoch  47  Batch     6/   16  loss: 0.3414  acc: 0.9279
+  [16x16] Epoch  47  Batch     7/   16  loss: 0.3412  acc: 0.9280
+  [16x16] Epoch  47  Batch     8/   16  loss: 0.3400  acc: 0.9285
+  [16x16] Epoch  47  Batch     9/   16  loss: 0.3391  acc: 0.9287
+  [16x16] Epoch  47  Batch    10/   16  loss: 0.3387  acc: 0.9291
+  [16x16] Epoch  47  Batch    11/   16  loss: 0.3386  acc: 0.9292
+  [16x16] Epoch  47  Batch    12/   16  loss: 0.3377  acc: 0.9295
+  [16x16] Epoch  47  Batch    13/   16  loss: 0.3374  acc: 0.9296
+  [16x16] Epoch  47  Batch    14/   16  loss: 0.3368  acc: 0.9297
+  [16x16] Epoch  47  Batch    15/   16  loss: 0.3365  acc: 0.9300
+  [16x16] Epoch  47  Batch    16/   16  loss: 0.3366  acc: 0.9299
+[16x16] Epoch  47  loss: 0.3366  acc: 0.9299  |  val_loss: 0.2935  val_acc: 0.9472  |  lr: 2.42e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 30/60%(avg/max)  42/42°C  33W  |  CPU 34%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2935  saved
+  [16x16] Epoch  48  Batch     1/   16  loss: 0.3366  acc: 0.9276
+  [16x16] Epoch  48  Batch     2/   16  loss: 0.3332  acc: 0.9323
+  [16x16] Epoch  48  Batch     3/   16  loss: 0.3322  acc: 0.9328
+  [16x16] Epoch  48  Batch     4/   16  loss: 0.3318  acc: 0.9334
+  [16x16] Epoch  48  Batch     5/   16  loss: 0.3329  acc: 0.9319
+  [16x16] Epoch  48  Batch     6/   16  loss: 0.3344  acc: 0.9316
+  [16x16] Epoch  48  Batch     7/   16  loss: 0.3347  acc: 0.9319
+  [16x16] Epoch  48  Batch     8/   16  loss: 0.3334  acc: 0.9323
+  [16x16] Epoch  48  Batch     9/   16  loss: 0.3331  acc: 0.9325
+  [16x16] Epoch  48  Batch    10/   16  loss: 0.3320  acc: 0.9328
+  [16x16] Epoch  48  Batch    11/   16  loss: 0.3316  acc: 0.9329
+  [16x16] Epoch  48  Batch    12/   16  loss: 0.3314  acc: 0.9330
+  [16x16] Epoch  48  Batch    13/   16  loss: 0.3311  acc: 0.9331
+  [16x16] Epoch  48  Batch    14/   16  loss: 0.3313  acc: 0.9329
+  [16x16] Epoch  48  Batch    15/   16  loss: 0.3311  acc: 0.9331
+  [16x16] Epoch  48  Batch    16/   16  loss: 0.3311  acc: 0.9330
+[16x16] Epoch  48  loss: 0.3311  acc: 0.9330  |  val_loss: 0.2981  val_acc: 0.9460  |  lr: 2.35e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 20/39%(avg/max)  42/42°C  33W  |  CPU 35%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  49  Batch     1/   16  loss: 0.3388  acc: 0.9297
+  [16x16] Epoch  49  Batch     2/   16  loss: 0.3355  acc: 0.9330
+  [16x16] Epoch  49  Batch     3/   16  loss: 0.3344  acc: 0.9331
+  [16x16] Epoch  49  Batch     4/   16  loss: 0.3313  acc: 0.9335
+  [16x16] Epoch  49  Batch     5/   16  loss: 0.3316  acc: 0.9332
+  [16x16] Epoch  49  Batch     6/   16  loss: 0.3322  acc: 0.9324
+  [16x16] Epoch  49  Batch     7/   16  loss: 0.3316  acc: 0.9324
+  [16x16] Epoch  49  Batch     8/   16  loss: 0.3329  acc: 0.9316
+  [16x16] Epoch  49  Batch     9/   16  loss: 0.3332  acc: 0.9313
+  [16x16] Epoch  49  Batch    10/   16  loss: 0.3324  acc: 0.9314
+  [16x16] Epoch  49  Batch    11/   16  loss: 0.3320  acc: 0.9319
+  [16x16] Epoch  49  Batch    12/   16  loss: 0.3310  acc: 0.9325
+  [16x16] Epoch  49  Batch    13/   16  loss: 0.3312  acc: 0.9325
+  [16x16] Epoch  49  Batch    14/   16  loss: 0.3309  acc: 0.9327
+  [16x16] Epoch  49  Batch    15/   16  loss: 0.3317  acc: 0.9322
+  [16x16] Epoch  49  Batch    16/   16  loss: 0.3317  acc: 0.9322
+[16x16] Epoch  49  loss: 0.3317  acc: 0.9322  |  val_loss: 0.2994  val_acc: 0.9446  |  lr: 2.29e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 26/53%(avg/max)  42/42°C  33W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  50  Batch     1/   16  loss: 0.3302  acc: 0.9320
+  [16x16] Epoch  50  Batch     2/   16  loss: 0.3279  acc: 0.9345
+  [16x16] Epoch  50  Batch     3/   16  loss: 0.3297  acc: 0.9331
+  [16x16] Epoch  50  Batch     4/   16  loss: 0.3327  acc: 0.9327
+  [16x16] Epoch  50  Batch     5/   16  loss: 0.3346  acc: 0.9318
+  [16x16] Epoch  50  Batch     6/   16  loss: 0.3337  acc: 0.9319
+  [16x16] Epoch  50  Batch     7/   16  loss: 0.3333  acc: 0.9326
+  [16x16] Epoch  50  Batch     8/   16  loss: 0.3324  acc: 0.9325
+  [16x16] Epoch  50  Batch     9/   16  loss: 0.3312  acc: 0.9332
+  [16x16] Epoch  50  Batch    10/   16  loss: 0.3310  acc: 0.9330
+  [16x16] Epoch  50  Batch    11/   16  loss: 0.3311  acc: 0.9329
+  [16x16] Epoch  50  Batch    12/   16  loss: 0.3306  acc: 0.9332
+  [16x16] Epoch  50  Batch    13/   16  loss: 0.3304  acc: 0.9336
+  [16x16] Epoch  50  Batch    14/   16  loss: 0.3308  acc: 0.9336
+  [16x16] Epoch  50  Batch    15/   16  loss: 0.3308  acc: 0.9337
+  [16x16] Epoch  50  Batch    16/   16  loss: 0.3308  acc: 0.9337
+[16x16] Epoch  50  loss: 0.3308  acc: 0.9337  |  val_loss: 0.3697  val_acc: 0.9079  |  lr: 2.22e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  42/42°C  33W  |  CPU 33%  RAM 27.8/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  51  Batch     1/   16  loss: 0.3356  acc: 0.9295
+  [16x16] Epoch  51  Batch     2/   16  loss: 0.3260  acc: 0.9365
+  [16x16] Epoch  51  Batch     3/   16  loss: 0.3295  acc: 0.9340
+  [16x16] Epoch  51  Batch     4/   16  loss: 0.3304  acc: 0.9341
+  [16x16] Epoch  51  Batch     5/   16  loss: 0.3296  acc: 0.9341
+  [16x16] Epoch  51  Batch     6/   16  loss: 0.3299  acc: 0.9336
+  [16x16] Epoch  51  Batch     7/   16  loss: 0.3311  acc: 0.9330
+  [16x16] Epoch  51  Batch     8/   16  loss: 0.3304  acc: 0.9334
+  [16x16] Epoch  51  Batch     9/   16  loss: 0.3305  acc: 0.9333
+  [16x16] Epoch  51  Batch    10/   16  loss: 0.3302  acc: 0.9330
+  [16x16] Epoch  51  Batch    11/   16  loss: 0.3297  acc: 0.9329
+  [16x16] Epoch  51  Batch    12/   16  loss: 0.3300  acc: 0.9324
+  [16x16] Epoch  51  Batch    13/   16  loss: 0.3300  acc: 0.9325
+  [16x16] Epoch  51  Batch    14/   16  loss: 0.3297  acc: 0.9326
+  [16x16] Epoch  51  Batch    15/   16  loss: 0.3298  acc: 0.9326
+  [16x16] Epoch  51  Batch    16/   16  loss: 0.3298  acc: 0.9326
+[16x16] Epoch  51  loss: 0.3298  acc: 0.9326  |  val_loss: 0.3131  val_acc: 0.9380  |  lr: 2.16e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  27W  |  CPU 31%  RAM 27.8/63.2GB  |  wait 2.0s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  52  Batch     1/   16  loss: 0.3356  acc: 0.9320
+  [16x16] Epoch  52  Batch     2/   16  loss: 0.3376  acc: 0.9299
+  [16x16] Epoch  52  Batch     3/   16  loss: 0.3370  acc: 0.9296
+  [16x16] Epoch  52  Batch     4/   16  loss: 0.3342  acc: 0.9320
+  [16x16] Epoch  52  Batch     5/   16  loss: 0.3345  acc: 0.9310
+  [16x16] Epoch  52  Batch     6/   16  loss: 0.3335  acc: 0.9313
+  [16x16] Epoch  52  Batch     7/   16  loss: 0.3317  acc: 0.9318
+  [16x16] Epoch  52  Batch     8/   16  loss: 0.3324  acc: 0.9318
+  [16x16] Epoch  52  Batch     9/   16  loss: 0.3319  acc: 0.9321
+  [16x16] Epoch  52  Batch    10/   16  loss: 0.3323  acc: 0.9316
+  [16x16] Epoch  52  Batch    11/   16  loss: 0.3315  acc: 0.9320
+  [16x16] Epoch  52  Batch    12/   16  loss: 0.3300  acc: 0.9329
+  [16x16] Epoch  52  Batch    13/   16  loss: 0.3294  acc: 0.9335
+  [16x16] Epoch  52  Batch    14/   16  loss: 0.3300  acc: 0.9332
+  [16x16] Epoch  52  Batch    15/   16  loss: 0.3302  acc: 0.9333
+  [16x16] Epoch  52  Batch    16/   16  loss: 0.3302  acc: 0.9333
+[16x16] Epoch  52  loss: 0.3302  acc: 0.9333  |  val_loss: 0.2867  val_acc: 0.9489  |  lr: 2.09e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 47/94%(avg/max)  42/43°C  31W  |  CPU 30%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2867  saved
+  [16x16] Epoch  53  Batch     1/   16  loss: 0.3361  acc: 0.9291
+  [16x16] Epoch  53  Batch     2/   16  loss: 0.3349  acc: 0.9290
+  [16x16] Epoch  53  Batch     3/   16  loss: 0.3354  acc: 0.9289
+  [16x16] Epoch  53  Batch     4/   16  loss: 0.3366  acc: 0.9291
+  [16x16] Epoch  53  Batch     5/   16  loss: 0.3361  acc: 0.9286
+  [16x16] Epoch  53  Batch     6/   16  loss: 0.3347  acc: 0.9298
+  [16x16] Epoch  53  Batch     7/   16  loss: 0.3354  acc: 0.9291
+  [16x16] Epoch  53  Batch     8/   16  loss: 0.3361  acc: 0.9285
+  [16x16] Epoch  53  Batch     9/   16  loss: 0.3355  acc: 0.9292
+  [16x16] Epoch  53  Batch    10/   16  loss: 0.3344  acc: 0.9300
+  [16x16] Epoch  53  Batch    11/   16  loss: 0.3344  acc: 0.9299
+  [16x16] Epoch  53  Batch    12/   16  loss: 0.3337  acc: 0.9304
+  [16x16] Epoch  53  Batch    13/   16  loss: 0.3330  acc: 0.9309
+  [16x16] Epoch  53  Batch    14/   16  loss: 0.3320  acc: 0.9317
+  [16x16] Epoch  53  Batch    15/   16  loss: 0.3318  acc: 0.9319
+  [16x16] Epoch  53  Batch    16/   16  loss: 0.3318  acc: 0.9319
+[16x16] Epoch  53  loss: 0.3318  acc: 0.9319  |  val_loss: 0.2933  val_acc: 0.9459  |  lr: 2.02e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  35W  |  CPU 35%  RAM 27.8/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  54  Batch     1/   16  loss: 0.3252  acc: 0.9368
+  [16x16] Epoch  54  Batch     2/   16  loss: 0.3241  acc: 0.9358
+  [16x16] Epoch  54  Batch     3/   16  loss: 0.3224  acc: 0.9375
+  [16x16] Epoch  54  Batch     4/   16  loss: 0.3224  acc: 0.9373
+  [16x16] Epoch  54  Batch     5/   16  loss: 0.3232  acc: 0.9368
+  [16x16] Epoch  54  Batch     6/   16  loss: 0.3246  acc: 0.9358
+  [16x16] Epoch  54  Batch     7/   16  loss: 0.3257  acc: 0.9354
+  [16x16] Epoch  54  Batch     8/   16  loss: 0.3268  acc: 0.9351
+  [16x16] Epoch  54  Batch     9/   16  loss: 0.3258  acc: 0.9358
+  [16x16] Epoch  54  Batch    10/   16  loss: 0.3257  acc: 0.9360
+  [16x16] Epoch  54  Batch    11/   16  loss: 0.3264  acc: 0.9355
+  [16x16] Epoch  54  Batch    12/   16  loss: 0.3261  acc: 0.9356
+  [16x16] Epoch  54  Batch    13/   16  loss: 0.3267  acc: 0.9352
+  [16x16] Epoch  54  Batch    14/   16  loss: 0.3262  acc: 0.9357
+  [16x16] Epoch  54  Batch    15/   16  loss: 0.3258  acc: 0.9358
+  [16x16] Epoch  54  Batch    16/   16  loss: 0.3258  acc: 0.9358
+[16x16] Epoch  54  loss: 0.3258  acc: 0.9358  |  val_loss: 0.3009  val_acc: 0.9437  |  lr: 1.95e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  42/42°C  40W  |  CPU 34%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  55  Batch     1/   16  loss: 0.3416  acc: 0.9249
+  [16x16] Epoch  55  Batch     2/   16  loss: 0.3322  acc: 0.9305
+  [16x16] Epoch  55  Batch     3/   16  loss: 0.3304  acc: 0.9314
+  [16x16] Epoch  55  Batch     4/   16  loss: 0.3302  acc: 0.9325
+  [16x16] Epoch  55  Batch     5/   16  loss: 0.3289  acc: 0.9330
+  [16x16] Epoch  55  Batch     6/   16  loss: 0.3288  acc: 0.9330
+  [16x16] Epoch  55  Batch     7/   16  loss: 0.3265  acc: 0.9344
+  [16x16] Epoch  55  Batch     8/   16  loss: 0.3256  acc: 0.9351
+  [16x16] Epoch  55  Batch     9/   16  loss: 0.3259  acc: 0.9349
+  [16x16] Epoch  55  Batch    10/   16  loss: 0.3254  acc: 0.9349
+  [16x16] Epoch  55  Batch    11/   16  loss: 0.3261  acc: 0.9346
+  [16x16] Epoch  55  Batch    12/   16  loss: 0.3256  acc: 0.9349
+  [16x16] Epoch  55  Batch    13/   16  loss: 0.3254  acc: 0.9348
+  [16x16] Epoch  55  Batch    14/   16  loss: 0.3258  acc: 0.9347
+  [16x16] Epoch  55  Batch    15/   16  loss: 0.3262  acc: 0.9347
+  [16x16] Epoch  55  Batch    16/   16  loss: 0.3262  acc: 0.9346
+[16x16] Epoch  55  loss: 0.3262  acc: 0.9346  |  val_loss: 0.2962  val_acc: 0.9461  |  lr: 1.89e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  24W  |  CPU 34%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  56  Batch     1/   16  loss: 0.3343  acc: 0.9300
+  [16x16] Epoch  56  Batch     2/   16  loss: 0.3258  acc: 0.9364
+  [16x16] Epoch  56  Batch     3/   16  loss: 0.3286  acc: 0.9351
+  [16x16] Epoch  56  Batch     4/   16  loss: 0.3295  acc: 0.9352
+  [16x16] Epoch  56  Batch     5/   16  loss: 0.3292  acc: 0.9345
+  [16x16] Epoch  56  Batch     6/   16  loss: 0.3285  acc: 0.9342
+  [16x16] Epoch  56  Batch     7/   16  loss: 0.3289  acc: 0.9341
+  [16x16] Epoch  56  Batch     8/   16  loss: 0.3298  acc: 0.9337
+  [16x16] Epoch  56  Batch     9/   16  loss: 0.3288  acc: 0.9341
+  [16x16] Epoch  56  Batch    10/   16  loss: 0.3281  acc: 0.9345
+  [16x16] Epoch  56  Batch    11/   16  loss: 0.3283  acc: 0.9342
+  [16x16] Epoch  56  Batch    12/   16  loss: 0.3281  acc: 0.9345
+  [16x16] Epoch  56  Batch    13/   16  loss: 0.3279  acc: 0.9348
+  [16x16] Epoch  56  Batch    14/   16  loss: 0.3276  acc: 0.9349
+  [16x16] Epoch  56  Batch    15/   16  loss: 0.3269  acc: 0.9350
+  [16x16] Epoch  56  Batch    16/   16  loss: 0.3269  acc: 0.9350
+[16x16] Epoch  56  loss: 0.3269  acc: 0.9350  |  val_loss: 0.4022  val_acc: 0.8960  |  lr: 1.82e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 1/1%(avg/max)  41/41°C  40W  |  CPU 33%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  57  Batch     1/   16  loss: 0.3402  acc: 0.9293
+  [16x16] Epoch  57  Batch     2/   16  loss: 0.3288  acc: 0.9354
+  [16x16] Epoch  57  Batch     3/   16  loss: 0.3277  acc: 0.9349
+  [16x16] Epoch  57  Batch     4/   16  loss: 0.3263  acc: 0.9354
+  [16x16] Epoch  57  Batch     5/   16  loss: 0.3270  acc: 0.9355
+  [16x16] Epoch  57  Batch     6/   16  loss: 0.3278  acc: 0.9349
+  [16x16] Epoch  57  Batch     7/   16  loss: 0.3283  acc: 0.9346
+  [16x16] Epoch  57  Batch     8/   16  loss: 0.3274  acc: 0.9351
+  [16x16] Epoch  57  Batch     9/   16  loss: 0.3274  acc: 0.9354
+  [16x16] Epoch  57  Batch    10/   16  loss: 0.3277  acc: 0.9352
+  [16x16] Epoch  57  Batch    11/   16  loss: 0.3278  acc: 0.9350
+  [16x16] Epoch  57  Batch    12/   16  loss: 0.3272  acc: 0.9351
+  [16x16] Epoch  57  Batch    13/   16  loss: 0.3272  acc: 0.9352
+  [16x16] Epoch  57  Batch    14/   16  loss: 0.3268  acc: 0.9353
+  [16x16] Epoch  57  Batch    15/   16  loss: 0.3272  acc: 0.9353
+  [16x16] Epoch  57  Batch    16/   16  loss: 0.3272  acc: 0.9353
+[16x16] Epoch  57  loss: 0.3272  acc: 0.9353  |  val_loss: 0.2889  val_acc: 0.9471  |  lr: 1.75e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 30%  RAM 27.7/63.2GB  |  wait 1.7s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch  58  Batch     1/   16  loss: 0.3264  acc: 0.9363
+  [16x16] Epoch  58  Batch     2/   16  loss: 0.3264  acc: 0.9349
+  [16x16] Epoch  58  Batch     3/   16  loss: 0.3280  acc: 0.9343
+  [16x16] Epoch  58  Batch     4/   16  loss: 0.3275  acc: 0.9351
+  [16x16] Epoch  58  Batch     5/   16  loss: 0.3275  acc: 0.9351
+  [16x16] Epoch  58  Batch     6/   16  loss: 0.3274  acc: 0.9347
+  [16x16] Epoch  58  Batch     7/   16  loss: 0.3276  acc: 0.9349
+  [16x16] Epoch  58  Batch     8/   16  loss: 0.3269  acc: 0.9351
+  [16x16] Epoch  58  Batch     9/   16  loss: 0.3264  acc: 0.9352
+  [16x16] Epoch  58  Batch    10/   16  loss: 0.3260  acc: 0.9351
+  [16x16] Epoch  58  Batch    11/   16  loss: 0.3253  acc: 0.9353
+  [16x16] Epoch  58  Batch    12/   16  loss: 0.3248  acc: 0.9356
+  [16x16] Epoch  58  Batch    13/   16  loss: 0.3247  acc: 0.9357
+  [16x16] Epoch  58  Batch    14/   16  loss: 0.3241  acc: 0.9359
+  [16x16] Epoch  58  Batch    15/   16  loss: 0.3242  acc: 0.9356
+  [16x16] Epoch  58  Batch    16/   16  loss: 0.3242  acc: 0.9356
+[16x16] Epoch  58  loss: 0.3242  acc: 0.9356  |  val_loss: 0.2921  val_acc: 0.9479  |  lr: 1.69e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 6/15
+  [16x16] Epoch  59  Batch     1/   16  loss: 0.3256  acc: 0.9346
+  [16x16] Epoch  59  Batch     2/   16  loss: 0.3211  acc: 0.9374
+  [16x16] Epoch  59  Batch     3/   16  loss: 0.3220  acc: 0.9364
+  [16x16] Epoch  59  Batch     4/   16  loss: 0.3231  acc: 0.9359
+  [16x16] Epoch  59  Batch     5/   16  loss: 0.3258  acc: 0.9349
+  [16x16] Epoch  59  Batch     6/   16  loss: 0.3248  acc: 0.9356
+  [16x16] Epoch  59  Batch     7/   16  loss: 0.3226  acc: 0.9369
+  [16x16] Epoch  59  Batch     8/   16  loss: 0.3228  acc: 0.9366
+  [16x16] Epoch  59  Batch     9/   16  loss: 0.3230  acc: 0.9363
+  [16x16] Epoch  59  Batch    10/   16  loss: 0.3231  acc: 0.9361
+  [16x16] Epoch  59  Batch    11/   16  loss: 0.3220  acc: 0.9366
+  [16x16] Epoch  59  Batch    12/   16  loss: 0.3218  acc: 0.9368
+  [16x16] Epoch  59  Batch    13/   16  loss: 0.3213  acc: 0.9373
+  [16x16] Epoch  59  Batch    14/   16  loss: 0.3209  acc: 0.9376
+  [16x16] Epoch  59  Batch    15/   16  loss: 0.3205  acc: 0.9378
+  [16x16] Epoch  59  Batch    16/   16  loss: 0.3205  acc: 0.9378
+[16x16] Epoch  59  loss: 0.3205  acc: 0.9378  |  val_loss: 0.2866  val_acc: 0.9503  |  lr: 1.62e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 34%  RAM 27.8/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2866  saved
+  [16x16] Epoch  60  Batch     1/   16  loss: 0.3306  acc: 0.9324
+  [16x16] Epoch  60  Batch     2/   16  loss: 0.3225  acc: 0.9370
+  [16x16] Epoch  60  Batch     3/   16  loss: 0.3243  acc: 0.9358
+  [16x16] Epoch  60  Batch     4/   16  loss: 0.3243  acc: 0.9359
+  [16x16] Epoch  60  Batch     5/   16  loss: 0.3224  acc: 0.9373
+  [16x16] Epoch  60  Batch     6/   16  loss: 0.3226  acc: 0.9374
+  [16x16] Epoch  60  Batch     7/   16  loss: 0.3221  acc: 0.9372
+  [16x16] Epoch  60  Batch     8/   16  loss: 0.3218  acc: 0.9372
+  [16x16] Epoch  60  Batch     9/   16  loss: 0.3221  acc: 0.9365
+  [16x16] Epoch  60  Batch    10/   16  loss: 0.3215  acc: 0.9372
+  [16x16] Epoch  60  Batch    11/   16  loss: 0.3212  acc: 0.9373
+  [16x16] Epoch  60  Batch    12/   16  loss: 0.3217  acc: 0.9368
+  [16x16] Epoch  60  Batch    13/   16  loss: 0.3214  acc: 0.9371
+  [16x16] Epoch  60  Batch    14/   16  loss: 0.3212  acc: 0.9374
+  [16x16] Epoch  60  Batch    15/   16  loss: 0.3210  acc: 0.9374
+  [16x16] Epoch  60  Batch    16/   16  loss: 0.3211  acc: 0.9374
+[16x16] Epoch  60  loss: 0.3211  acc: 0.9374  |  val_loss: 0.3235  val_acc: 0.9300  |  lr: 1.56e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  61  Batch     1/   16  loss: 0.3349  acc: 0.9271
+  [16x16] Epoch  61  Batch     2/   16  loss: 0.3318  acc: 0.9309
+  [16x16] Epoch  61  Batch     3/   16  loss: 0.3291  acc: 0.9322
+  [16x16] Epoch  61  Batch     4/   16  loss: 0.3251  acc: 0.9344
+  [16x16] Epoch  61  Batch     5/   16  loss: 0.3232  acc: 0.9361
+  [16x16] Epoch  61  Batch     6/   16  loss: 0.3229  acc: 0.9362
+  [16x16] Epoch  61  Batch     7/   16  loss: 0.3224  acc: 0.9365
+  [16x16] Epoch  61  Batch     8/   16  loss: 0.3224  acc: 0.9365
+  [16x16] Epoch  61  Batch     9/   16  loss: 0.3228  acc: 0.9367
+  [16x16] Epoch  61  Batch    10/   16  loss: 0.3219  acc: 0.9371
+  [16x16] Epoch  61  Batch    11/   16  loss: 0.3211  acc: 0.9372
+  [16x16] Epoch  61  Batch    12/   16  loss: 0.3213  acc: 0.9371
+  [16x16] Epoch  61  Batch    13/   16  loss: 0.3207  acc: 0.9376
+  [16x16] Epoch  61  Batch    14/   16  loss: 0.3208  acc: 0.9376
+  [16x16] Epoch  61  Batch    15/   16  loss: 0.3205  acc: 0.9379
+  [16x16] Epoch  61  Batch    16/   16  loss: 0.3205  acc: 0.9379
+[16x16] Epoch  61  loss: 0.3205  acc: 0.9379  |  val_loss: 0.3056  val_acc: 0.9435  |  lr: 1.49e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  31W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  62  Batch     1/   16  loss: 0.3242  acc: 0.9357
+  [16x16] Epoch  62  Batch     2/   16  loss: 0.3252  acc: 0.9339
+  [16x16] Epoch  62  Batch     3/   16  loss: 0.3262  acc: 0.9343
+  [16x16] Epoch  62  Batch     4/   16  loss: 0.3262  acc: 0.9353
+  [16x16] Epoch  62  Batch     5/   16  loss: 0.3248  acc: 0.9359
+  [16x16] Epoch  62  Batch     6/   16  loss: 0.3248  acc: 0.9358
+  [16x16] Epoch  62  Batch     7/   16  loss: 0.3240  acc: 0.9356
+  [16x16] Epoch  62  Batch     8/   16  loss: 0.3239  acc: 0.9355
+  [16x16] Epoch  62  Batch     9/   16  loss: 0.3229  acc: 0.9362
+  [16x16] Epoch  62  Batch    10/   16  loss: 0.3229  acc: 0.9362
+  [16x16] Epoch  62  Batch    11/   16  loss: 0.3234  acc: 0.9358
+  [16x16] Epoch  62  Batch    12/   16  loss: 0.3231  acc: 0.9362
+  [16x16] Epoch  62  Batch    13/   16  loss: 0.3230  acc: 0.9362
+  [16x16] Epoch  62  Batch    14/   16  loss: 0.3228  acc: 0.9364
+  [16x16] Epoch  62  Batch    15/   16  loss: 0.3226  acc: 0.9365
+  [16x16] Epoch  62  Batch    16/   16  loss: 0.3226  acc: 0.9365
+[16x16] Epoch  62  loss: 0.3226  acc: 0.9365  |  val_loss: 0.3006  val_acc: 0.9430  |  lr: 1.43e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 30%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  63  Batch     1/   16  loss: 0.3232  acc: 0.9366
+  [16x16] Epoch  63  Batch     2/   16  loss: 0.3222  acc: 0.9369
+  [16x16] Epoch  63  Batch     3/   16  loss: 0.3214  acc: 0.9380
+  [16x16] Epoch  63  Batch     4/   16  loss: 0.3206  acc: 0.9388
+  [16x16] Epoch  63  Batch     5/   16  loss: 0.3203  acc: 0.9384
+  [16x16] Epoch  63  Batch     6/   16  loss: 0.3198  acc: 0.9385
+  [16x16] Epoch  63  Batch     7/   16  loss: 0.3212  acc: 0.9381
+  [16x16] Epoch  63  Batch     8/   16  loss: 0.3202  acc: 0.9386
+  [16x16] Epoch  63  Batch     9/   16  loss: 0.3204  acc: 0.9386
+  [16x16] Epoch  63  Batch    10/   16  loss: 0.3201  acc: 0.9387
+  [16x16] Epoch  63  Batch    11/   16  loss: 0.3204  acc: 0.9386
+  [16x16] Epoch  63  Batch    12/   16  loss: 0.3202  acc: 0.9386
+  [16x16] Epoch  63  Batch    13/   16  loss: 0.3197  acc: 0.9390
+  [16x16] Epoch  63  Batch    14/   16  loss: 0.3194  acc: 0.9393
+  [16x16] Epoch  63  Batch    15/   16  loss: 0.3189  acc: 0.9393
+  [16x16] Epoch  63  Batch    16/   16  loss: 0.3189  acc: 0.9393
+[16x16] Epoch  63  loss: 0.3189  acc: 0.9393  |  val_loss: 0.2847  val_acc: 0.9510  |  lr: 1.36e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 32%  RAM 27.8/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2847  saved
+  [16x16] Epoch  64  Batch     1/   16  loss: 0.3213  acc: 0.9383
+  [16x16] Epoch  64  Batch     2/   16  loss: 0.3220  acc: 0.9371
+  [16x16] Epoch  64  Batch     3/   16  loss: 0.3234  acc: 0.9363
+  [16x16] Epoch  64  Batch     4/   16  loss: 0.3204  acc: 0.9371
+  [16x16] Epoch  64  Batch     5/   16  loss: 0.3207  acc: 0.9376
+  [16x16] Epoch  64  Batch     6/   16  loss: 0.3190  acc: 0.9382
+  [16x16] Epoch  64  Batch     7/   16  loss: 0.3184  acc: 0.9388
+  [16x16] Epoch  64  Batch     8/   16  loss: 0.3193  acc: 0.9385
+  [16x16] Epoch  64  Batch     9/   16  loss: 0.3182  acc: 0.9390
+  [16x16] Epoch  64  Batch    10/   16  loss: 0.3192  acc: 0.9386
+  [16x16] Epoch  64  Batch    11/   16  loss: 0.3181  acc: 0.9391
+  [16x16] Epoch  64  Batch    12/   16  loss: 0.3185  acc: 0.9389
+  [16x16] Epoch  64  Batch    13/   16  loss: 0.3181  acc: 0.9391
+  [16x16] Epoch  64  Batch    14/   16  loss: 0.3191  acc: 0.9388
+  [16x16] Epoch  64  Batch    15/   16  loss: 0.3193  acc: 0.9389
+  [16x16] Epoch  64  Batch    16/   16  loss: 0.3193  acc: 0.9389
+[16x16] Epoch  64  loss: 0.3193  acc: 0.9389  |  val_loss: 0.3077  val_acc: 0.9393  |  lr: 1.30e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 31%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  65  Batch     1/   16  loss: 0.3217  acc: 0.9385
+  [16x16] Epoch  65  Batch     2/   16  loss: 0.3202  acc: 0.9385
+  [16x16] Epoch  65  Batch     3/   16  loss: 0.3205  acc: 0.9380
+  [16x16] Epoch  65  Batch     4/   16  loss: 0.3200  acc: 0.9390
+  [16x16] Epoch  65  Batch     5/   16  loss: 0.3200  acc: 0.9391
+  [16x16] Epoch  65  Batch     6/   16  loss: 0.3188  acc: 0.9397
+  [16x16] Epoch  65  Batch     7/   16  loss: 0.3185  acc: 0.9398
+  [16x16] Epoch  65  Batch     8/   16  loss: 0.3192  acc: 0.9393
+  [16x16] Epoch  65  Batch     9/   16  loss: 0.3186  acc: 0.9399
+  [16x16] Epoch  65  Batch    10/   16  loss: 0.3181  acc: 0.9400
+  [16x16] Epoch  65  Batch    11/   16  loss: 0.3180  acc: 0.9403
+  [16x16] Epoch  65  Batch    12/   16  loss: 0.3177  acc: 0.9405
+  [16x16] Epoch  65  Batch    13/   16  loss: 0.3174  acc: 0.9402
+  [16x16] Epoch  65  Batch    14/   16  loss: 0.3174  acc: 0.9402
+  [16x16] Epoch  65  Batch    15/   16  loss: 0.3176  acc: 0.9400
+  [16x16] Epoch  65  Batch    16/   16  loss: 0.3176  acc: 0.9400
+[16x16] Epoch  65  loss: 0.3176  acc: 0.9400  |  val_loss: 0.2822  val_acc: 0.9524  |  lr: 1.24e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  30W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2822  saved
+  [16x16] Epoch  66  Batch     1/   16  loss: 0.3138  acc: 0.9418
+  [16x16] Epoch  66  Batch     2/   16  loss: 0.3130  acc: 0.9427
+  [16x16] Epoch  66  Batch     3/   16  loss: 0.3133  acc: 0.9423
+  [16x16] Epoch  66  Batch     4/   16  loss: 0.3147  acc: 0.9413
+  [16x16] Epoch  66  Batch     5/   16  loss: 0.3139  acc: 0.9417
+  [16x16] Epoch  66  Batch     6/   16  loss: 0.3130  acc: 0.9421
+  [16x16] Epoch  66  Batch     7/   16  loss: 0.3131  acc: 0.9421
+  [16x16] Epoch  66  Batch     8/   16  loss: 0.3143  acc: 0.9416
+  [16x16] Epoch  66  Batch     9/   16  loss: 0.3140  acc: 0.9414
+  [16x16] Epoch  66  Batch    10/   16  loss: 0.3137  acc: 0.9415
+  [16x16] Epoch  66  Batch    11/   16  loss: 0.3135  acc: 0.9415
+  [16x16] Epoch  66  Batch    12/   16  loss: 0.3133  acc: 0.9418
+  [16x16] Epoch  66  Batch    13/   16  loss: 0.3136  acc: 0.9416
+  [16x16] Epoch  66  Batch    14/   16  loss: 0.3137  acc: 0.9416
+  [16x16] Epoch  66  Batch    15/   16  loss: 0.3136  acc: 0.9418
+  [16x16] Epoch  66  Batch    16/   16  loss: 0.3136  acc: 0.9418
+[16x16] Epoch  66  loss: 0.3136  acc: 0.9418  |  val_loss: 0.2892  val_acc: 0.9481  |  lr: 1.18e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  67  Batch     1/   16  loss: 0.3104  acc: 0.9407
+  [16x16] Epoch  67  Batch     2/   16  loss: 0.3124  acc: 0.9397
+  [16x16] Epoch  67  Batch     3/   16  loss: 0.3150  acc: 0.9390
+  [16x16] Epoch  67  Batch     4/   16  loss: 0.3140  acc: 0.9403
+  [16x16] Epoch  67  Batch     5/   16  loss: 0.3137  acc: 0.9406
+  [16x16] Epoch  67  Batch     6/   16  loss: 0.3131  acc: 0.9412
+  [16x16] Epoch  67  Batch     7/   16  loss: 0.3127  acc: 0.9413
+  [16x16] Epoch  67  Batch     8/   16  loss: 0.3117  acc: 0.9417
+  [16x16] Epoch  67  Batch     9/   16  loss: 0.3131  acc: 0.9410
+  [16x16] Epoch  67  Batch    10/   16  loss: 0.3131  acc: 0.9409
+  [16x16] Epoch  67  Batch    11/   16  loss: 0.3131  acc: 0.9409
+  [16x16] Epoch  67  Batch    12/   16  loss: 0.3138  acc: 0.9407
+  [16x16] Epoch  67  Batch    13/   16  loss: 0.3137  acc: 0.9408
+  [16x16] Epoch  67  Batch    14/   16  loss: 0.3144  acc: 0.9405
+  [16x16] Epoch  67  Batch    15/   16  loss: 0.3148  acc: 0.9403
+  [16x16] Epoch  67  Batch    16/   16  loss: 0.3148  acc: 0.9403
+[16x16] Epoch  67  loss: 0.3148  acc: 0.9403  |  val_loss: 0.2795  val_acc: 0.9523  |  lr: 1.11e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 2/3%(avg/max)  40/41°C  35W  |  CPU 35%  RAM 27.6/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2795  saved
+  [16x16] Epoch  68  Batch     1/   16  loss: 0.3153  acc: 0.9423
+  [16x16] Epoch  68  Batch     2/   16  loss: 0.3187  acc: 0.9390
+  [16x16] Epoch  68  Batch     3/   16  loss: 0.3193  acc: 0.9395
+  [16x16] Epoch  68  Batch     4/   16  loss: 0.3183  acc: 0.9396
+  [16x16] Epoch  68  Batch     5/   16  loss: 0.3178  acc: 0.9391
+  [16x16] Epoch  68  Batch     6/   16  loss: 0.3155  acc: 0.9397
+  [16x16] Epoch  68  Batch     7/   16  loss: 0.3151  acc: 0.9400
+  [16x16] Epoch  68  Batch     8/   16  loss: 0.3155  acc: 0.9402
+  [16x16] Epoch  68  Batch     9/   16  loss: 0.3155  acc: 0.9401
+  [16x16] Epoch  68  Batch    10/   16  loss: 0.3163  acc: 0.9397
+  [16x16] Epoch  68  Batch    11/   16  loss: 0.3160  acc: 0.9399
+  [16x16] Epoch  68  Batch    12/   16  loss: 0.3164  acc: 0.9397
+  [16x16] Epoch  68  Batch    13/   16  loss: 0.3165  acc: 0.9397
+  [16x16] Epoch  68  Batch    14/   16  loss: 0.3159  acc: 0.9401
+  [16x16] Epoch  68  Batch    15/   16  loss: 0.3152  acc: 0.9403
+  [16x16] Epoch  68  Batch    16/   16  loss: 0.3152  acc: 0.9403
+[16x16] Epoch  68  loss: 0.3152  acc: 0.9403  |  val_loss: 0.2942  val_acc: 0.9476  |  lr: 1.06e-03  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 33%  RAM 27.7/63.2GB  |  wait 1.9s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  69  Batch     1/   16  loss: 0.3139  acc: 0.9420
+  [16x16] Epoch  69  Batch     2/   16  loss: 0.3103  acc: 0.9434
+  [16x16] Epoch  69  Batch     3/   16  loss: 0.3080  acc: 0.9445
+  [16x16] Epoch  69  Batch     4/   16  loss: 0.3105  acc: 0.9437
+  [16x16] Epoch  69  Batch     5/   16  loss: 0.3106  acc: 0.9434
+  [16x16] Epoch  69  Batch     6/   16  loss: 0.3124  acc: 0.9425
+  [16x16] Epoch  69  Batch     7/   16  loss: 0.3134  acc: 0.9414
+  [16x16] Epoch  69  Batch     8/   16  loss: 0.3145  acc: 0.9410
+  [16x16] Epoch  69  Batch     9/   16  loss: 0.3140  acc: 0.9413
+  [16x16] Epoch  69  Batch    10/   16  loss: 0.3135  acc: 0.9415
+  [16x16] Epoch  69  Batch    11/   16  loss: 0.3141  acc: 0.9411
+  [16x16] Epoch  69  Batch    12/   16  loss: 0.3144  acc: 0.9408
+  [16x16] Epoch  69  Batch    13/   16  loss: 0.3143  acc: 0.9407
+  [16x16] Epoch  69  Batch    14/   16  loss: 0.3139  acc: 0.9407
+  [16x16] Epoch  69  Batch    15/   16  loss: 0.3138  acc: 0.9407
+  [16x16] Epoch  69  Batch    16/   16  loss: 0.3138  acc: 0.9407
+[16x16] Epoch  69  loss: 0.3138  acc: 0.9407  |  val_loss: 0.2777  val_acc: 0.9530  |  lr: 9.97e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  34W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2777  saved
+  [16x16] Epoch  70  Batch     1/   16  loss: 0.3185  acc: 0.9403
+  [16x16] Epoch  70  Batch     2/   16  loss: 0.3159  acc: 0.9415
+  [16x16] Epoch  70  Batch     3/   16  loss: 0.3140  acc: 0.9429
+  [16x16] Epoch  70  Batch     4/   16  loss: 0.3125  acc: 0.9439
+  [16x16] Epoch  70  Batch     5/   16  loss: 0.3132  acc: 0.9432
+  [16x16] Epoch  70  Batch     6/   16  loss: 0.3130  acc: 0.9431
+  [16x16] Epoch  70  Batch     7/   16  loss: 0.3134  acc: 0.9425
+  [16x16] Epoch  70  Batch     8/   16  loss: 0.3141  acc: 0.9421
+  [16x16] Epoch  70  Batch     9/   16  loss: 0.3147  acc: 0.9417
+  [16x16] Epoch  70  Batch    10/   16  loss: 0.3152  acc: 0.9415
+  [16x16] Epoch  70  Batch    11/   16  loss: 0.3156  acc: 0.9414
+  [16x16] Epoch  70  Batch    12/   16  loss: 0.3149  acc: 0.9418
+  [16x16] Epoch  70  Batch    13/   16  loss: 0.3142  acc: 0.9420
+  [16x16] Epoch  70  Batch    14/   16  loss: 0.3140  acc: 0.9423
+  [16x16] Epoch  70  Batch    15/   16  loss: 0.3134  acc: 0.9424
+  [16x16] Epoch  70  Batch    16/   16  loss: 0.3135  acc: 0.9423
+[16x16] Epoch  70  loss: 0.3135  acc: 0.9423  |  val_loss: 0.2792  val_acc: 0.9523  |  lr: 9.39e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 30%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  71  Batch     1/   16  loss: 0.3199  acc: 0.9387
+  [16x16] Epoch  71  Batch     2/   16  loss: 0.3174  acc: 0.9397
+  [16x16] Epoch  71  Batch     3/   16  loss: 0.3150  acc: 0.9401
+  [16x16] Epoch  71  Batch     4/   16  loss: 0.3142  acc: 0.9409
+  [16x16] Epoch  71  Batch     5/   16  loss: 0.3140  acc: 0.9404
+  [16x16] Epoch  71  Batch     6/   16  loss: 0.3131  acc: 0.9411
+  [16x16] Epoch  71  Batch     7/   16  loss: 0.3129  acc: 0.9415
+  [16x16] Epoch  71  Batch     8/   16  loss: 0.3124  acc: 0.9416
+  [16x16] Epoch  71  Batch     9/   16  loss: 0.3127  acc: 0.9415
+  [16x16] Epoch  71  Batch    10/   16  loss: 0.3126  acc: 0.9416
+  [16x16] Epoch  71  Batch    11/   16  loss: 0.3122  acc: 0.9416
+  [16x16] Epoch  71  Batch    12/   16  loss: 0.3124  acc: 0.9417
+  [16x16] Epoch  71  Batch    13/   16  loss: 0.3125  acc: 0.9417
+  [16x16] Epoch  71  Batch    14/   16  loss: 0.3123  acc: 0.9416
+  [16x16] Epoch  71  Batch    15/   16  loss: 0.3119  acc: 0.9420
+  [16x16] Epoch  71  Batch    16/   16  loss: 0.3119  acc: 0.9420
+[16x16] Epoch  71  loss: 0.3119  acc: 0.9420  |  val_loss: 0.2880  val_acc: 0.9471  |  lr: 8.83e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 47/94%(avg/max)  41/42°C  36W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.9s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  72  Batch     1/   16  loss: 0.3186  acc: 0.9374
+  [16x16] Epoch  72  Batch     2/   16  loss: 0.3153  acc: 0.9382
+  [16x16] Epoch  72  Batch     3/   16  loss: 0.3145  acc: 0.9395
+  [16x16] Epoch  72  Batch     4/   16  loss: 0.3133  acc: 0.9400
+  [16x16] Epoch  72  Batch     5/   16  loss: 0.3121  acc: 0.9413
+  [16x16] Epoch  72  Batch     6/   16  loss: 0.3127  acc: 0.9411
+  [16x16] Epoch  72  Batch     7/   16  loss: 0.3115  acc: 0.9414
+  [16x16] Epoch  72  Batch     8/   16  loss: 0.3118  acc: 0.9415
+  [16x16] Epoch  72  Batch     9/   16  loss: 0.3128  acc: 0.9413
+  [16x16] Epoch  72  Batch    10/   16  loss: 0.3131  acc: 0.9411
+  [16x16] Epoch  72  Batch    11/   16  loss: 0.3118  acc: 0.9419
+  [16x16] Epoch  72  Batch    12/   16  loss: 0.3112  acc: 0.9422
+  [16x16] Epoch  72  Batch    13/   16  loss: 0.3111  acc: 0.9423
+  [16x16] Epoch  72  Batch    14/   16  loss: 0.3109  acc: 0.9425
+  [16x16] Epoch  72  Batch    15/   16  loss: 0.3111  acc: 0.9423
+  [16x16] Epoch  72  Batch    16/   16  loss: 0.3112  acc: 0.9423
+[16x16] Epoch  72  loss: 0.3112  acc: 0.9423  |  val_loss: 0.2766  val_acc: 0.9518  |  lr: 8.28e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/97%(avg/max)  40/41°C  30W  |  CPU 30%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2766  saved
+  [16x16] Epoch  73  Batch     1/   16  loss: 0.3060  acc: 0.9436
+  [16x16] Epoch  73  Batch     2/   16  loss: 0.3080  acc: 0.9429
+  [16x16] Epoch  73  Batch     3/   16  loss: 0.3117  acc: 0.9426
+  [16x16] Epoch  73  Batch     4/   16  loss: 0.3140  acc: 0.9416
+  [16x16] Epoch  73  Batch     5/   16  loss: 0.3137  acc: 0.9411
+  [16x16] Epoch  73  Batch     6/   16  loss: 0.3140  acc: 0.9410
+  [16x16] Epoch  73  Batch     7/   16  loss: 0.3147  acc: 0.9409
+  [16x16] Epoch  73  Batch     8/   16  loss: 0.3159  acc: 0.9403
+  [16x16] Epoch  73  Batch     9/   16  loss: 0.3165  acc: 0.9397
+  [16x16] Epoch  73  Batch    10/   16  loss: 0.3162  acc: 0.9397
+  [16x16] Epoch  73  Batch    11/   16  loss: 0.3161  acc: 0.9399
+  [16x16] Epoch  73  Batch    12/   16  loss: 0.3159  acc: 0.9401
+  [16x16] Epoch  73  Batch    13/   16  loss: 0.3159  acc: 0.9400
+  [16x16] Epoch  73  Batch    14/   16  loss: 0.3162  acc: 0.9399
+  [16x16] Epoch  73  Batch    15/   16  loss: 0.3158  acc: 0.9403
+  [16x16] Epoch  73  Batch    16/   16  loss: 0.3158  acc: 0.9403
+[16x16] Epoch  73  loss: 0.3158  acc: 0.9403  |  val_loss: 0.2940  val_acc: 0.9449  |  lr: 7.75e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 6/12%(avg/max)  40/40°C  35W  |  CPU 31%  RAM 27.6/63.2GB  |  wait 1.9s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  74  Batch     1/   16  loss: 0.3200  acc: 0.9385
+  [16x16] Epoch  74  Batch     2/   16  loss: 0.3130  acc: 0.9429
+  [16x16] Epoch  74  Batch     3/   16  loss: 0.3122  acc: 0.9431
+  [16x16] Epoch  74  Batch     4/   16  loss: 0.3124  acc: 0.9425
+  [16x16] Epoch  74  Batch     5/   16  loss: 0.3121  acc: 0.9425
+  [16x16] Epoch  74  Batch     6/   16  loss: 0.3121  acc: 0.9425
+  [16x16] Epoch  74  Batch     7/   16  loss: 0.3126  acc: 0.9424
+  [16x16] Epoch  74  Batch     8/   16  loss: 0.3134  acc: 0.9419
+  [16x16] Epoch  74  Batch     9/   16  loss: 0.3133  acc: 0.9416
+  [16x16] Epoch  74  Batch    10/   16  loss: 0.3139  acc: 0.9413
+  [16x16] Epoch  74  Batch    11/   16  loss: 0.3136  acc: 0.9413
+  [16x16] Epoch  74  Batch    12/   16  loss: 0.3131  acc: 0.9417
+  [16x16] Epoch  74  Batch    13/   16  loss: 0.3137  acc: 0.9415
+  [16x16] Epoch  74  Batch    14/   16  loss: 0.3134  acc: 0.9415
+  [16x16] Epoch  74  Batch    15/   16  loss: 0.3135  acc: 0.9413
+  [16x16] Epoch  74  Batch    16/   16  loss: 0.3135  acc: 0.9413
+[16x16] Epoch  74  loss: 0.3135  acc: 0.9413  |  val_loss: 0.2993  val_acc: 0.9428  |  lr: 7.22e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  34W  |  CPU 33%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  75  Batch     1/   16  loss: 0.3109  acc: 0.9442
+  [16x16] Epoch  75  Batch     2/   16  loss: 0.3148  acc: 0.9435
+  [16x16] Epoch  75  Batch     3/   16  loss: 0.3119  acc: 0.9442
+  [16x16] Epoch  75  Batch     4/   16  loss: 0.3100  acc: 0.9445
+  [16x16] Epoch  75  Batch     5/   16  loss: 0.3116  acc: 0.9438
+  [16x16] Epoch  75  Batch     6/   16  loss: 0.3119  acc: 0.9438
+  [16x16] Epoch  75  Batch     7/   16  loss: 0.3127  acc: 0.9431
+  [16x16] Epoch  75  Batch     8/   16  loss: 0.3112  acc: 0.9439
+  [16x16] Epoch  75  Batch     9/   16  loss: 0.3106  acc: 0.9441
+  [16x16] Epoch  75  Batch    10/   16  loss: 0.3106  acc: 0.9441
+  [16x16] Epoch  75  Batch    11/   16  loss: 0.3107  acc: 0.9439
+  [16x16] Epoch  75  Batch    12/   16  loss: 0.3103  acc: 0.9441
+  [16x16] Epoch  75  Batch    13/   16  loss: 0.3105  acc: 0.9440
+  [16x16] Epoch  75  Batch    14/   16  loss: 0.3108  acc: 0.9437
+  [16x16] Epoch  75  Batch    15/   16  loss: 0.3107  acc: 0.9436
+  [16x16] Epoch  75  Batch    16/   16  loss: 0.3107  acc: 0.9436
+[16x16] Epoch  75  loss: 0.3107  acc: 0.9436  |  val_loss: 0.2846  val_acc: 0.9489  |  lr: 6.71e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  28W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  76  Batch     1/   16  loss: 0.3090  acc: 0.9425
+  [16x16] Epoch  76  Batch     2/   16  loss: 0.3065  acc: 0.9445
+  [16x16] Epoch  76  Batch     3/   16  loss: 0.3087  acc: 0.9437
+  [16x16] Epoch  76  Batch     4/   16  loss: 0.3090  acc: 0.9435
+  [16x16] Epoch  76  Batch     5/   16  loss: 0.3117  acc: 0.9420
+  [16x16] Epoch  76  Batch     6/   16  loss: 0.3125  acc: 0.9415
+  [16x16] Epoch  76  Batch     7/   16  loss: 0.3115  acc: 0.9419
+  [16x16] Epoch  76  Batch     8/   16  loss: 0.3113  acc: 0.9423
+  [16x16] Epoch  76  Batch     9/   16  loss: 0.3110  acc: 0.9425
+  [16x16] Epoch  76  Batch    10/   16  loss: 0.3098  acc: 0.9432
+  [16x16] Epoch  76  Batch    11/   16  loss: 0.3097  acc: 0.9435
+  [16x16] Epoch  76  Batch    12/   16  loss: 0.3096  acc: 0.9436
+  [16x16] Epoch  76  Batch    13/   16  loss: 0.3090  acc: 0.9439
+  [16x16] Epoch  76  Batch    14/   16  loss: 0.3090  acc: 0.9439
+  [16x16] Epoch  76  Batch    15/   16  loss: 0.3093  acc: 0.9437
+  [16x16] Epoch  76  Batch    16/   16  loss: 0.3093  acc: 0.9437
+[16x16] Epoch  76  loss: 0.3093  acc: 0.9437  |  val_loss: 0.2836  val_acc: 0.9497  |  lr: 6.22e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 8/17%(avg/max)  40/40°C  33W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  77  Batch     1/   16  loss: 0.3175  acc: 0.9416
+  [16x16] Epoch  77  Batch     2/   16  loss: 0.3200  acc: 0.9377
+  [16x16] Epoch  77  Batch     3/   16  loss: 0.3174  acc: 0.9395
+  [16x16] Epoch  77  Batch     4/   16  loss: 0.3147  acc: 0.9412
+  [16x16] Epoch  77  Batch     5/   16  loss: 0.3145  acc: 0.9417
+  [16x16] Epoch  77  Batch     6/   16  loss: 0.3136  acc: 0.9421
+  [16x16] Epoch  77  Batch     7/   16  loss: 0.3143  acc: 0.9414
+  [16x16] Epoch  77  Batch     8/   16  loss: 0.3133  acc: 0.9416
+  [16x16] Epoch  77  Batch     9/   16  loss: 0.3138  acc: 0.9414
+  [16x16] Epoch  77  Batch    10/   16  loss: 0.3128  acc: 0.9418
+  [16x16] Epoch  77  Batch    11/   16  loss: 0.3123  acc: 0.9422
+  [16x16] Epoch  77  Batch    12/   16  loss: 0.3120  acc: 0.9425
+  [16x16] Epoch  77  Batch    13/   16  loss: 0.3121  acc: 0.9425
+  [16x16] Epoch  77  Batch    14/   16  loss: 0.3116  acc: 0.9428
+  [16x16] Epoch  77  Batch    15/   16  loss: 0.3114  acc: 0.9429
+  [16x16] Epoch  77  Batch    16/   16  loss: 0.3114  acc: 0.9429
+[16x16] Epoch  77  loss: 0.3114  acc: 0.9429  |  val_loss: 0.2803  val_acc: 0.9514  |  lr: 5.74e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 2/3%(avg/max)  40/40°C  32W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch  78  Batch     1/   16  loss: 0.3052  acc: 0.9449
+  [16x16] Epoch  78  Batch     2/   16  loss: 0.3086  acc: 0.9421
+  [16x16] Epoch  78  Batch     3/   16  loss: 0.3102  acc: 0.9414
+  [16x16] Epoch  78  Batch     4/   16  loss: 0.3094  acc: 0.9421
+  [16x16] Epoch  78  Batch     5/   16  loss: 0.3104  acc: 0.9416
+  [16x16] Epoch  78  Batch     6/   16  loss: 0.3095  acc: 0.9426
+  [16x16] Epoch  78  Batch     7/   16  loss: 0.3106  acc: 0.9423
+  [16x16] Epoch  78  Batch     8/   16  loss: 0.3106  acc: 0.9426
+  [16x16] Epoch  78  Batch     9/   16  loss: 0.3106  acc: 0.9424
+  [16x16] Epoch  78  Batch    10/   16  loss: 0.3101  acc: 0.9424
+  [16x16] Epoch  78  Batch    11/   16  loss: 0.3097  acc: 0.9425
+  [16x16] Epoch  78  Batch    12/   16  loss: 0.3099  acc: 0.9426
+  [16x16] Epoch  78  Batch    13/   16  loss: 0.3094  acc: 0.9430
+  [16x16] Epoch  78  Batch    14/   16  loss: 0.3088  acc: 0.9433
+  [16x16] Epoch  78  Batch    15/   16  loss: 0.3091  acc: 0.9433
+  [16x16] Epoch  78  Batch    16/   16  loss: 0.3091  acc: 0.9434
+[16x16] Epoch  78  loss: 0.3091  acc: 0.9434  |  val_loss: 0.2802  val_acc: 0.9512  |  lr: 5.28e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 37/74%(avg/max)  40/41°C  33W  |  CPU 33%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 6/15
+  [16x16] Epoch  79  Batch     1/   16  loss: 0.3108  acc: 0.9447
+  [16x16] Epoch  79  Batch     2/   16  loss: 0.3066  acc: 0.9448
+  [16x16] Epoch  79  Batch     3/   16  loss: 0.3042  acc: 0.9458
+  [16x16] Epoch  79  Batch     4/   16  loss: 0.3043  acc: 0.9460
+  [16x16] Epoch  79  Batch     5/   16  loss: 0.3037  acc: 0.9467
+  [16x16] Epoch  79  Batch     6/   16  loss: 0.3045  acc: 0.9457
+  [16x16] Epoch  79  Batch     7/   16  loss: 0.3062  acc: 0.9451
+  [16x16] Epoch  79  Batch     8/   16  loss: 0.3058  acc: 0.9452
+  [16x16] Epoch  79  Batch     9/   16  loss: 0.3065  acc: 0.9450
+  [16x16] Epoch  79  Batch    10/   16  loss: 0.3068  acc: 0.9447
+  [16x16] Epoch  79  Batch    11/   16  loss: 0.3074  acc: 0.9445
+  [16x16] Epoch  79  Batch    12/   16  loss: 0.3075  acc: 0.9446
+  [16x16] Epoch  79  Batch    13/   16  loss: 0.3078  acc: 0.9444
+  [16x16] Epoch  79  Batch    14/   16  loss: 0.3080  acc: 0.9443
+  [16x16] Epoch  79  Batch    15/   16  loss: 0.3082  acc: 0.9443
+  [16x16] Epoch  79  Batch    16/   16  loss: 0.3082  acc: 0.9443
+[16x16] Epoch  79  loss: 0.3082  acc: 0.9443  |  val_loss: 0.2782  val_acc: 0.9518  |  lr: 4.84e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 38/77%(avg/max)  40/41°C  33W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 7/15
+  [16x16] Epoch  80  Batch     1/   16  loss: 0.3187  acc: 0.9394
+  [16x16] Epoch  80  Batch     2/   16  loss: 0.3163  acc: 0.9419
+  [16x16] Epoch  80  Batch     3/   16  loss: 0.3147  acc: 0.9422
+  [16x16] Epoch  80  Batch     4/   16  loss: 0.3124  acc: 0.9430
+  [16x16] Epoch  80  Batch     5/   16  loss: 0.3126  acc: 0.9424
+  [16x16] Epoch  80  Batch     6/   16  loss: 0.3119  acc: 0.9428
+  [16x16] Epoch  80  Batch     7/   16  loss: 0.3122  acc: 0.9420
+  [16x16] Epoch  80  Batch     8/   16  loss: 0.3119  acc: 0.9418
+  [16x16] Epoch  80  Batch     9/   16  loss: 0.3126  acc: 0.9416
+  [16x16] Epoch  80  Batch    10/   16  loss: 0.3125  acc: 0.9420
+  [16x16] Epoch  80  Batch    11/   16  loss: 0.3119  acc: 0.9425
+  [16x16] Epoch  80  Batch    12/   16  loss: 0.3117  acc: 0.9425
+  [16x16] Epoch  80  Batch    13/   16  loss: 0.3116  acc: 0.9424
+  [16x16] Epoch  80  Batch    14/   16  loss: 0.3113  acc: 0.9426
+  [16x16] Epoch  80  Batch    15/   16  loss: 0.3112  acc: 0.9428
+  [16x16] Epoch  80  Batch    16/   16  loss: 0.3112  acc: 0.9428
+[16x16] Epoch  80  loss: 0.3112  acc: 0.9428  |  val_loss: 0.2765  val_acc: 0.9530  |  lr: 4.41e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 8/8%(avg/max)  40/40°C  27W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.9s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2765  saved
+  [16x16] Epoch  81  Batch     1/   16  loss: 0.3115  acc: 0.9394
+  [16x16] Epoch  81  Batch     2/   16  loss: 0.3090  acc: 0.9414
+  [16x16] Epoch  81  Batch     3/   16  loss: 0.3073  acc: 0.9431
+  [16x16] Epoch  81  Batch     4/   16  loss: 0.3076  acc: 0.9424
+  [16x16] Epoch  81  Batch     5/   16  loss: 0.3091  acc: 0.9424
+  [16x16] Epoch  81  Batch     6/   16  loss: 0.3100  acc: 0.9422
+  [16x16] Epoch  81  Batch     7/   16  loss: 0.3098  acc: 0.9425
+  [16x16] Epoch  81  Batch     8/   16  loss: 0.3096  acc: 0.9425
+  [16x16] Epoch  81  Batch     9/   16  loss: 0.3087  acc: 0.9431
+  [16x16] Epoch  81  Batch    10/   16  loss: 0.3091  acc: 0.9432
+  [16x16] Epoch  81  Batch    11/   16  loss: 0.3092  acc: 0.9433
+  [16x16] Epoch  81  Batch    12/   16  loss: 0.3089  acc: 0.9435
+  [16x16] Epoch  81  Batch    13/   16  loss: 0.3091  acc: 0.9434
+  [16x16] Epoch  81  Batch    14/   16  loss: 0.3098  acc: 0.9431
+  [16x16] Epoch  81  Batch    15/   16  loss: 0.3095  acc: 0.9430
+  [16x16] Epoch  81  Batch    16/   16  loss: 0.3095  acc: 0.9430
+[16x16] Epoch  81  loss: 0.3095  acc: 0.9430  |  val_loss: 0.2807  val_acc: 0.9516  |  lr: 4.00e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  40/40°C  31W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  82  Batch     1/   16  loss: 0.3147  acc: 0.9394
+  [16x16] Epoch  82  Batch     2/   16  loss: 0.3113  acc: 0.9407
+  [16x16] Epoch  82  Batch     3/   16  loss: 0.3115  acc: 0.9406
+  [16x16] Epoch  82  Batch     4/   16  loss: 0.3105  acc: 0.9415
+  [16x16] Epoch  82  Batch     5/   16  loss: 0.3100  acc: 0.9418
+  [16x16] Epoch  82  Batch     6/   16  loss: 0.3096  acc: 0.9424
+  [16x16] Epoch  82  Batch     7/   16  loss: 0.3105  acc: 0.9415
+  [16x16] Epoch  82  Batch     8/   16  loss: 0.3108  acc: 0.9416
+  [16x16] Epoch  82  Batch     9/   16  loss: 0.3114  acc: 0.9412
+  [16x16] Epoch  82  Batch    10/   16  loss: 0.3120  acc: 0.9411
+  [16x16] Epoch  82  Batch    11/   16  loss: 0.3124  acc: 0.9407
+  [16x16] Epoch  82  Batch    12/   16  loss: 0.3126  acc: 0.9406
+  [16x16] Epoch  82  Batch    13/   16  loss: 0.3114  acc: 0.9411
+  [16x16] Epoch  82  Batch    14/   16  loss: 0.3110  acc: 0.9415
+  [16x16] Epoch  82  Batch    15/   16  loss: 0.3102  acc: 0.9419
+  [16x16] Epoch  82  Batch    16/   16  loss: 0.3102  acc: 0.9419
+[16x16] Epoch  82  loss: 0.3102  acc: 0.9419  |  val_loss: 0.2779  val_acc: 0.9519  |  lr: 3.60e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 36/73%(avg/max)  42/43°C  33W  |  CPU 34%  RAM 27.5/63.2GB  |  wait 1.9s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  83  Batch     1/   16  loss: 0.3145  acc: 0.9433
+  [16x16] Epoch  83  Batch     2/   16  loss: 0.3172  acc: 0.9412
+  [16x16] Epoch  83  Batch     3/   16  loss: 0.3143  acc: 0.9416
+  [16x16] Epoch  83  Batch     4/   16  loss: 0.3131  acc: 0.9414
+  [16x16] Epoch  83  Batch     5/   16  loss: 0.3133  acc: 0.9416
+  [16x16] Epoch  83  Batch     6/   16  loss: 0.3130  acc: 0.9412
+  [16x16] Epoch  83  Batch     7/   16  loss: 0.3115  acc: 0.9423
+  [16x16] Epoch  83  Batch     8/   16  loss: 0.3112  acc: 0.9426
+  [16x16] Epoch  83  Batch     9/   16  loss: 0.3113  acc: 0.9429
+  [16x16] Epoch  83  Batch    10/   16  loss: 0.3110  acc: 0.9432
+  [16x16] Epoch  83  Batch    11/   16  loss: 0.3108  acc: 0.9434
+  [16x16] Epoch  83  Batch    12/   16  loss: 0.3098  acc: 0.9436
+  [16x16] Epoch  83  Batch    13/   16  loss: 0.3096  acc: 0.9438
+  [16x16] Epoch  83  Batch    14/   16  loss: 0.3093  acc: 0.9439
+  [16x16] Epoch  83  Batch    15/   16  loss: 0.3095  acc: 0.9437
+  [16x16] Epoch  83  Batch    16/   16  loss: 0.3095  acc: 0.9437
+[16x16] Epoch  83  loss: 0.3095  acc: 0.9437  |  val_loss: 0.2953  val_acc: 0.9466  |  lr: 3.23e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/98%(avg/max)  40/40°C  29W  |  CPU 30%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  84  Batch     1/   16  loss: 0.3100  acc: 0.9416
+  [16x16] Epoch  84  Batch     2/   16  loss: 0.3087  acc: 0.9424
+  [16x16] Epoch  84  Batch     3/   16  loss: 0.3084  acc: 0.9433
+  [16x16] Epoch  84  Batch     4/   16  loss: 0.3087  acc: 0.9434
+  [16x16] Epoch  84  Batch     5/   16  loss: 0.3073  acc: 0.9441
+  [16x16] Epoch  84  Batch     6/   16  loss: 0.3087  acc: 0.9429
+  [16x16] Epoch  84  Batch     7/   16  loss: 0.3095  acc: 0.9427
+  [16x16] Epoch  84  Batch     8/   16  loss: 0.3095  acc: 0.9426
+  [16x16] Epoch  84  Batch     9/   16  loss: 0.3097  acc: 0.9422
+  [16x16] Epoch  84  Batch    10/   16  loss: 0.3093  acc: 0.9424
+  [16x16] Epoch  84  Batch    11/   16  loss: 0.3097  acc: 0.9420
+  [16x16] Epoch  84  Batch    12/   16  loss: 0.3087  acc: 0.9425
+  [16x16] Epoch  84  Batch    13/   16  loss: 0.3086  acc: 0.9423
+  [16x16] Epoch  84  Batch    14/   16  loss: 0.3085  acc: 0.9426
+  [16x16] Epoch  84  Batch    15/   16  loss: 0.3084  acc: 0.9426
+  [16x16] Epoch  84  Batch    16/   16  loss: 0.3084  acc: 0.9426
+[16x16] Epoch  84  loss: 0.3084  acc: 0.9426  |  val_loss: 0.2785  val_acc: 0.9514  |  lr: 2.87e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  40/41°C  38W  |  CPU 29%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  85  Batch     1/   16  loss: 0.3062  acc: 0.9453
+  [16x16] Epoch  85  Batch     2/   16  loss: 0.3093  acc: 0.9430
+  [16x16] Epoch  85  Batch     3/   16  loss: 0.3098  acc: 0.9420
+  [16x16] Epoch  85  Batch     4/   16  loss: 0.3088  acc: 0.9428
+  [16x16] Epoch  85  Batch     5/   16  loss: 0.3063  acc: 0.9439
+  [16x16] Epoch  85  Batch     6/   16  loss: 0.3067  acc: 0.9444
+  [16x16] Epoch  85  Batch     7/   16  loss: 0.3068  acc: 0.9439
+  [16x16] Epoch  85  Batch     8/   16  loss: 0.3071  acc: 0.9439
+  [16x16] Epoch  85  Batch     9/   16  loss: 0.3077  acc: 0.9439
+  [16x16] Epoch  85  Batch    10/   16  loss: 0.3073  acc: 0.9442
+  [16x16] Epoch  85  Batch    11/   16  loss: 0.3076  acc: 0.9440
+  [16x16] Epoch  85  Batch    12/   16  loss: 0.3085  acc: 0.9435
+  [16x16] Epoch  85  Batch    13/   16  loss: 0.3087  acc: 0.9433
+  [16x16] Epoch  85  Batch    14/   16  loss: 0.3088  acc: 0.9433
+  [16x16] Epoch  85  Batch    15/   16  loss: 0.3082  acc: 0.9436
+  [16x16] Epoch  85  Batch    16/   16  loss: 0.3082  acc: 0.9436
+[16x16] Epoch  85  loss: 0.3082  acc: 0.9436  |  val_loss: 0.2779  val_acc: 0.9515  |  lr: 2.54e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 33/66%(avg/max)  40/40°C  30W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch  86  Batch     1/   16  loss: 0.3022  acc: 0.9493
+  [16x16] Epoch  86  Batch     2/   16  loss: 0.3056  acc: 0.9453
+  [16x16] Epoch  86  Batch     3/   16  loss: 0.3061  acc: 0.9445
+  [16x16] Epoch  86  Batch     4/   16  loss: 0.3067  acc: 0.9443
+  [16x16] Epoch  86  Batch     5/   16  loss: 0.3063  acc: 0.9447
+  [16x16] Epoch  86  Batch     6/   16  loss: 0.3077  acc: 0.9438
+  [16x16] Epoch  86  Batch     7/   16  loss: 0.3080  acc: 0.9435
+  [16x16] Epoch  86  Batch     8/   16  loss: 0.3080  acc: 0.9435
+  [16x16] Epoch  86  Batch     9/   16  loss: 0.3090  acc: 0.9431
+  [16x16] Epoch  86  Batch    10/   16  loss: 0.3092  acc: 0.9430
+  [16x16] Epoch  86  Batch    11/   16  loss: 0.3093  acc: 0.9429
+  [16x16] Epoch  86  Batch    12/   16  loss: 0.3090  acc: 0.9433
+  [16x16] Epoch  86  Batch    13/   16  loss: 0.3088  acc: 0.9433
+  [16x16] Epoch  86  Batch    14/   16  loss: 0.3088  acc: 0.9434
+  [16x16] Epoch  86  Batch    15/   16  loss: 0.3087  acc: 0.9435
+  [16x16] Epoch  86  Batch    16/   16  loss: 0.3087  acc: 0.9435
+[16x16] Epoch  86  loss: 0.3087  acc: 0.9435  |  val_loss: 0.2788  val_acc: 0.9514  |  lr: 2.22e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 47/94%(avg/max)  40/41°C  41W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 6/15
+  [16x16] Epoch  87  Batch     1/   16  loss: 0.3128  acc: 0.9412
+  [16x16] Epoch  87  Batch     2/   16  loss: 0.3102  acc: 0.9430
+  [16x16] Epoch  87  Batch     3/   16  loss: 0.3098  acc: 0.9436
+  [16x16] Epoch  87  Batch     4/   16  loss: 0.3119  acc: 0.9433
+  [16x16] Epoch  87  Batch     5/   16  loss: 0.3106  acc: 0.9440
+  [16x16] Epoch  87  Batch     6/   16  loss: 0.3105  acc: 0.9437
+  [16x16] Epoch  87  Batch     7/   16  loss: 0.3100  acc: 0.9435
+  [16x16] Epoch  87  Batch     8/   16  loss: 0.3097  acc: 0.9433
+  [16x16] Epoch  87  Batch     9/   16  loss: 0.3088  acc: 0.9438
+  [16x16] Epoch  87  Batch    10/   16  loss: 0.3079  acc: 0.9442
+  [16x16] Epoch  87  Batch    11/   16  loss: 0.3078  acc: 0.9445
+  [16x16] Epoch  87  Batch    12/   16  loss: 0.3075  acc: 0.9446
+  [16x16] Epoch  87  Batch    13/   16  loss: 0.3072  acc: 0.9448
+  [16x16] Epoch  87  Batch    14/   16  loss: 0.3078  acc: 0.9444
+  [16x16] Epoch  87  Batch    15/   16  loss: 0.3080  acc: 0.9440
+  [16x16] Epoch  87  Batch    16/   16  loss: 0.3080  acc: 0.9440
+[16x16] Epoch  87  loss: 0.3080  acc: 0.9440  |  val_loss: 0.2807  val_acc: 0.9507  |  lr: 1.93e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/97%(avg/max)  40/40°C  30W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 7/15
+  [16x16] Epoch  88  Batch     1/   16  loss: 0.2991  acc: 0.9513
+  [16x16] Epoch  88  Batch     2/   16  loss: 0.3030  acc: 0.9472
+  [16x16] Epoch  88  Batch     3/   16  loss: 0.3025  acc: 0.9469
+  [16x16] Epoch  88  Batch     4/   16  loss: 0.3051  acc: 0.9450
+  [16x16] Epoch  88  Batch     5/   16  loss: 0.3062  acc: 0.9442
+  [16x16] Epoch  88  Batch     6/   16  loss: 0.3063  acc: 0.9439
+  [16x16] Epoch  88  Batch     7/   16  loss: 0.3067  acc: 0.9442
+  [16x16] Epoch  88  Batch     8/   16  loss: 0.3055  acc: 0.9449
+  [16x16] Epoch  88  Batch     9/   16  loss: 0.3049  acc: 0.9455
+  [16x16] Epoch  88  Batch    10/   16  loss: 0.3056  acc: 0.9450
+  [16x16] Epoch  88  Batch    11/   16  loss: 0.3057  acc: 0.9449
+  [16x16] Epoch  88  Batch    12/   16  loss: 0.3048  acc: 0.9454
+  [16x16] Epoch  88  Batch    13/   16  loss: 0.3050  acc: 0.9454
+  [16x16] Epoch  88  Batch    14/   16  loss: 0.3052  acc: 0.9452
+  [16x16] Epoch  88  Batch    15/   16  loss: 0.3058  acc: 0.9449
+  [16x16] Epoch  88  Batch    16/   16  loss: 0.3058  acc: 0.9449
+[16x16] Epoch  88  loss: 0.3058  acc: 0.9449  |  val_loss: 0.2858  val_acc: 0.9494  |  lr: 1.65e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 40/80%(avg/max)  40/40°C  36W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 8/15
+  [16x16] Epoch  89  Batch     1/   16  loss: 0.3026  acc: 0.9456
+  [16x16] Epoch  89  Batch     2/   16  loss: 0.3025  acc: 0.9462
+  [16x16] Epoch  89  Batch     3/   16  loss: 0.3035  acc: 0.9461
+  [16x16] Epoch  89  Batch     4/   16  loss: 0.3026  acc: 0.9471
+  [16x16] Epoch  89  Batch     5/   16  loss: 0.3022  acc: 0.9472
+  [16x16] Epoch  89  Batch     6/   16  loss: 0.3020  acc: 0.9471
+  [16x16] Epoch  89  Batch     7/   16  loss: 0.3034  acc: 0.9460
+  [16x16] Epoch  89  Batch     8/   16  loss: 0.3039  acc: 0.9462
+  [16x16] Epoch  89  Batch     9/   16  loss: 0.3048  acc: 0.9455
+  [16x16] Epoch  89  Batch    10/   16  loss: 0.3053  acc: 0.9451
+  [16x16] Epoch  89  Batch    11/   16  loss: 0.3049  acc: 0.9452
+  [16x16] Epoch  89  Batch    12/   16  loss: 0.3048  acc: 0.9452
+  [16x16] Epoch  89  Batch    13/   16  loss: 0.3044  acc: 0.9456
+  [16x16] Epoch  89  Batch    14/   16  loss: 0.3052  acc: 0.9452
+  [16x16] Epoch  89  Batch    15/   16  loss: 0.3052  acc: 0.9452
+  [16x16] Epoch  89  Batch    16/   16  loss: 0.3052  acc: 0.9452
+[16x16] Epoch  89  loss: 0.3052  acc: 0.9452  |  val_loss: 0.2834  val_acc: 0.9502  |  lr: 1.39e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 47/94%(avg/max)  40/41°C  32W  |  CPU 36%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 9/15
+  [16x16] Epoch  90  Batch     1/   16  loss: 0.3009  acc: 0.9515
+  [16x16] Epoch  90  Batch     2/   16  loss: 0.3016  acc: 0.9505
+  [16x16] Epoch  90  Batch     3/   16  loss: 0.3039  acc: 0.9486
+  [16x16] Epoch  90  Batch     4/   16  loss: 0.3043  acc: 0.9472
+  [16x16] Epoch  90  Batch     5/   16  loss: 0.3054  acc: 0.9466
+  [16x16] Epoch  90  Batch     6/   16  loss: 0.3049  acc: 0.9460
+  [16x16] Epoch  90  Batch     7/   16  loss: 0.3046  acc: 0.9461
+  [16x16] Epoch  90  Batch     8/   16  loss: 0.3049  acc: 0.9461
+  [16x16] Epoch  90  Batch     9/   16  loss: 0.3051  acc: 0.9460
+  [16x16] Epoch  90  Batch    10/   16  loss: 0.3051  acc: 0.9460
+  [16x16] Epoch  90  Batch    11/   16  loss: 0.3054  acc: 0.9457
+  [16x16] Epoch  90  Batch    12/   16  loss: 0.3052  acc: 0.9458
+  [16x16] Epoch  90  Batch    13/   16  loss: 0.3060  acc: 0.9451
+  [16x16] Epoch  90  Batch    14/   16  loss: 0.3069  acc: 0.9448
+  [16x16] Epoch  90  Batch    15/   16  loss: 0.3069  acc: 0.9449
+  [16x16] Epoch  90  Batch    16/   16  loss: 0.3069  acc: 0.9449
+[16x16] Epoch  90  loss: 0.3069  acc: 0.9449  |  val_loss: 0.2741  val_acc: 0.9539  |  lr: 1.16e-04  [3s]  |  VRAM 2.0/16.0GB  CUDA 49/97%(avg/max)  40/40°C  30W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2741  saved
+  [16x16] Epoch  91  Batch     1/   16  loss: 0.3064  acc: 0.9418
+  [16x16] Epoch  91  Batch     2/   16  loss: 0.3108  acc: 0.9417
+  [16x16] Epoch  91  Batch     3/   16  loss: 0.3122  acc: 0.9408
+  [16x16] Epoch  91  Batch     4/   16  loss: 0.3118  acc: 0.9414
+  [16x16] Epoch  91  Batch     5/   16  loss: 0.3107  acc: 0.9423
+  [16x16] Epoch  91  Batch     6/   16  loss: 0.3092  acc: 0.9433
+  [16x16] Epoch  91  Batch     7/   16  loss: 0.3087  acc: 0.9437
+  [16x16] Epoch  91  Batch     8/   16  loss: 0.3084  acc: 0.9439
+  [16x16] Epoch  91  Batch     9/   16  loss: 0.3083  acc: 0.9440
+  [16x16] Epoch  91  Batch    10/   16  loss: 0.3085  acc: 0.9438
+  [16x16] Epoch  91  Batch    11/   16  loss: 0.3077  acc: 0.9444
+  [16x16] Epoch  91  Batch    12/   16  loss: 0.3080  acc: 0.9443
+  [16x16] Epoch  91  Batch    13/   16  loss: 0.3081  acc: 0.9443
+  [16x16] Epoch  91  Batch    14/   16  loss: 0.3076  acc: 0.9446
+  [16x16] Epoch  91  Batch    15/   16  loss: 0.3077  acc: 0.9447
+  [16x16] Epoch  91  Batch    16/   16  loss: 0.3077  acc: 0.9447
+[16x16] Epoch  91  loss: 0.3077  acc: 0.9447  |  val_loss: 0.2721  val_acc: 0.9552  |  lr: 9.44e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/96%(avg/max)  40/40°C  39W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2721  saved
+  [16x16] Epoch  92  Batch     1/   16  loss: 0.3072  acc: 0.9464
+  [16x16] Epoch  92  Batch     2/   16  loss: 0.3069  acc: 0.9452
+  [16x16] Epoch  92  Batch     3/   16  loss: 0.3095  acc: 0.9436
+  [16x16] Epoch  92  Batch     4/   16  loss: 0.3098  acc: 0.9425
+  [16x16] Epoch  92  Batch     5/   16  loss: 0.3095  acc: 0.9427
+  [16x16] Epoch  92  Batch     6/   16  loss: 0.3095  acc: 0.9428
+  [16x16] Epoch  92  Batch     7/   16  loss: 0.3097  acc: 0.9428
+  [16x16] Epoch  92  Batch     8/   16  loss: 0.3094  acc: 0.9431
+  [16x16] Epoch  92  Batch     9/   16  loss: 0.3096  acc: 0.9429
+  [16x16] Epoch  92  Batch    10/   16  loss: 0.3099  acc: 0.9428
+  [16x16] Epoch  92  Batch    11/   16  loss: 0.3094  acc: 0.9430
+  [16x16] Epoch  92  Batch    12/   16  loss: 0.3099  acc: 0.9429
+  [16x16] Epoch  92  Batch    13/   16  loss: 0.3100  acc: 0.9428
+  [16x16] Epoch  92  Batch    14/   16  loss: 0.3101  acc: 0.9429
+  [16x16] Epoch  92  Batch    15/   16  loss: 0.3097  acc: 0.9431
+  [16x16] Epoch  92  Batch    16/   16  loss: 0.3097  acc: 0.9431
+[16x16] Epoch  92  loss: 0.3097  acc: 0.9431  |  val_loss: 0.2767  val_acc: 0.9523  |  lr: 7.52e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 42/85%(avg/max)  40/40°C  30W  |  CPU 32%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch  93  Batch     1/   16  loss: 0.3122  acc: 0.9414
+  [16x16] Epoch  93  Batch     2/   16  loss: 0.3071  acc: 0.9436
+  [16x16] Epoch  93  Batch     3/   16  loss: 0.3094  acc: 0.9409
+  [16x16] Epoch  93  Batch     4/   16  loss: 0.3072  acc: 0.9418
+  [16x16] Epoch  93  Batch     5/   16  loss: 0.3074  acc: 0.9419
+  [16x16] Epoch  93  Batch     6/   16  loss: 0.3078  acc: 0.9421
+  [16x16] Epoch  93  Batch     7/   16  loss: 0.3075  acc: 0.9425
+  [16x16] Epoch  93  Batch     8/   16  loss: 0.3096  acc: 0.9416
+  [16x16] Epoch  93  Batch     9/   16  loss: 0.3099  acc: 0.9418
+  [16x16] Epoch  93  Batch    10/   16  loss: 0.3100  acc: 0.9417
+  [16x16] Epoch  93  Batch    11/   16  loss: 0.3103  acc: 0.9416
+  [16x16] Epoch  93  Batch    12/   16  loss: 0.3099  acc: 0.9420
+  [16x16] Epoch  93  Batch    13/   16  loss: 0.3096  acc: 0.9423
+  [16x16] Epoch  93  Batch    14/   16  loss: 0.3097  acc: 0.9421
+  [16x16] Epoch  93  Batch    15/   16  loss: 0.3094  acc: 0.9422
+  [16x16] Epoch  93  Batch    16/   16  loss: 0.3094  acc: 0.9422
+[16x16] Epoch  93  loss: 0.3094  acc: 0.9422  |  val_loss: 0.2794  val_acc: 0.9509  |  lr: 5.81e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 34/69%(avg/max)  40/40°C  39W  |  CPU 31%  RAM 27.6/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch  94  Batch     1/   16  loss: 0.3054  acc: 0.9462
+  [16x16] Epoch  94  Batch     2/   16  loss: 0.3024  acc: 0.9466
+  [16x16] Epoch  94  Batch     3/   16  loss: 0.3057  acc: 0.9442
+  [16x16] Epoch  94  Batch     4/   16  loss: 0.3051  acc: 0.9442
+  [16x16] Epoch  94  Batch     5/   16  loss: 0.3057  acc: 0.9442
+  [16x16] Epoch  94  Batch     6/   16  loss: 0.3055  acc: 0.9442
+  [16x16] Epoch  94  Batch     7/   16  loss: 0.3057  acc: 0.9441
+  [16x16] Epoch  94  Batch     8/   16  loss: 0.3061  acc: 0.9438
+  [16x16] Epoch  94  Batch     9/   16  loss: 0.3062  acc: 0.9442
+  [16x16] Epoch  94  Batch    10/   16  loss: 0.3055  acc: 0.9446
+  [16x16] Epoch  94  Batch    11/   16  loss: 0.3053  acc: 0.9448
+  [16x16] Epoch  94  Batch    12/   16  loss: 0.3051  acc: 0.9448
+  [16x16] Epoch  94  Batch    13/   16  loss: 0.3052  acc: 0.9447
+  [16x16] Epoch  94  Batch    14/   16  loss: 0.3052  acc: 0.9445
+  [16x16] Epoch  94  Batch    15/   16  loss: 0.3050  acc: 0.9448
+  [16x16] Epoch  94  Batch    16/   16  loss: 0.3050  acc: 0.9448
+[16x16] Epoch  94  loss: 0.3050  acc: 0.9448  |  val_loss: 0.2757  val_acc: 0.9528  |  lr: 4.32e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 45/90%(avg/max)  40/41°C  32W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch  95  Batch     1/   16  loss: 0.3059  acc: 0.9429
+  [16x16] Epoch  95  Batch     2/   16  loss: 0.3076  acc: 0.9436
+  [16x16] Epoch  95  Batch     3/   16  loss: 0.3053  acc: 0.9451
+  [16x16] Epoch  95  Batch     4/   16  loss: 0.3065  acc: 0.9446
+  [16x16] Epoch  95  Batch     5/   16  loss: 0.3073  acc: 0.9442
+  [16x16] Epoch  95  Batch     6/   16  loss: 0.3069  acc: 0.9446
+  [16x16] Epoch  95  Batch     7/   16  loss: 0.3071  acc: 0.9441
+  [16x16] Epoch  95  Batch     8/   16  loss: 0.3074  acc: 0.9440
+  [16x16] Epoch  95  Batch     9/   16  loss: 0.3073  acc: 0.9439
+  [16x16] Epoch  95  Batch    10/   16  loss: 0.3067  acc: 0.9443
+  [16x16] Epoch  95  Batch    11/   16  loss: 0.3066  acc: 0.9443
+  [16x16] Epoch  95  Batch    12/   16  loss: 0.3061  acc: 0.9447
+  [16x16] Epoch  95  Batch    13/   16  loss: 0.3061  acc: 0.9445
+  [16x16] Epoch  95  Batch    14/   16  loss: 0.3058  acc: 0.9449
+  [16x16] Epoch  95  Batch    15/   16  loss: 0.3061  acc: 0.9448
+  [16x16] Epoch  95  Batch    16/   16  loss: 0.3061  acc: 0.9448
+[16x16] Epoch  95  loss: 0.3061  acc: 0.9448  |  val_loss: 0.2799  val_acc: 0.9514  |  lr: 3.05e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 42/83%(avg/max)  42/43°C  34W  |  CPU 34%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.2s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch  96  Batch     1/   16  loss: 0.3047  acc: 0.9449
+  [16x16] Epoch  96  Batch     2/   16  loss: 0.3043  acc: 0.9444
+  [16x16] Epoch  96  Batch     3/   16  loss: 0.3041  acc: 0.9454
+  [16x16] Epoch  96  Batch     4/   16  loss: 0.3064  acc: 0.9445
+  [16x16] Epoch  96  Batch     5/   16  loss: 0.3075  acc: 0.9438
+  [16x16] Epoch  96  Batch     6/   16  loss: 0.3074  acc: 0.9443
+  [16x16] Epoch  96  Batch     7/   16  loss: 0.3082  acc: 0.9436
+  [16x16] Epoch  96  Batch     8/   16  loss: 0.3078  acc: 0.9439
+  [16x16] Epoch  96  Batch     9/   16  loss: 0.3069  acc: 0.9439
+  [16x16] Epoch  96  Batch    10/   16  loss: 0.3062  acc: 0.9442
+  [16x16] Epoch  96  Batch    11/   16  loss: 0.3067  acc: 0.9440
+  [16x16] Epoch  96  Batch    12/   16  loss: 0.3070  acc: 0.9439
+  [16x16] Epoch  96  Batch    13/   16  loss: 0.3065  acc: 0.9441
+  [16x16] Epoch  96  Batch    14/   16  loss: 0.3069  acc: 0.9440
+  [16x16] Epoch  96  Batch    15/   16  loss: 0.3065  acc: 0.9444
+  [16x16] Epoch  96  Batch    16/   16  loss: 0.3065  acc: 0.9444
+[16x16] Epoch  96  loss: 0.3065  acc: 0.9444  |  val_loss: 0.2830  val_acc: 0.9506  |  lr: 2.01e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  41/41°C  51W  |  CPU 36%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.1s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch  97  Batch     1/   16  loss: 0.3146  acc: 0.9403
+  [16x16] Epoch  97  Batch     2/   16  loss: 0.3101  acc: 0.9423
+  [16x16] Epoch  97  Batch     3/   16  loss: 0.3091  acc: 0.9434
+  [16x16] Epoch  97  Batch     4/   16  loss: 0.3098  acc: 0.9435
+  [16x16] Epoch  97  Batch     5/   16  loss: 0.3085  acc: 0.9440
+  [16x16] Epoch  97  Batch     6/   16  loss: 0.3088  acc: 0.9444
+  [16x16] Epoch  97  Batch     7/   16  loss: 0.3078  acc: 0.9451
+  [16x16] Epoch  97  Batch     8/   16  loss: 0.3079  acc: 0.9449
+  [16x16] Epoch  97  Batch     9/   16  loss: 0.3071  acc: 0.9449
+  [16x16] Epoch  97  Batch    10/   16  loss: 0.3076  acc: 0.9449
+  [16x16] Epoch  97  Batch    11/   16  loss: 0.3070  acc: 0.9450
+  [16x16] Epoch  97  Batch    12/   16  loss: 0.3068  acc: 0.9451
+  [16x16] Epoch  97  Batch    13/   16  loss: 0.3059  acc: 0.9455
+  [16x16] Epoch  97  Batch    14/   16  loss: 0.3063  acc: 0.9454
+  [16x16] Epoch  97  Batch    15/   16  loss: 0.3064  acc: 0.9453
+  [16x16] Epoch  97  Batch    16/   16  loss: 0.3064  acc: 0.9453
+[16x16] Epoch  97  loss: 0.3064  acc: 0.9453  |  val_loss: 0.2797  val_acc: 0.9509  |  lr: 1.18e-05  [3s]  |  VRAM 2.0/16.0GB  CUDA 23/45%(avg/max)  40/40°C  40W  |  CPU 33%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 6/15
+  [16x16] Epoch  98  Batch     1/   16  loss: 0.3065  acc: 0.9438
+  [16x16] Epoch  98  Batch     2/   16  loss: 0.3041  acc: 0.9450
+  [16x16] Epoch  98  Batch     3/   16  loss: 0.3046  acc: 0.9453
+  [16x16] Epoch  98  Batch     4/   16  loss: 0.3040  acc: 0.9463
+  [16x16] Epoch  98  Batch     5/   16  loss: 0.3041  acc: 0.9460
+  [16x16] Epoch  98  Batch     6/   16  loss: 0.3043  acc: 0.9463
+  [16x16] Epoch  98  Batch     7/   16  loss: 0.3047  acc: 0.9461
+  [16x16] Epoch  98  Batch     8/   16  loss: 0.3045  acc: 0.9463
+  [16x16] Epoch  98  Batch     9/   16  loss: 0.3049  acc: 0.9459
+  [16x16] Epoch  98  Batch    10/   16  loss: 0.3047  acc: 0.9460
+  [16x16] Epoch  98  Batch    11/   16  loss: 0.3046  acc: 0.9460
+  [16x16] Epoch  98  Batch    12/   16  loss: 0.3047  acc: 0.9459
+  [16x16] Epoch  98  Batch    13/   16  loss: 0.3043  acc: 0.9461
+  [16x16] Epoch  98  Batch    14/   16  loss: 0.3042  acc: 0.9463
+  [16x16] Epoch  98  Batch    15/   16  loss: 0.3040  acc: 0.9464
+  [16x16] Epoch  98  Batch    16/   16  loss: 0.3040  acc: 0.9464
+[16x16] Epoch  98  loss: 0.3040  acc: 0.9464  |  val_loss: 0.2768  val_acc: 0.9524  |  lr: 5.77e-06  [3s]  |  VRAM 2.0/16.0GB  CUDA 36/71%(avg/max)  40/40°C  34W  |  CPU 33%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 7/15
+  [16x16] Epoch  99  Batch     1/   16  loss: 0.3021  acc: 0.9469
+  [16x16] Epoch  99  Batch     2/   16  loss: 0.3032  acc: 0.9456
+  [16x16] Epoch  99  Batch     3/   16  loss: 0.3039  acc: 0.9443
+  [16x16] Epoch  99  Batch     4/   16  loss: 0.3052  acc: 0.9435
+  [16x16] Epoch  99  Batch     5/   16  loss: 0.3064  acc: 0.9434
+  [16x16] Epoch  99  Batch     6/   16  loss: 0.3063  acc: 0.9438
+  [16x16] Epoch  99  Batch     7/   16  loss: 0.3069  acc: 0.9437
+  [16x16] Epoch  99  Batch     8/   16  loss: 0.3059  acc: 0.9442
+  [16x16] Epoch  99  Batch     9/   16  loss: 0.3060  acc: 0.9440
+  [16x16] Epoch  99  Batch    10/   16  loss: 0.3062  acc: 0.9438
+  [16x16] Epoch  99  Batch    11/   16  loss: 0.3059  acc: 0.9438
+  [16x16] Epoch  99  Batch    12/   16  loss: 0.3054  acc: 0.9441
+  [16x16] Epoch  99  Batch    13/   16  loss: 0.3056  acc: 0.9441
+  [16x16] Epoch  99  Batch    14/   16  loss: 0.3058  acc: 0.9443
+  [16x16] Epoch  99  Batch    15/   16  loss: 0.3057  acc: 0.9443
+  [16x16] Epoch  99  Batch    16/   16  loss: 0.3057  acc: 0.9443
+[16x16] Epoch  99  loss: 0.3057  acc: 0.9443  |  val_loss: 0.2783  val_acc: 0.9518  |  lr: 1.98e-06  [3s]  |  VRAM 2.0/16.0GB  CUDA 22/45%(avg/max)  40/40°C  32W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 8/15
+  [16x16] Epoch 100  Batch     1/   16  loss: 0.3028  acc: 0.9436
+  [16x16] Epoch 100  Batch     2/   16  loss: 0.3045  acc: 0.9434
+  [16x16] Epoch 100  Batch     3/   16  loss: 0.3067  acc: 0.9435
+  [16x16] Epoch 100  Batch     4/   16  loss: 0.3067  acc: 0.9438
+  [16x16] Epoch 100  Batch     5/   16  loss: 0.3071  acc: 0.9440
+  [16x16] Epoch 100  Batch     6/   16  loss: 0.3077  acc: 0.9433
+  [16x16] Epoch 100  Batch     7/   16  loss: 0.3083  acc: 0.9433
+  [16x16] Epoch 100  Batch     8/   16  loss: 0.3074  acc: 0.9435
+  [16x16] Epoch 100  Batch     9/   16  loss: 0.3065  acc: 0.9441
+  [16x16] Epoch 100  Batch    10/   16  loss: 0.3068  acc: 0.9442
+  [16x16] Epoch 100  Batch    11/   16  loss: 0.3078  acc: 0.9436
+  [16x16] Epoch 100  Batch    12/   16  loss: 0.3079  acc: 0.9435
+  [16x16] Epoch 100  Batch    13/   16  loss: 0.3076  acc: 0.9436
+  [16x16] Epoch 100  Batch    14/   16  loss: 0.3073  acc: 0.9437
+  [16x16] Epoch 100  Batch    15/   16  loss: 0.3073  acc: 0.9438
+  [16x16] Epoch 100  Batch    16/   16  loss: 0.3073  acc: 0.9438
+[16x16] Epoch 100  loss: 0.3073  acc: 0.9438  |  val_loss: 0.2794  val_acc: 0.9516  |  lr: 4.39e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 32/64%(avg/max)  40/40°C  33W  |  CPU 35%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 9/15
+  [16x16] Epoch 101  Batch     1/   16  loss: 0.3037  acc: 0.9484
+  [16x16] Epoch 101  Batch     2/   16  loss: 0.3054  acc: 0.9455
+  [16x16] Epoch 101  Batch     3/   16  loss: 0.3036  acc: 0.9462
+  [16x16] Epoch 101  Batch     4/   16  loss: 0.3034  acc: 0.9453
+  [16x16] Epoch 101  Batch     5/   16  loss: 0.3032  acc: 0.9457
+  [16x16] Epoch 101  Batch     6/   16  loss: 0.3063  acc: 0.9441
+  [16x16] Epoch 101  Batch     7/   16  loss: 0.3064  acc: 0.9446
+  [16x16] Epoch 101  Batch     8/   16  loss: 0.3057  acc: 0.9449
+  [16x16] Epoch 101  Batch     9/   16  loss: 0.3049  acc: 0.9454
+  [16x16] Epoch 101  Batch    10/   16  loss: 0.3046  acc: 0.9453
+  [16x16] Epoch 101  Batch    11/   16  loss: 0.3050  acc: 0.9452
+  [16x16] Epoch 101  Batch    12/   16  loss: 0.3046  acc: 0.9454
+  [16x16] Epoch 101  Batch    13/   16  loss: 0.3049  acc: 0.9453
+  [16x16] Epoch 101  Batch    14/   16  loss: 0.3049  acc: 0.9453
+  [16x16] Epoch 101  Batch    15/   16  loss: 0.3048  acc: 0.9453
+  [16x16] Epoch 101  Batch    16/   16  loss: 0.3049  acc: 0.9453
+[16x16] Epoch 101  loss: 0.3049  acc: 0.9453  |  val_loss: 0.2768  val_acc: 0.9527  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 46/91%(avg/max)  40/40°C  34W  |  CPU 38%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 10/15
+  [16x16] Epoch 102  Batch     1/   16  loss: 0.3025  acc: 0.9460
+  [16x16] Epoch 102  Batch     2/   16  loss: 0.3073  acc: 0.9440
+  [16x16] Epoch 102  Batch     3/   16  loss: 0.3065  acc: 0.9440
+  [16x16] Epoch 102  Batch     4/   16  loss: 0.3065  acc: 0.9451
+  [16x16] Epoch 102  Batch     5/   16  loss: 0.3048  acc: 0.9458
+  [16x16] Epoch 102  Batch     6/   16  loss: 0.3058  acc: 0.9449
+  [16x16] Epoch 102  Batch     7/   16  loss: 0.3064  acc: 0.9449
+  [16x16] Epoch 102  Batch     8/   16  loss: 0.3068  acc: 0.9446
+  [16x16] Epoch 102  Batch     9/   16  loss: 0.3063  acc: 0.9446
+  [16x16] Epoch 102  Batch    10/   16  loss: 0.3062  acc: 0.9447
+  [16x16] Epoch 102  Batch    11/   16  loss: 0.3070  acc: 0.9442
+  [16x16] Epoch 102  Batch    12/   16  loss: 0.3069  acc: 0.9444
+  [16x16] Epoch 102  Batch    13/   16  loss: 0.3071  acc: 0.9445
+  [16x16] Epoch 102  Batch    14/   16  loss: 0.3069  acc: 0.9446
+  [16x16] Epoch 102  Batch    15/   16  loss: 0.3068  acc: 0.9445
+  [16x16] Epoch 102  Batch    16/   16  loss: 0.3068  acc: 0.9445
+[16x16] Epoch 102  loss: 0.3068  acc: 0.9445  |  val_loss: 0.2720  val_acc: 0.9549  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/95%(avg/max)  40/40°C  33W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [Checkpoint] val_loss → 0.2720  saved
+  [16x16] Epoch 103  Batch     1/   16  loss: 0.3083  acc: 0.9412
+  [16x16] Epoch 103  Batch     2/   16  loss: 0.3082  acc: 0.9433
+  [16x16] Epoch 103  Batch     3/   16  loss: 0.3039  acc: 0.9459
+  [16x16] Epoch 103  Batch     4/   16  loss: 0.3060  acc: 0.9445
+  [16x16] Epoch 103  Batch     5/   16  loss: 0.3063  acc: 0.9451
+  [16x16] Epoch 103  Batch     6/   16  loss: 0.3049  acc: 0.9456
+  [16x16] Epoch 103  Batch     7/   16  loss: 0.3052  acc: 0.9456
+  [16x16] Epoch 103  Batch     8/   16  loss: 0.3055  acc: 0.9458
+  [16x16] Epoch 103  Batch     9/   16  loss: 0.3058  acc: 0.9454
+  [16x16] Epoch 103  Batch    10/   16  loss: 0.3056  acc: 0.9452
+  [16x16] Epoch 103  Batch    11/   16  loss: 0.3052  acc: 0.9455
+  [16x16] Epoch 103  Batch    12/   16  loss: 0.3052  acc: 0.9458
+  [16x16] Epoch 103  Batch    13/   16  loss: 0.3050  acc: 0.9459
+  [16x16] Epoch 103  Batch    14/   16  loss: 0.3049  acc: 0.9459
+  [16x16] Epoch 103  Batch    15/   16  loss: 0.3055  acc: 0.9456
+  [16x16] Epoch 103  Batch    16/   16  loss: 0.3055  acc: 0.9456
+[16x16] Epoch 103  loss: 0.3055  acc: 0.9456  |  val_loss: 0.2792  val_acc: 0.9511  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/96%(avg/max)  40/40°C  33W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 1/15
+  [16x16] Epoch 104  Batch     1/   16  loss: 0.3047  acc: 0.9466
+  [16x16] Epoch 104  Batch     2/   16  loss: 0.3051  acc: 0.9451
+  [16x16] Epoch 104  Batch     3/   16  loss: 0.3038  acc: 0.9457
+  [16x16] Epoch 104  Batch     4/   16  loss: 0.3056  acc: 0.9453
+  [16x16] Epoch 104  Batch     5/   16  loss: 0.3057  acc: 0.9450
+  [16x16] Epoch 104  Batch     6/   16  loss: 0.3071  acc: 0.9448
+  [16x16] Epoch 104  Batch     7/   16  loss: 0.3054  acc: 0.9454
+  [16x16] Epoch 104  Batch     8/   16  loss: 0.3056  acc: 0.9448
+  [16x16] Epoch 104  Batch     9/   16  loss: 0.3059  acc: 0.9450
+  [16x16] Epoch 104  Batch    10/   16  loss: 0.3061  acc: 0.9452
+  [16x16] Epoch 104  Batch    11/   16  loss: 0.3062  acc: 0.9451
+  [16x16] Epoch 104  Batch    12/   16  loss: 0.3062  acc: 0.9449
+  [16x16] Epoch 104  Batch    13/   16  loss: 0.3058  acc: 0.9451
+  [16x16] Epoch 104  Batch    14/   16  loss: 0.3054  acc: 0.9452
+  [16x16] Epoch 104  Batch    15/   16  loss: 0.3051  acc: 0.9454
+  [16x16] Epoch 104  Batch    16/   16  loss: 0.3051  acc: 0.9454
+[16x16] Epoch 104  loss: 0.3051  acc: 0.9454  |  val_loss: 0.2821  val_acc: 0.9501  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 24/48%(avg/max)  40/40°C  33W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 2/15
+  [16x16] Epoch 105  Batch     1/   16  loss: 0.3031  acc: 0.9466
+  [16x16] Epoch 105  Batch     2/   16  loss: 0.3014  acc: 0.9479
+  [16x16] Epoch 105  Batch     3/   16  loss: 0.3012  acc: 0.9485
+  [16x16] Epoch 105  Batch     4/   16  loss: 0.3036  acc: 0.9470
+  [16x16] Epoch 105  Batch     5/   16  loss: 0.3071  acc: 0.9451
+  [16x16] Epoch 105  Batch     6/   16  loss: 0.3062  acc: 0.9455
+  [16x16] Epoch 105  Batch     7/   16  loss: 0.3052  acc: 0.9458
+  [16x16] Epoch 105  Batch     8/   16  loss: 0.3054  acc: 0.9458
+  [16x16] Epoch 105  Batch     9/   16  loss: 0.3056  acc: 0.9452
+  [16x16] Epoch 105  Batch    10/   16  loss: 0.3059  acc: 0.9451
+  [16x16] Epoch 105  Batch    11/   16  loss: 0.3058  acc: 0.9451
+  [16x16] Epoch 105  Batch    12/   16  loss: 0.3062  acc: 0.9449
+  [16x16] Epoch 105  Batch    13/   16  loss: 0.3065  acc: 0.9450
+  [16x16] Epoch 105  Batch    14/   16  loss: 0.3065  acc: 0.9450
+  [16x16] Epoch 105  Batch    15/   16  loss: 0.3068  acc: 0.9445
+  [16x16] Epoch 105  Batch    16/   16  loss: 0.3068  acc: 0.9445
+[16x16] Epoch 105  loss: 0.3068  acc: 0.9445  |  val_loss: 0.2753  val_acc: 0.9525  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/27%(avg/max)  40/40°C  32W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 3/15
+  [16x16] Epoch 106  Batch     1/   16  loss: 0.3096  acc: 0.9453
+  [16x16] Epoch 106  Batch     2/   16  loss: 0.3062  acc: 0.9474
+  [16x16] Epoch 106  Batch     3/   16  loss: 0.3065  acc: 0.9461
+  [16x16] Epoch 106  Batch     4/   16  loss: 0.3053  acc: 0.9466
+  [16x16] Epoch 106  Batch     5/   16  loss: 0.3043  acc: 0.9474
+  [16x16] Epoch 106  Batch     6/   16  loss: 0.3046  acc: 0.9472
+  [16x16] Epoch 106  Batch     7/   16  loss: 0.3050  acc: 0.9469
+  [16x16] Epoch 106  Batch     8/   16  loss: 0.3056  acc: 0.9464
+  [16x16] Epoch 106  Batch     9/   16  loss: 0.3057  acc: 0.9462
+  [16x16] Epoch 106  Batch    10/   16  loss: 0.3060  acc: 0.9459
+  [16x16] Epoch 106  Batch    11/   16  loss: 0.3054  acc: 0.9462
+  [16x16] Epoch 106  Batch    12/   16  loss: 0.3049  acc: 0.9465
+  [16x16] Epoch 106  Batch    13/   16  loss: 0.3052  acc: 0.9464
+  [16x16] Epoch 106  Batch    14/   16  loss: 0.3056  acc: 0.9460
+  [16x16] Epoch 106  Batch    15/   16  loss: 0.3055  acc: 0.9459
+  [16x16] Epoch 106  Batch    16/   16  loss: 0.3055  acc: 0.9459
+[16x16] Epoch 106  loss: 0.3055  acc: 0.9459  |  val_loss: 0.2761  val_acc: 0.9521  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 42/84%(avg/max)  40/40°C  33W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 4/15
+  [16x16] Epoch 107  Batch     1/   16  loss: 0.2989  acc: 0.9491
+  [16x16] Epoch 107  Batch     2/   16  loss: 0.3029  acc: 0.9457
+  [16x16] Epoch 107  Batch     3/   16  loss: 0.3024  acc: 0.9451
+  [16x16] Epoch 107  Batch     4/   16  loss: 0.3011  acc: 0.9456
+  [16x16] Epoch 107  Batch     5/   16  loss: 0.3026  acc: 0.9449
+  [16x16] Epoch 107  Batch     6/   16  loss: 0.3042  acc: 0.9442
+  [16x16] Epoch 107  Batch     7/   16  loss: 0.3040  acc: 0.9444
+  [16x16] Epoch 107  Batch     8/   16  loss: 0.3050  acc: 0.9444
+  [16x16] Epoch 107  Batch     9/   16  loss: 0.3046  acc: 0.9449
+  [16x16] Epoch 107  Batch    10/   16  loss: 0.3049  acc: 0.9448
+  [16x16] Epoch 107  Batch    11/   16  loss: 0.3050  acc: 0.9446
+  [16x16] Epoch 107  Batch    12/   16  loss: 0.3050  acc: 0.9446
+  [16x16] Epoch 107  Batch    13/   16  loss: 0.3045  acc: 0.9449
+  [16x16] Epoch 107  Batch    14/   16  loss: 0.3047  acc: 0.9450
+  [16x16] Epoch 107  Batch    15/   16  loss: 0.3045  acc: 0.9451
+  [16x16] Epoch 107  Batch    16/   16  loss: 0.3045  acc: 0.9451
+[16x16] Epoch 107  loss: 0.3045  acc: 0.9451  |  val_loss: 0.2774  val_acc: 0.9521  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 33/65%(avg/max)  40/40°C  33W  |  CPU 32%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 5/15
+  [16x16] Epoch 108  Batch     1/   16  loss: 0.3122  acc: 0.9414
+  [16x16] Epoch 108  Batch     2/   16  loss: 0.3086  acc: 0.9444
+  [16x16] Epoch 108  Batch     3/   16  loss: 0.3055  acc: 0.9452
+  [16x16] Epoch 108  Batch     4/   16  loss: 0.3043  acc: 0.9461
+  [16x16] Epoch 108  Batch     5/   16  loss: 0.3054  acc: 0.9446
+  [16x16] Epoch 108  Batch     6/   16  loss: 0.3053  acc: 0.9446
+  [16x16] Epoch 108  Batch     7/   16  loss: 0.3067  acc: 0.9444
+  [16x16] Epoch 108  Batch     8/   16  loss: 0.3069  acc: 0.9444
+  [16x16] Epoch 108  Batch     9/   16  loss: 0.3065  acc: 0.9445
+  [16x16] Epoch 108  Batch    10/   16  loss: 0.3062  acc: 0.9449
+  [16x16] Epoch 108  Batch    11/   16  loss: 0.3059  acc: 0.9450
+  [16x16] Epoch 108  Batch    12/   16  loss: 0.3056  acc: 0.9450
+  [16x16] Epoch 108  Batch    13/   16  loss: 0.3058  acc: 0.9451
+  [16x16] Epoch 108  Batch    14/   16  loss: 0.3058  acc: 0.9451
+  [16x16] Epoch 108  Batch    15/   16  loss: 0.3054  acc: 0.9453
+  [16x16] Epoch 108  Batch    16/   16  loss: 0.3054  acc: 0.9453
+[16x16] Epoch 108  loss: 0.3054  acc: 0.9453  |  val_loss: 0.2759  val_acc: 0.9525  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 40/78%(avg/max)  40/40°C  33W  |  CPU 33%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 6/15
+  [16x16] Epoch 109  Batch     1/   16  loss: 0.3107  acc: 0.9438
+  [16x16] Epoch 109  Batch     2/   16  loss: 0.3073  acc: 0.9450
+  [16x16] Epoch 109  Batch     3/   16  loss: 0.3031  acc: 0.9470
+  [16x16] Epoch 109  Batch     4/   16  loss: 0.3065  acc: 0.9452
+  [16x16] Epoch 109  Batch     5/   16  loss: 0.3066  acc: 0.9451
+  [16x16] Epoch 109  Batch     6/   16  loss: 0.3063  acc: 0.9453
+  [16x16] Epoch 109  Batch     7/   16  loss: 0.3077  acc: 0.9445
+  [16x16] Epoch 109  Batch     8/   16  loss: 0.3069  acc: 0.9449
+  [16x16] Epoch 109  Batch     9/   16  loss: 0.3062  acc: 0.9451
+  [16x16] Epoch 109  Batch    10/   16  loss: 0.3063  acc: 0.9453
+  [16x16] Epoch 109  Batch    11/   16  loss: 0.3060  acc: 0.9454
+  [16x16] Epoch 109  Batch    12/   16  loss: 0.3063  acc: 0.9454
+  [16x16] Epoch 109  Batch    13/   16  loss: 0.3065  acc: 0.9453
+  [16x16] Epoch 109  Batch    14/   16  loss: 0.3068  acc: 0.9452
+  [16x16] Epoch 109  Batch    15/   16  loss: 0.3063  acc: 0.9454
+  [16x16] Epoch 109  Batch    16/   16  loss: 0.3063  acc: 0.9454
+[16x16] Epoch 109  loss: 0.3063  acc: 0.9454  |  val_loss: 0.2857  val_acc: 0.9496  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 0/0%(avg/max)  39/39°C  27W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.9s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 7/15
+  [16x16] Epoch 110  Batch     1/   16  loss: 0.3078  acc: 0.9480
+  [16x16] Epoch 110  Batch     2/   16  loss: 0.3078  acc: 0.9461
+  [16x16] Epoch 110  Batch     3/   16  loss: 0.3044  acc: 0.9468
+  [16x16] Epoch 110  Batch     4/   16  loss: 0.3053  acc: 0.9454
+  [16x16] Epoch 110  Batch     5/   16  loss: 0.3045  acc: 0.9457
+  [16x16] Epoch 110  Batch     6/   16  loss: 0.3056  acc: 0.9455
+  [16x16] Epoch 110  Batch     7/   16  loss: 0.3055  acc: 0.9457
+  [16x16] Epoch 110  Batch     8/   16  loss: 0.3059  acc: 0.9455
+  [16x16] Epoch 110  Batch     9/   16  loss: 0.3050  acc: 0.9458
+  [16x16] Epoch 110  Batch    10/   16  loss: 0.3048  acc: 0.9458
+  [16x16] Epoch 110  Batch    11/   16  loss: 0.3041  acc: 0.9460
+  [16x16] Epoch 110  Batch    12/   16  loss: 0.3045  acc: 0.9459
+  [16x16] Epoch 110  Batch    13/   16  loss: 0.3054  acc: 0.9456
+  [16x16] Epoch 110  Batch    14/   16  loss: 0.3060  acc: 0.9453
+  [16x16] Epoch 110  Batch    15/   16  loss: 0.3058  acc: 0.9455
+  [16x16] Epoch 110  Batch    16/   16  loss: 0.3058  acc: 0.9455
+[16x16] Epoch 110  loss: 0.3058  acc: 0.9455  |  val_loss: 0.2819  val_acc: 0.9500  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/26%(avg/max)  40/40°C  37W  |  CPU 35%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 8/15
+  [16x16] Epoch 111  Batch     1/   16  loss: 0.3157  acc: 0.9431
+  [16x16] Epoch 111  Batch     2/   16  loss: 0.3105  acc: 0.9438
+  [16x16] Epoch 111  Batch     3/   16  loss: 0.3100  acc: 0.9439
+  [16x16] Epoch 111  Batch     4/   16  loss: 0.3101  acc: 0.9436
+  [16x16] Epoch 111  Batch     5/   16  loss: 0.3087  acc: 0.9443
+  [16x16] Epoch 111  Batch     6/   16  loss: 0.3065  acc: 0.9455
+  [16x16] Epoch 111  Batch     7/   16  loss: 0.3060  acc: 0.9456
+  [16x16] Epoch 111  Batch     8/   16  loss: 0.3055  acc: 0.9455
+  [16x16] Epoch 111  Batch     9/   16  loss: 0.3053  acc: 0.9455
+  [16x16] Epoch 111  Batch    10/   16  loss: 0.3051  acc: 0.9455
+  [16x16] Epoch 111  Batch    11/   16  loss: 0.3049  acc: 0.9459
+  [16x16] Epoch 111  Batch    12/   16  loss: 0.3050  acc: 0.9458
+  [16x16] Epoch 111  Batch    13/   16  loss: 0.3054  acc: 0.9455
+  [16x16] Epoch 111  Batch    14/   16  loss: 0.3049  acc: 0.9456
+  [16x16] Epoch 111  Batch    15/   16  loss: 0.3049  acc: 0.9458
+  [16x16] Epoch 111  Batch    16/   16  loss: 0.3049  acc: 0.9458
+[16x16] Epoch 111  loss: 0.3049  acc: 0.9458  |  val_loss: 0.2881  val_acc: 0.9483  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/25%(avg/max)  40/40°C  32W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 9/15
+  [16x16] Epoch 112  Batch     1/   16  loss: 0.3026  acc: 0.9471
+  [16x16] Epoch 112  Batch     2/   16  loss: 0.3053  acc: 0.9446
+  [16x16] Epoch 112  Batch     3/   16  loss: 0.3028  acc: 0.9459
+  [16x16] Epoch 112  Batch     4/   16  loss: 0.3040  acc: 0.9449
+  [16x16] Epoch 112  Batch     5/   16  loss: 0.3056  acc: 0.9442
+  [16x16] Epoch 112  Batch     6/   16  loss: 0.3059  acc: 0.9443
+  [16x16] Epoch 112  Batch     7/   16  loss: 0.3067  acc: 0.9442
+  [16x16] Epoch 112  Batch     8/   16  loss: 0.3070  acc: 0.9438
+  [16x16] Epoch 112  Batch     9/   16  loss: 0.3067  acc: 0.9437
+  [16x16] Epoch 112  Batch    10/   16  loss: 0.3067  acc: 0.9438
+  [16x16] Epoch 112  Batch    11/   16  loss: 0.3061  acc: 0.9442
+  [16x16] Epoch 112  Batch    12/   16  loss: 0.3065  acc: 0.9441
+  [16x16] Epoch 112  Batch    13/   16  loss: 0.3062  acc: 0.9442
+  [16x16] Epoch 112  Batch    14/   16  loss: 0.3066  acc: 0.9440
+  [16x16] Epoch 112  Batch    15/   16  loss: 0.3066  acc: 0.9440
+  [16x16] Epoch 112  Batch    16/   16  loss: 0.3066  acc: 0.9440
+[16x16] Epoch 112  loss: 0.3066  acc: 0.9440  |  val_loss: 0.2795  val_acc: 0.9507  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 14/26%(avg/max)  40/40°C  32W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 10/15
+  [16x16] Epoch 113  Batch     1/   16  loss: 0.3087  acc: 0.9429
+  [16x16] Epoch 113  Batch     2/   16  loss: 0.3069  acc: 0.9427
+  [16x16] Epoch 113  Batch     3/   16  loss: 0.3065  acc: 0.9439
+  [16x16] Epoch 113  Batch     4/   16  loss: 0.3052  acc: 0.9450
+  [16x16] Epoch 113  Batch     5/   16  loss: 0.3067  acc: 0.9446
+  [16x16] Epoch 113  Batch     6/   16  loss: 0.3077  acc: 0.9440
+  [16x16] Epoch 113  Batch     7/   16  loss: 0.3071  acc: 0.9443
+  [16x16] Epoch 113  Batch     8/   16  loss: 0.3067  acc: 0.9444
+  [16x16] Epoch 113  Batch     9/   16  loss: 0.3052  acc: 0.9449
+  [16x16] Epoch 113  Batch    10/   16  loss: 0.3053  acc: 0.9451
+  [16x16] Epoch 113  Batch    11/   16  loss: 0.3058  acc: 0.9446
+  [16x16] Epoch 113  Batch    12/   16  loss: 0.3057  acc: 0.9446
+  [16x16] Epoch 113  Batch    13/   16  loss: 0.3060  acc: 0.9445
+  [16x16] Epoch 113  Batch    14/   16  loss: 0.3060  acc: 0.9446
+  [16x16] Epoch 113  Batch    15/   16  loss: 0.3059  acc: 0.9446
+  [16x16] Epoch 113  Batch    16/   16  loss: 0.3059  acc: 0.9446
+[16x16] Epoch 113  loss: 0.3059  acc: 0.9446  |  val_loss: 0.2828  val_acc: 0.9495  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 29/56%(avg/max)  40/40°C  33W  |  CPU 31%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.2s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 11/15
+  [16x16] Epoch 114  Batch     1/   16  loss: 0.3087  acc: 0.9427
+  [16x16] Epoch 114  Batch     2/   16  loss: 0.3090  acc: 0.9435
+  [16x16] Epoch 114  Batch     3/   16  loss: 0.3066  acc: 0.9445
+  [16x16] Epoch 114  Batch     4/   16  loss: 0.3049  acc: 0.9459
+  [16x16] Epoch 114  Batch     5/   16  loss: 0.3035  acc: 0.9464
+  [16x16] Epoch 114  Batch     6/   16  loss: 0.3038  acc: 0.9459
+  [16x16] Epoch 114  Batch     7/   16  loss: 0.3040  acc: 0.9460
+  [16x16] Epoch 114  Batch     8/   16  loss: 0.3048  acc: 0.9456
+  [16x16] Epoch 114  Batch     9/   16  loss: 0.3045  acc: 0.9457
+  [16x16] Epoch 114  Batch    10/   16  loss: 0.3044  acc: 0.9457
+  [16x16] Epoch 114  Batch    11/   16  loss: 0.3041  acc: 0.9460
+  [16x16] Epoch 114  Batch    12/   16  loss: 0.3050  acc: 0.9457
+  [16x16] Epoch 114  Batch    13/   16  loss: 0.3054  acc: 0.9454
+  [16x16] Epoch 114  Batch    14/   16  loss: 0.3052  acc: 0.9456
+  [16x16] Epoch 114  Batch    15/   16  loss: 0.3046  acc: 0.9459
+  [16x16] Epoch 114  Batch    16/   16  loss: 0.3046  acc: 0.9459
+[16x16] Epoch 114  loss: 0.3046  acc: 0.9459  |  val_loss: 0.2769  val_acc: 0.9518  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 1/1%(avg/max)  40/40°C  51W  |  CPU 37%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.1s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 12/15
+  [16x16] Epoch 115  Batch     1/   16  loss: 0.3035  acc: 0.9489
+  [16x16] Epoch 115  Batch     2/   16  loss: 0.3050  acc: 0.9471
+  [16x16] Epoch 115  Batch     3/   16  loss: 0.3049  acc: 0.9469
+  [16x16] Epoch 115  Batch     4/   16  loss: 0.3070  acc: 0.9459
+  [16x16] Epoch 115  Batch     5/   16  loss: 0.3071  acc: 0.9454
+  [16x16] Epoch 115  Batch     6/   16  loss: 0.3065  acc: 0.9458
+  [16x16] Epoch 115  Batch     7/   16  loss: 0.3066  acc: 0.9456
+  [16x16] Epoch 115  Batch     8/   16  loss: 0.3072  acc: 0.9453
+  [16x16] Epoch 115  Batch     9/   16  loss: 0.3067  acc: 0.9451
+  [16x16] Epoch 115  Batch    10/   16  loss: 0.3069  acc: 0.9450
+  [16x16] Epoch 115  Batch    11/   16  loss: 0.3074  acc: 0.9446
+  [16x16] Epoch 115  Batch    12/   16  loss: 0.3067  acc: 0.9450
+  [16x16] Epoch 115  Batch    13/   16  loss: 0.3066  acc: 0.9449
+  [16x16] Epoch 115  Batch    14/   16  loss: 0.3059  acc: 0.9452
+  [16x16] Epoch 115  Batch    15/   16  loss: 0.3057  acc: 0.9452
+  [16x16] Epoch 115  Batch    16/   16  loss: 0.3057  acc: 0.9452
+[16x16] Epoch 115  loss: 0.3057  acc: 0.9452  |  val_loss: 0.2787  val_acc: 0.9522  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 50/96%(avg/max)  42/43°C  34W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 13/15
+  [16x16] Epoch 116  Batch     1/   16  loss: 0.3083  acc: 0.9447
+  [16x16] Epoch 116  Batch     2/   16  loss: 0.3040  acc: 0.9462
+  [16x16] Epoch 116  Batch     3/   16  loss: 0.3048  acc: 0.9455
+  [16x16] Epoch 116  Batch     4/   16  loss: 0.3033  acc: 0.9465
+  [16x16] Epoch 116  Batch     5/   16  loss: 0.3034  acc: 0.9468
+  [16x16] Epoch 116  Batch     6/   16  loss: 0.3050  acc: 0.9456
+  [16x16] Epoch 116  Batch     7/   16  loss: 0.3055  acc: 0.9457
+  [16x16] Epoch 116  Batch     8/   16  loss: 0.3058  acc: 0.9454
+  [16x16] Epoch 116  Batch     9/   16  loss: 0.3049  acc: 0.9455
+  [16x16] Epoch 116  Batch    10/   16  loss: 0.3054  acc: 0.9453
+  [16x16] Epoch 116  Batch    11/   16  loss: 0.3061  acc: 0.9448
+  [16x16] Epoch 116  Batch    12/   16  loss: 0.3065  acc: 0.9444
+  [16x16] Epoch 116  Batch    13/   16  loss: 0.3059  acc: 0.9449
+  [16x16] Epoch 116  Batch    14/   16  loss: 0.3057  acc: 0.9449
+  [16x16] Epoch 116  Batch    15/   16  loss: 0.3056  acc: 0.9446
+  [16x16] Epoch 116  Batch    16/   16  loss: 0.3056  acc: 0.9446
+[16x16] Epoch 116  loss: 0.3056  acc: 0.9446  |  val_loss: 0.2809  val_acc: 0.9507  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 51/97%(avg/max)  40/42°C  30W  |  CPU 34%  RAM 27.5/63.2GB  |  wait 1.7s/compute 0.4s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 14/15
+  [16x16] Epoch 117  Batch     1/   16  loss: 0.3051  acc: 0.9431
+  [16x16] Epoch 117  Batch     2/   16  loss: 0.3044  acc: 0.9458
+  [16x16] Epoch 117  Batch     3/   16  loss: 0.3031  acc: 0.9449
+  [16x16] Epoch 117  Batch     4/   16  loss: 0.3022  acc: 0.9456
+  [16x16] Epoch 117  Batch     5/   16  loss: 0.3036  acc: 0.9456
+  [16x16] Epoch 117  Batch     6/   16  loss: 0.3035  acc: 0.9453
+  [16x16] Epoch 117  Batch     7/   16  loss: 0.3037  acc: 0.9453
+  [16x16] Epoch 117  Batch     8/   16  loss: 0.3035  acc: 0.9456
+  [16x16] Epoch 117  Batch     9/   16  loss: 0.3046  acc: 0.9451
+  [16x16] Epoch 117  Batch    10/   16  loss: 0.3053  acc: 0.9446
+  [16x16] Epoch 117  Batch    11/   16  loss: 0.3057  acc: 0.9443
+  [16x16] Epoch 117  Batch    12/   16  loss: 0.3062  acc: 0.9441
+  [16x16] Epoch 117  Batch    13/   16  loss: 0.3061  acc: 0.9443
+  [16x16] Epoch 117  Batch    14/   16  loss: 0.3061  acc: 0.9442
+  [16x16] Epoch 117  Batch    15/   16  loss: 0.3066  acc: 0.9441
+  [16x16] Epoch 117  Batch    16/   16  loss: 0.3066  acc: 0.9441
+[16x16] Epoch 117  loss: 0.3066  acc: 0.9441  |  val_loss: 0.2794  val_acc: 0.9514  |  lr: 4.00e-07  [3s]  |  VRAM 2.0/16.0GB  CUDA 48/94%(avg/max)  40/42°C  32W  |  CPU 30%  RAM 27.5/63.2GB  |  wait 1.8s/compute 0.3s
+[Log] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_log.csv
+  [EarlyStopping] 15/15
+  [EarlyStopping] Halting.
+
+[Train] [16x16] Loading best checkpoint...
+
+[Eval] [16x16] Running per-class accuracy analysis on test set...
+
+  [Per-Class] Accuracy by class:
+    digit  (class 0): 99.95%  (2007 samples)
+    UC     (class 1): 95.96%  (10400 samples)
+    LC     (class 2): 91.86%  (4400 samples)
+    Balanced accuracy (mean of the three): 95.93%
+
+========================================
+  [16x16] Router test accuracy : 0.9537  (95.37%)
+  [16x16] Router test loss     : 0.2755
+========================================
+[Plot] Saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_curves.png
+[Save] E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16_final.pt  (0.3 MB)
+[ONNX] Exported to E:\mnist_v3\router_models\v3_mnist_router_ranger_16\v3_mnist_router_ranger_16.onnx  (0.2 MB)
+  [Resume] State cleared — training complete.
+
+[Done] [16x16] All files saved to E:\mnist_v3\router_models\v3_mnist_router_ranger_16
+
+############################################################
+  TRAINING COMPLETE — ROUTER
+  16x16: 95.37% test accuracy
+############################################################

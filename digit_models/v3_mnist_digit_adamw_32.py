@@ -74,7 +74,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 from torchvision import transforms
 
-from common.telemetry import HardwareMonitor, setup_device, HAS_PSUTIL
+from common.telemetry import (
+    HardwareMonitor, setup_device, HAS_PSUTIL, get_nvsmi_vram_gb,
+    check_vram_safety, check_cpu_ram_safety,
+)
 from common.distributed import (
     is_distributed, get_local_rank, is_main_process, setup_distributed,
     cleanup_distributed, wrap_model_ddp, unwrap_model, all_reduce_sum, get_world_size,
@@ -276,18 +279,27 @@ class StochasticDepth(nn.Module):
 
 
 class SEResidualBlock(nn.Module):
-    def __init__(self, in_ch: int, out_ch: int, drop_path: float = 0.1):
+    def __init__(self, in_ch: int, out_ch: int, stride: int = 1, drop_path: float = 0.1):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_ch,  out_ch, 3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_ch,  out_ch, 3, stride=stride, padding=1, bias=False)
         self.bn1   = nn.BatchNorm2d(out_ch)
         self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False)
         self.bn2   = nn.BatchNorm2d(out_ch)
         self.se    = SqueezeExcitation(out_ch)
         self.drop_path = StochasticDepth(drop_path)
-        self.shortcut = (
-            nn.Sequential(nn.Conv2d(in_ch, out_ch, 1, bias=False), nn.BatchNorm2d(out_ch))
-            if in_ch != out_ch else nn.Identity()
-        )
+        if stride != 1:
+            self.shortcut = nn.Sequential(
+                nn.AvgPool2d(kernel_size=2, stride=2, ceil_mode=True),
+                nn.Conv2d(in_ch, out_ch, 1, bias=False),
+                nn.BatchNorm2d(out_ch),
+            )
+        elif in_ch != out_ch:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_ch, out_ch, 1, bias=False),
+                nn.BatchNorm2d(out_ch),
+            )
+        else:
+            self.shortcut = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = self.shortcut(x)
@@ -303,7 +315,13 @@ class OCRConvNetWide(nn.Module):
     Wider OCR ConvNet with SE attention.
     Input:  (batch, 1, IMG_SIZE, IMG_SIZE)
     Output: (batch, 10)
-    Filter progression: 32→128→256→512
+    Filter progression: 32→128→256→512 — downsamples via stride=2 in each
+    stage's first conv (2026-08-07 fix: previously pooled via a separate
+    MaxPool2d AFTER two full-resolution convs — ~25x more compute per image
+    than necessary, no accuracy gain). Shortcut/projection path uses
+    avg-pool(stride=2) + stride-1 1x1 conv rather than a stride-2 1x1 conv,
+    per He et al. 2018's "ResNet-D" tweak (a stride-2 1x1 conv discards 3/4
+    of input pixels) — see v3_CHANGELOG.md.
     """
     def __init__(self, num_classes: int = NUM_CLASSES):
         super().__init__()
@@ -312,10 +330,10 @@ class OCRConvNetWide(nn.Module):
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
         )
-        self.stage1 = nn.Sequential(SEResidualBlock(32, 128),  nn.MaxPool2d(2))
-        self.stage2 = nn.Sequential(SEResidualBlock(128, 256), nn.MaxPool2d(2))
-        self.stage3 = nn.Sequential(SEResidualBlock(256, 512), nn.MaxPool2d(2))
-        self.stage4 = SEResidualBlock(512, 512)
+        self.stage1 = SEResidualBlock(32,  128, stride=2)
+        self.stage2 = SEResidualBlock(128, 256, stride=2)
+        self.stage3 = SEResidualBlock(256, 512, stride=2)
+        self.stage4 = SEResidualBlock(512, 512, stride=1)
         self.global_pool = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Sequential(
             nn.Dropout(0.5),
@@ -355,15 +373,20 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
     total_loss = total_correct = total_samples = 0
     num_batches  = len(loader)
     log_interval = max(1, round(num_batches * 0.025))
-    # Hardware telemetry (2026-07-28, per direct user follow-up): sampled
-    # at several points across the epoch, not just once at the midpoint —
-    # a single snapshot can land on an idle/eval lull (confirmed in a real
-    # run's own transcript) and misreport the epoch's real utilization.
-    # epoch_summary() below reduces the collected samples to min/avg/max
-    # per metric.
+    # Hardware telemetry (2026-08-07, per direct user follow-up): sampled
+    # every _SAMPLE_INTERVAL batches (plus the first and last batch as
+    # anchors) rather than a fixed 5 points, so sample density scales with
+    # epoch length — batch counts in this project range from the enforced
+    # 15-step floor (see MIN_STEPS_PER_EPOCH) up past 1000+ at larger
+    # batch sizes, and a fixed sample count would under-resolve long
+    # epochs. Every individual sample is written to the log as its own
+    # row (see common/cli_logging.py's save_log()), not just reduced to
+    # min/avg/max — epoch_summary() below still computes that reduction
+    # too, for the epoch's own summary row.
     _hw_monitor = HardwareMonitor()
     _hw_samples = []
-    _sample_points = {round(num_batches * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)} if num_batches else set()
+    _SAMPLE_INTERVAL = 25
+    _sample_points = (set(range(0, num_batches, _SAMPLE_INTERVAL)) | {num_batches - 1}) if num_batches else set()
     # Data-wait vs. compute time: times the dataloader's next-batch yield
     # separately from the training step itself, so a GPU-starved-by-data
     # bottleneck (CPU/disk-bound) is distinguishable from a genuinely
@@ -419,7 +442,12 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, device,
     total_loss    = all_reduce_sum(total_loss, device)
     total_correct = all_reduce_sum(total_correct, device)
     total_samples = all_reduce_sum(total_samples, device)
-    return total_loss / total_samples, total_correct / total_samples, hw_summary
+    # hw_summary is the epoch's min/avg/max-reduced summary (see
+    # HardwareMonitor.epoch_summary()); _hw_samples is the raw list it was
+    # reduced from — returned too (2026-08-07, per direct user follow-up)
+    # so the caller can log each individual sample point as its own CSV
+    # row, not just the reduction — see common/cli_logging.py's save_log().
+    return total_loss / total_samples, total_correct / total_samples, hw_summary, _hw_samples
 
 
 @torch.no_grad()
@@ -587,7 +615,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         t0 = time.time()
 
         optimizer.train()
-        train_loss, train_acc, hw = train_one_epoch(
+        train_loss, train_acc, hw, hw_raw = train_one_epoch(
             model, train_loader, criterion, optimizer, scaler, device,
             epoch=epoch, img_size=img_size
         )
@@ -596,12 +624,15 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         current_lr = optimizer.param_groups[0]["lr"]
         elapsed    = time.time() - t0
+        _nvsmi_vram_used_gb, _nvsmi_vram_total_gb = (
+            get_nvsmi_vram_gb() if device.type == "cuda" else (-1, -1)
+        )
 
         print(f"[{img_size}x{img_size}] Epoch {epoch:3d}  "
               f"loss: {train_loss:.4f}  acc: {train_acc:.4f}  |  "
               f"val_loss: {val_loss:.4f}  val_acc: {val_acc:.4f}  |  "
               f"lr: {current_lr:.2e}  [{elapsed:.0f}s]  |  "
-              f"VRAM {hw['vram_peak_alloc_gb']:.1f}/{hw['vram_peak_reserved_gb']:.1f}GB  "
+              f"VRAM {_nvsmi_vram_used_gb:.1f}/{_nvsmi_vram_total_gb:.1f}GB  "
               f"CUDA {hw['cuda_util_pct_avg']:.0f}/{hw['cuda_util_pct_max']}%(avg/max)  "
               f"{hw['gpu_temp_c_avg']:.0f}/{hw['gpu_temp_c_max']}°C  {hw['gpu_power_w_avg']:.0f}W  |  "
               f"CPU {hw['cpu_pct_avg']:.0f}%  RAM {hw['ram_used_gb_avg']:.1f}/{hw['ram_total_gb']:.1f}GB  |  "
@@ -615,6 +646,13 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # history column (2026-07-28, per direct user follow-up) — the old
         # 6-field explicit list here would silently drop any new telemetry
         # field added to epoch_summary() without a matching edit here.
+        # Raw per-sample-point readings, stored alongside the reduced
+        # summary (2026-08-07, per direct user follow-up) so save_log()
+        # can write each sample point as its own CSV row — see that
+        # function's own docstring for the row layout.
+        history.setdefault("_hw_raw_samples", []).append(hw_raw)
+        history.setdefault("nvsmi_vram_used_gb", []).append(_nvsmi_vram_used_gb)
+        history.setdefault("nvsmi_vram_total_gb", []).append(_nvsmi_vram_total_gb)
         for hw_key, hw_val in hw.items():
             history.setdefault(hw_key, []).append(hw_val)
         history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
@@ -627,19 +665,10 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # append logic.
         save_log(history, cfg["log_path"])
 
-        if device.type == "cpu" and HAS_PSUTIL:
-            _swap_used_gb = round(psutil.swap_memory().used / 1024**3, 3)
-            _free_ram_gb  = psutil.virtual_memory().available / 1024**3
-            if _swap_used_gb > _run_swap_baseline_gb:
-                print(f"  [RAM] Page file / swap usage GREW beyond this run's "
-                      f"{_run_swap_baseline_gb:.3f} GB baseline ({_swap_used_gb:.3f} GB now) — "
-                      f"treating as OOM, stopping training cleanly after epoch {epoch}")
-                break
-            if _free_ram_gb < RAM_RESERVE_GB:
-                print(f"  [RAM] Free RAM ({_free_ram_gb:.2f} GB) below the "
-                      f"{RAM_RESERVE_GB} GB reserve — stopping training "
-                      f"cleanly after epoch {epoch}")
-                break
+        if check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch):
+            break
+        if check_vram_safety(hw, _nvsmi_vram_total_gb, epoch):
+            break
 
         early_stop(val_loss, model)
         if early_stop.stop:

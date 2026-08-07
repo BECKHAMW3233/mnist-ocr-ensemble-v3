@@ -1,10 +1,12 @@
 """
 common/cli_logging.py
 ======================
-CLI transcript mirroring (_Tee), per-epoch CSV logging, and training-curve
-plotting — extracted verbatim from the identical trio duplicated across
-every v2 training script (the specific fieldnames, append-mode + session-
-header behavior, and 2-panel accuracy/loss plot layout are all unchanged).
+CLI transcript mirroring (_Tee), per-epoch multi-row CSV logging, and
+training-curve plotting — the _Tee/plot_history trio extracted verbatim
+from the identical duplicate across every v2 training script (unchanged);
+save_log()'s row structure was reworked 2026-08-07 (per direct user
+follow-up) from one row per epoch to multiple rows per epoch — see
+save_log()'s own docstring below for the current format.
 
 DDP note (2026-07-28, per direct user follow-up — see common/
 distributed.py, including its "NOT YET VALIDATED against real multi-GPU
@@ -75,14 +77,19 @@ def plot_history(history: dict, path: str, img_size: int, title: str):
     print(f"[Plot] Saved to {path}")
 
 
-# Per-epoch hardware telemetry columns (2026-07-28, per direct user
+# Per-epoch SUMMARY hardware telemetry columns (2026-07-28, per direct user
 # follow-up — expanded from the original 4-field cuda_util_pct/gpu_temp_c/
 # cpu_pct/ram_used_gb set). Sourced from HardwareMonitor.epoch_summary()
 # (common/telemetry.py) plus the two data_wait_s/compute_s fields each
 # training script's own train_one_epoch() times directly (see that
 # module's docstring for why that timing lives in the caller, not here).
 # Listed as one constant so save_log() and any caller building a history
-# dict agree on the exact same column set without repeating it.
+# dict agree on the exact same column set without repeating it. These
+# columns are only populated on each epoch's own "summary" row (see
+# save_log() below) — they sit in the same CSV as the raw per-sample-point
+# columns (_POINT_FIELDS below), which are populated only on that epoch's
+# non-summary rows. Every row leaves the other row-type's columns blank
+# rather than mixing summary/point data into the same cell.
 HW_TELEMETRY_FIELDS = [
     "cuda_util_pct_min", "cuda_util_pct_avg", "cuda_util_pct_max",
     "cuda_mem_util_pct_min", "cuda_mem_util_pct_avg", "cuda_mem_util_pct_max",
@@ -95,32 +102,78 @@ HW_TELEMETRY_FIELDS = [
     "disk_read_mb_s_min", "disk_read_mb_s_avg", "disk_read_mb_s_max",
     "disk_write_mb_s_min", "disk_write_mb_s_avg", "disk_write_mb_s_max",
     "vram_peak_alloc_gb", "vram_peak_reserved_gb",
+    "nvsmi_vram_used_gb", "nvsmi_vram_total_gb",
     "data_wait_s", "compute_s",
+]
+
+# Per-SAMPLE-POINT raw hardware telemetry columns (2026-08-07, per direct
+# user follow-up — previously these 12 metrics were only ever visible
+# reduced into HW_TELEMETRY_FIELDS' min/avg/max; now the individual
+# readings that reduction was computed from are logged directly too, one
+# row per sample point, so the actual shape within the epoch — not just
+# its range — is visible). Populated only on each epoch's non-summary rows
+# (see save_log() below); blank on the summary row.
+_POINT_FIELDS = [
+    "cuda_util_pct", "cuda_mem_util_pct", "gpu_temp_c", "gpu_power_w",
+    "gpu_clock_sm_mhz", "gpu_clock_mem_mhz", "gpu_fan_pct", "gpu_throttled",
+    "cpu_pct", "ram_used_gb", "disk_read_mb_s", "disk_write_mb_s",
 ]
 
 
 def save_log(history: dict, path: str):
+    """
+    Writes multiple CSV rows per epoch (2026-08-07, per direct user
+    follow-up — replaces the previous one-row-per-epoch format):
+      - One row per hardware sample point taken during that epoch (see
+        each training script's own train_one_epoch() for the sampling
+        schedule — batch counts in this project range from a 15-step
+        floor past 1000+, so the number of sample points, and therefore
+        rows, varies per epoch). sample_point holds that point's 1-based
+        index; only the _POINT_FIELDS columns are populated, everything
+        else (train_loss, the HW_TELEMETRY_FIELDS min/avg/max columns,
+        etc.) is left blank on these rows since those values aren't known
+        until the epoch finishes.
+      - One final "summary" row per epoch (sample_point == "summary"):
+        train_loss/train_acc/val_loss/val_acc/lr/epoch_time_s plus the
+        HW_TELEMETRY_FIELDS min/avg/max/avg/any reduction across that
+        epoch's sample points — this row's content is unchanged from what
+        the previous one-row-per-epoch format wrote, it just now has
+        siblings instead of being the only record for that epoch.
+    history["_hw_raw_samples"] holds, per epoch, the list of raw
+    HardwareMonitor.sample() dicts each training script's train_one_epoch()
+    collected (returned alongside its existing epoch_summary()-reduced
+    dict) — see that function for where this list comes from.
+    """
     if not is_main_process():
         return
     fieldnames = [
-        "epoch", "train_loss", "train_acc", "val_loss", "val_acc", "lr",
-        "epoch_time_s",
-    ] + HW_TELEMETRY_FIELDS
+        "epoch", "sample_point",
+        "train_loss", "train_acc", "val_loss", "val_acc", "lr", "epoch_time_s",
+    ] + _POINT_FIELDS + HW_TELEMETRY_FIELDS
     n = len(history["train_loss"])
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for i in range(n):
-            row = {
-                "epoch":            i + 1,
-                "train_loss":       f"{history['train_loss'][i]:.6f}",
-                "train_acc":        f"{history['train_acc'][i]:.6f}",
-                "val_loss":         f"{history['val_loss'][i]:.6f}",
-                "val_acc":          f"{history['val_acc'][i]:.6f}",
-                "lr":               f"{history['lr'][i]:.8f}",
-                "epoch_time_s":     history.get("epoch_time_s", ["-1"]*n)[i],
-            }
+            epoch_num = i + 1
+            raw_samples = history.get("_hw_raw_samples", [[]] * n)[i]
+            for point_idx, sample in enumerate(raw_samples, start=1):
+                row = {fn: "" for fn in fieldnames}
+                row["epoch"] = epoch_num
+                row["sample_point"] = point_idx
+                for field in _POINT_FIELDS:
+                    row[field] = sample.get(field, -1)
+                writer.writerow(row)
+            summary_row = {fn: "" for fn in fieldnames}
+            summary_row["epoch"]        = epoch_num
+            summary_row["sample_point"] = "summary"
+            summary_row["train_loss"]   = f"{history['train_loss'][i]:.6f}"
+            summary_row["train_acc"]    = f"{history['train_acc'][i]:.6f}"
+            summary_row["val_loss"]     = f"{history['val_loss'][i]:.6f}"
+            summary_row["val_acc"]      = f"{history['val_acc'][i]:.6f}"
+            summary_row["lr"]           = f"{history['lr'][i]:.8f}"
+            summary_row["epoch_time_s"] = history.get("epoch_time_s", ["-1"]*n)[i]
             for field in HW_TELEMETRY_FIELDS:
-                row[field] = history.get(field, ["-1"]*n)[i]
-            writer.writerow(row)
+                summary_row[field] = history.get(field, ["-1"]*n)[i]
+            writer.writerow(summary_row)
     print(f"[Log] Saved to {path}")

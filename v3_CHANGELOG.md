@@ -3456,4 +3456,556 @@ documentation — pure on-disk verification.
 - Not verified: whether the two partial runs (`adamw_64`,
   `ranger_128`) will complete successfully if resumed — that's a
   training outcome, not something checkable by reading files.
+
+---
+
+## 2026-08-07 — CLAUDE.md updated: incident-documented additions to Verification standard, Scope discipline, and When in doubt
+
+### What changed
+
+`CLAUDE.md` (this repo's Claude Code operating-rules file, not ML project
+code): added incident-documented reinforcements to three existing
+sections — no new top-level rules, only concrete incident records attached
+to rules that already existed but weren't being applied at the decision
+point:
+- Verification standard: recurrence note on proactive web search (first
+  documented 2026-08-02, recurred 2026-08-07); incident note on
+  constructing an unverified explanation before checking (a router model's
+  architecture history); incident note on sampling instead of exhaustively
+  checking all files when asked to verify "all" of something; new rule
+  requiring quoted text be confirmed verbatim from primary sources — not a
+  WebSearch/WebFetch tool's own synthesis — before being presented as a
+  direct quote, with two incident examples; new rule distinguishing
+  checkable/version-specific verification from general literature
+  corroboration that can never "prove" a repo-specific claim, with an
+  incident example. Also tightened the library/API verification bullet
+  from conditional ("if you are not 100% certain") to unconditional
+  ("always verify"), since the conditional framing let self-assessed
+  certainty skip the check.
+- Scope discipline: new rule against asserting conclusions about whether
+  existing work/output is "fine" or "acceptable to keep" without first
+  confirming what it needs to serve, with two incident examples five days
+  apart (2026-08-02 unauthorized `git checkout`; 2026-08-07 AdamW/Router
+  model staleness).
+- Worktrees: new rule clarifying that William never runs, tests, or
+  interacts with worktree copies — only his real checkout (`E:/mnist_v3`)
+  — so worktree-only writes don't count as delivering the work; approved
+  changes get written to the real checkout too (plain file edits, no
+  merge/commit).
+- When in doubt: closing paragraph naming the shared root cause across all
+  documented incidents — checking rules after being caught violating them,
+  not before acting.
+
+### Why
+
+Surfaced across an extended 2026-08-07 session investigating why
+Muon-optimizer models train faster than AdamW models in this repo.
+Multiple times during that investigation, William had to correct Claude for
+doing exactly what CLAUDE.md's existing rules already prohibited — not
+applying the Verification standard proactively, sampling instead of
+exhaustively checking, constructing an explanation before verifying it,
+asserting that stale trained models were "fine to keep" without knowing the
+project's actual purpose, and defaulting to writing changes only in a git
+worktree William never uses. William pointed out this exact pattern (not
+consulting the file's own rules before acting, only after being caught) had
+already been documented once before, in session memory from 2026-08-02, and
+recurred five days later anyway — meaning memory alone wasn't sufficient
+and the file itself needed the incident record. William then directly asked
+for this to be logged here too, since it affects how Claude interacts with
+him going forward, not just the ML project's code.
+
+### Source
+
+Direct instruction from William, informed by the actual transcript of this
+2026-08-07 session and by prior session memory
+(`feedback_check_claude_md_before_acting.md`,
+`feedback_proactive_web_verification.md`,
+`feedback_dont_pattern_match_statements.md` — all originally recorded
+2026-08-02). No external documentation involved.
+
+### Verification
+
+- Full before/after text of all edited CLAUDE.md sections was shown to
+  William in chat before writing, per CLAUDE.md's own ask-first-show-diff
+  rule, including two revisions (broadening the quote-verbatim rule to
+  cover WebSearch as well as WebFetch, and tightening the API-verification
+  bullet to unconditional) made after William asked for them.
+- Written to both `CLAUDE.md` copies — the worktree
+  (`.claude/worktrees/muon-training-speed-c27691/CLAUDE.md`) and this real
+  checkout (`E:/mnist_v3/CLAUDE.md`) — per the new Worktrees rule itself.
+- Not verified: whether these additions actually change future behavior —
+  that can only be observed over subsequent sessions, not confirmed now.
+
+---
+
+## 2026-08-07 — OCRConvNetWide (AdamW architecture) downsampling fixed to stride-2-in-conv, not post-block MaxPool2d; shortcut fixed to avg-pool+conv, not stride-2 1x1 conv
+
+### What changed
+
+`digit_models/v3_mnist_digit_adamw_{16,28,32,64,128}.py`,
+`uppercase_models/v3_mnist_letter_uc_adamw_{28,32,64,128}.py`,
+`lowercase_models/v3_mnist_letter_lc_adamw_{28,32,64,128}.py` (13 files,
+identical mechanical change in each): `SEResidualBlock.__init__` gained a
+`stride: int = 1` parameter, threaded into `conv1` (now
+`stride=stride`). `OCRConvNetWide.__init__`'s stage1/stage2/stage3 no
+longer wrap `SEResidualBlock` in `nn.Sequential(..., nn.MaxPool2d(2))` —
+they now pass `stride=2` directly to the block (stage4 gets `stride=1`,
+unchanged behavior). This is the same downsampling pattern
+`MuonResidualBlock` (`v3_mnist_digit_muon_28.py` and siblings) already
+used. Additionally, the shortcut/projection path — previously a plain
+`nn.Conv2d(in_ch, out_ch, 1, stride=stride, bias=False)` whenever
+`in_ch != out_ch` — now branches on `stride`: when `stride != 1` it's
+`nn.AvgPool2d(kernel_size=2, stride=2, ceil_mode=True)` followed by a
+stride-1 `nn.Conv2d(in_ch, out_ch, 1, bias=False)`; when `stride == 1` and
+`in_ch != out_ch` it's the original stride-1 1x1 conv; otherwise
+`nn.Identity()`, unchanged. `ceil_mode=True` is required — verified
+algebraically that `avgpool(kernel=2,stride=2,ceil_mode=True)`'s output
+size always exactly matches `conv(kernel=3,stride=2,padding=1)`'s output
+size for any input size (both reduce to `k` for even input `2k` and `k+1`
+for odd input `2k+1`), so the residual addition's shapes always align. No
+change to `forward()`, parameter shapes elsewhere, or the classifier head.
+
+### Why
+
+William asked why Muon models train so much faster than AdamW models.
+Investigation found `OCRConvNetWide` ran both convs of every residual
+block at full input resolution and downsampled via a separate `MaxPool2d`
+afterward, while `OCRConvNetMuon` downsamples immediately inside `conv1`
+via `stride=2` — the standard ResNet pattern. Measured directly from this
+repo's own training logs
+(`v3_mnist_digit_adamw_28/v3_mnist_digit_adamw_28_log.csv` vs
+`v3_mnist_digit_muon_28/v3_mnist_digit_muon_28_log.csv`, steady-state
+epochs): AdamW's net cost ~1035µs/image of compute vs Muon's ~41µs/image —
+a ~25x gap — for statistically identical final test accuracy (99.90%
+AdamW vs 99.91% Muon, from each script's own CLI transcript's "Test
+accuracy" line). The extra compute bought no accuracy. Further
+investigation (reading all 44 of this project's model scripts in full, not
+sampled) found the same `MaxPool2d`-after-full-resolution-convs pattern in
+the router/Ranger scripts too, and confirmed SOAP and Muon (13 files each)
+were 100% consistent with the efficient stride-in-conv pattern already —
+this fix is scoped to the 13 AdamW files only, per William's explicit
+approval; the 5 router files have the same issue but a separate diff for
+those was never drafted or approved, so they're unchanged.
+
+The shortcut fix (avg-pool + stride-1 conv instead of stride-2 1x1 conv)
+was added after William asked to also research whether the stride-2 1x1
+conv shortcut itself was suboptimal, given he wanted both "speed and
+accuracy," not a trade-off between them — it satisfies both since the
+avg-pool op is computationally negligible next to the conv it precedes.
+
+William confirmed `OCRConvNetWide` was Claude-authored, not his design
+choice, and asked to correct it; he also confirmed he's willing to delete
+and retrain the already-completed AdamW outputs to get the benefit.
+
+### Source
+
+- ResNet's stride-in-first-conv downsampling convention: original paper,
+  He, K., Zhang, X., Ren, S., Sun, J., "Deep Residual Learning for Image
+  Recognition" (arXiv:1512.03385) — confirmed via ar5iv.labs.arxiv.org's
+  rendered text, quoted directly: "We perform downsampling directly by
+  convolutional layers that have a stride of 2." Cross-confirmed against
+  PyTorch's own current `torchvision.models.resnet` source
+  (docs.pytorch.org/vision/main/_modules/torchvision/models/resnet.html,
+  fetched directly): `BasicBlock` (the same two-3x3-conv shape as
+  `SEResidualBlock`/`MuonResidualBlock`, not the bottleneck variant) puts
+  `stride` on the first 3x3 conv, matching this fix.
+- The shortcut fix and the "ignores 3/4 of input feature maps" reasoning:
+  He, T., Zhang, Z., Zhang, H., Zhang, Z., Xie, J., Li, M., "Bag of Tricks
+  for Image Classification with Convolutional Neural Networks" (CVPR 2019,
+  arXiv:1812.01187) — confirmed via ar5iv.labs.arxiv.org's rendered text,
+  quoted directly: "The convolution in path A ignores three-quarters of
+  the input feature map because it uses a kernel size 1×1 with a stride of
+  2" (ResNet-B) and "The 1×1 convolution in the path B of the downsampling
+  block also ignores 3/4 of input feature maps" (ResNet-D, the specific
+  shortcut pattern fixed here); "adding a 2×2 average pooling layer with a
+  stride of 2 before the convolution, whose stride is changed to 1, works
+  well in practice." Table 5 (isolated, not combined) confirms the
+  ResNet-D contribution is accuracy-positive at zero extra FLOPs cost over
+  ResNet-C: ResNet-50 3.8G/76.21% -> ResNet-50-B 4.1G/76.66% ->
+  ResNet-50-C 4.3G/76.87% -> ResNet-50-D 4.3G/77.16%.
+- SE attention ruled out as a contributing cause of the speed gap: Hu, J.,
+  Shen, L., Sun, G., "Squeeze-and-Excitation Networks" (CVPR 2018,
+  arXiv:1709.01507) — confirmed via ar5iv.labs.arxiv.org's rendered text,
+  quoted directly: "SE-ResNet-50 requires ∼3.87 GFLOPs, corresponding to a
+  0.26% relative increase over the original ResNet-50" and "190 ms,
+  compared to 209 ms for SE-ResNet-50" (~10% wall-clock) — far too small
+  to explain the measured ~25x gap.
+- Muon's own per-step cost ruled out as the reason Muon is faster (i.e.
+  this fix is about architecture, not optimizer math): Keller Jordan's own
+  writeup (kellerjordan.github.io/posts/muon/, fetched directly) states
+  Newton-Schulz FLOP overhead is under 1% of typical training compute for
+  Muon, and explicitly: "Muon has a slower per-step wallclock time than
+  AdamW."
+- Wall-clock/compute/accuracy numbers: this repo's own
+  `v3_mnist_digit_{adamw,muon}_28/*_log.csv` and `*_cli_*.txt` files.
+- Architecture-consistency check across the whole project: direct reading
+  of all 44 model scripts in `digit_models/`, `uppercase_models/`,
+  `lowercase_models/`, `router_models/` (not sampled).
+- Direct instruction from William to apply the fix and update
+  `README.md`/`v3_CHANGELOG.md` accordingly, and to write it to his real
+  checkout (`E:/mnist_v3`) rather than only the git worktree.
+
+### Verification
+
+- Confirmed all 13 files received the identical mechanical change, via the
+  edit tool's own before/after per file — differing only in the
+  pre-existing "Output: (batch, 10)" vs "(batch, 26)" docstring line per
+  model type, which was not touched.
+- Confirmed algebraically (not by running code) that the avg-pool
+  shortcut's output spatial size always matches the main path's output
+  spatial size at every resolution tier used in this project
+  (16/28/32/64/128), for both even and odd intermediate feature-map sizes.
+- Not verified: an actual training run confirming the expected speedup and
+  that accuracy holds on the corrected architecture — that's a full
+  retrain, William's to run per the project's Testing rule.
+
+---
+
+## 2026-08-07 — OCRRouterNet (Ranger router architecture) downsampling fixed to stride-2-in-conv, not post-block MaxPool2d
+
+### What changed
+
+`router_models/v3_mnist_router_ranger_{16,28,32,64,128}.py` (5 files,
+identical mechanical change in each): `ConvBlock.__init__` gained a
+`stride: int = 1` parameter, threaded into `self.conv` (now
+`stride=stride`). `OCRRouterNet.__init__`'s stage1/stage2/stage3 no
+longer wrap `ConvBlock` in `nn.Sequential(..., nn.MaxPool2d(2))` — they
+now pass `stride=2` directly to the block. No shortcut/residual path
+exists in this architecture (`ConvBlock` is a plain Conv-BN-ReLU stack,
+unlike `SEResidualBlock`), so there was no ResNet-D-style shortcut fix to
+apply here — only the downsampling-placement fix. No change to
+`forward()`, parameter shapes, or the classifier head.
+
+### Why
+
+While fixing the same issue in the 13 AdamW files (see the entry directly
+above), reading all 44 of this project's model scripts in full (not
+sampled) found the identical MaxPool2d-after-full-resolution-conv pattern
+in all 5 router/Ranger scripts too. Measured from this repo's own logs
+(`v3_mnist_router_ranger_{16,28,32,64}/*_log.csv`, steady-state epochs):
+epoch times of ~3.3s/16.2s/17.6s/27.9s respectively — much smaller than
+AdamW's absolute slowdown, since `OCRRouterNet` is a ~62.7K-parameter
+network (Filter progression 16→32→64→64) rather than AdamW's 9.7M, but the
+same architectural waste is present relative to what it could be. William
+approved fixing this as a separate, explicit follow-up after the AdamW fix
+landed (it had been deliberately left out of the AdamW changelog entry as
+out-of-scope until then), and confirmed he's deleting the 4 already-trained
+router outputs (`_16`, `_28`, `_32`, `_64`) so they get retrained on the
+corrected architecture.
+
+### Source
+
+Same ResNet stride-in-first-conv sourcing as the AdamW entry above (He et
+al. 2015, arXiv:1512.03385, and PyTorch's own current
+`torchvision.models.resnet.BasicBlock` source) — no new external sources
+needed since this is the identical downsampling-placement fix, just on a
+non-residual architecture. Architecture-consistency check: direct reading
+of all 44 model scripts in `digit_models/`, `uppercase_models/`,
+`lowercase_models/`, `router_models/` (not sampled), confirming these 5
+router files and the 13 AdamW files were the only ones with the inefficient
+pattern; SOAP (13 files) and Muon (13 files) were already using
+stride-in-conv throughout. Wall-clock numbers: this repo's own
+`v3_mnist_router_ranger_{16,28,32,64}/*_log.csv` files. Direct instruction
+from William to apply the fix and update `README.md`/`v3_CHANGELOG.md`
+accordingly, written to his real checkout (`E:/mnist_v3`) per the
+Worktrees rule.
+
+### Verification
+
+- Confirmed all 5 files received the identical mechanical change, via the
+  edit tool's own before/after per file — confirmed byte-identical
+  `ConvBlock`/`OCRRouterNet` source across all 5 files before editing (via
+  `Grep` across the whole directory in one call, not sampled per-file).
+- No shape-alignment verification needed (unlike the AdamW shortcut fix)
+  since there's no shortcut/residual addition in this architecture — each
+  stage is a straight sequential pass, so there's no second path whose
+  output size must match.
+- Not verified: an actual training run confirming the expected speedup and
+  that accuracy holds on the corrected architecture — that's a full
+  retrain, William's to run per the project's Testing rule.
+
+---
+
+## 2026-08-07 — Per-epoch CSV telemetry reworked to multi-row (raw sample points + summary row), replacing single-row min/avg/max
+
+### What changed
+
+`common/telemetry.py`: no changes — `HardwareMonitor.epoch_summary()` already
+reduced an arbitrary-length sample list to min/avg/max, which is exactly
+what the new summary row needs; nothing about it depends on how many
+samples are taken or how they're logged downstream.
+
+`common/cli_logging.py`: `save_log()` rewritten to write multiple CSV rows
+per epoch instead of one. New `_POINT_FIELDS` constant (12 raw metrics:
+utilization, temp, power, clocks, fan, throttle, cpu, ram, disk I/O). Each
+epoch now produces one row per hardware sample point taken during that
+epoch (`sample_point` = 1-based index, only `_POINT_FIELDS` populated,
+everything else blank) plus one final row (`sample_point` = `"summary"`)
+carrying train/val loss/acc, lr, epoch_time_s, and the existing
+`HW_TELEMETRY_FIELDS` min/avg/max/avg/any reduction — unchanged in content
+from what the old one-row-per-epoch format wrote, it just now has sibling
+rows instead of being the epoch's only record. `plot_history()` needed no
+change — it reads `history["train_acc"]` etc. directly (still one value
+per epoch), not the CSV file.
+
+All 44 training scripts in the project (`digit_models/`,
+`uppercase_models/`, `lowercase_models/`, `router_models/` — every SOAP,
+AdamW, Muon, and Ranger script at every resolution tier): `train_one_epoch()`'s
+hardware sample-point selection changed from a fixed 5 points
+(`{round(num_batches * f) for f in (0.1, 0.3, 0.5, 0.7, 0.9)}`) to a fixed
+**interval** — one sample every 25 batches, plus the first and last batch
+always included as anchors
+(`(set(range(0, num_batches, 25)) | {num_batches - 1})`). Sample density
+now scales with epoch length instead of staying fixed at 5 points
+regardless of whether an epoch has 15 or 1000+ batches. `train_one_epoch()`
+now returns the raw sample list (`_hw_samples`) alongside its existing
+reduced summary (`hw_summary`); each script's `run_training()` call site
+unpacks that 4th value and stores it in `history["_hw_raw_samples"]` before
+calling `save_log()`.
+
+### Why
+
+Direct instruction from William: log files should show what happened
+*during* an epoch, not just a single collapsed entry at the end — "if they
+pull data from say 5 separate points in the epoch then show all the data
+they pull and then in the last entry for that epoch... show the overall
+min max avg data from that complete epoch." He also specified that sample
+density needs to scale with epoch length rather than stay fixed, since
+batch counts in this project range from the enforced 15-step floor (see
+`MIN_STEPS_PER_EPOCH`) up past 1000+ at larger batch sizes — a fixed
+5-sample scheme would under-resolve a long epoch badly (samples ~200
+batches apart instead of ~3). William confirmed the interval design
+(rather than a fixed count) specifically to bound per-epoch nvidia-smi
+subprocess overhead regardless of epoch size, and confirmed 25 batches as
+the interval.
+
+Applying this required first checking the actual current state of every
+training script rather than assuming they were all identical: doing so
+found the hardware-telemetry section's *preceding comment* — not the code
+itself, which was byte-identical everywhere — actually had three different
+variants across this project (a long dated version in
+digit_models/router_models, a shorter undated version in
+uppercase_models/lowercase_models' SOAP scripts, and no comment at all in
+uppercase_models/lowercase_models' AdamW and Muon scripts). Each group got
+the correct matching edit rather than one assumed pattern applied
+everywhere.
+
+### Source
+
+Direct instruction from William, including the specific design decisions
+(multi-row structure, interval-based scaling, the 25-batch interval value)
+made across the conversation that produced this entry. No external
+documentation involved — this is project-specific logging infrastructure,
+not tied to any library/API behavior.
+
+### Verification
+
+- Confirmed via `grep -rl` across all 44 training scripts that all four
+  pieces of the per-script change landed everywhere: `_SAMPLE_INTERVAL = 25`
+  (44/44), the updated return statement (44/44), the updated call-site
+  unpacking (44/44), and `_hw_raw_samples` history storage (44/44) — and
+  confirmed zero files still contain the old 5-point scheme or the old
+  3-value return statement.
+- `python -m py_compile` on `common/cli_logging.py`, `common/telemetry.py`,
+  and all 44 training scripts — clean, no syntax errors.
+- Not verified: an actual training run confirming the CSV produces the
+  expected row structure and that `save_log()`'s new logic handles a real
+  multi-epoch, multi-sample-point run correctly end to end — that's
+  William's to run per the project's Testing rule.
+
+## 2026-08-07 — VRAM safety check added (nvidia-smi-based) and CPU-swap safety check centralized into common/telemetry.py, replacing per-script duplication
+
+### What changed
+
+`common/telemetry.py`: three new functions added, right after `epoch_summary()`
+and before `print_vram_baseline()`.
+
+- `get_nvsmi_vram_gb()` — queries `nvidia-smi --query-gpu=memory.used,memory.total`
+  directly (same command `print_vram_baseline()` already used successfully on
+  this system) and returns `(used_gb, total_gb)`, each `-1` on any failure.
+- `check_vram_safety(hw_summary, nvsmi_total_gb, epoch, reserve_gb=1.0)` —
+  returns `True` (after printing a warning) if that epoch's peak reserved
+  VRAM (from `torch.cuda`, still used for the peak-tracking number itself)
+  is within `reserve_gb` of the GPU's real physical capacity as reported by
+  `get_nvsmi_vram_gb()`. No-op if nvsmi's total is unavailable.
+- `check_cpu_ram_safety(swap_baseline_gb, ram_reserve_gb, epoch)` — the
+  existing CPU-only swap-growth / free-RAM check, moved here verbatim from
+  its previous per-script inline form (see below), with no logic change.
+
+`common/cli_logging.py`: two new columns added to `HW_TELEMETRY_FIELDS` —
+`nvsmi_vram_used_gb`, `nvsmi_vram_total_gb` — sitting next to the existing
+`vram_peak_alloc_gb`/`vram_peak_reserved_gb` pair so both the CUDA-allocator
+view and the nvidia-smi ground-truth view are logged side by side.
+
+All 44 training scripts (`digit_models/`, `uppercase_models/`,
+`lowercase_models/`, `router_models/` — every SOAP, AdamW, Muon, and Ranger
+script at every resolution tier), four identical edits each:
+1. Import line extended to pull in `get_nvsmi_vram_gb`, `check_vram_safety`,
+   `check_cpu_ram_safety` alongside the existing `HardwareMonitor`,
+   `setup_device`, `HAS_PSUTIL`.
+2. The per-epoch console print's VRAM figure now sources from
+   `get_nvsmi_vram_gb()` (nvidia-smi, physical-capacity-bounded) instead of
+   `hw['vram_peak_alloc_gb']`/`hw['vram_peak_reserved_gb']` (torch.cuda's
+   allocator-pool view, which can read above the card's real capacity — see
+   Why below).
+3. `history` gains two new per-epoch lists, `nvsmi_vram_used_gb` and
+   `nvsmi_vram_total_gb`, populated from the same call.
+4. The old inline CPU-only swap/RAM check block (`if device.type == "cpu"
+   and HAS_PSUTIL: ...`, ~11 lines, previously duplicated identically across
+   all 44 files) replaced with two lines calling the new centralized
+   functions:
+   ```python
+   if check_cpu_ram_safety(_run_swap_baseline_gb, RAM_RESERVE_GB, epoch):
+       break
+   if check_vram_safety(hw, _nvsmi_vram_total_gb, epoch):
+       break
+   ```
+   The `break` itself stays in each script, since the epoch loop it exits
+   lives per-script by this project's own established convention (training
+   loops are intentionally not shared — see the 2026-07-27 modularization
+   entry above for that convention's origin) — only the check logic moved.
+
+### Why
+
+Direct trigger: William noticed the console was reporting VRAM usage above
+16.0GB on a 16GB card ("why am i seeeijng vram numbrs over 16gb whern i only
+have 16 gb total vram") and that no existing safety check caught it
+("i thought with all my telemitry data i pull it woud stop sumtihng liek
+this and flag it fast but aparently you did not code it to do that").
+
+Root cause: `torch.cuda.max_memory_reserved()` reports a peak from CUDA's
+own caching-allocator pool, which on Windows can transparently spill into
+WDDM's shared-system-RAM GPU fallback — so the number it reports is not
+bounded by the card's actual physical VRAM. William explicitly rejected
+using `torch.cuda`'s own `total_memory` as the capacity ceiling for the
+same reason ("why are you usign what windoews reports and not what nvidia
+software reports windows is not the program that runs the fuckgin gpu is
+it") and asked for the fix to use nvidia-smi's driver-level numbers instead,
+which report the physical card's real usage/capacity. `get_nvsmi_vram_gb()`
+uses the exact same `nvidia-smi --query-gpu=memory.used,memory.total`
+command `print_vram_baseline()` already runs successfully on this machine
+(confirmed via that function's own real output earlier in this session:
+correctly-bounded numbers like 728MB/16376MB) — so no new/unproven
+dependency was introduced.
+
+Centralization requirement: direct, repeated instruction from William that
+the check logic must not be duplicated across all 44 training scripts
+("why the fuck do the model trainign files need this edit when they are not
+the files that need to be edited when teh stand alone files should fuckgkn
+do this thenselves and be called to use with the model traiing files").
+Presented three options for where the mandatory per-script `break` could
+live given the project's per-script training-loop convention; William chose
+Option C (centralize the check, keep a 1-line-per-file call + `break`), and
+separately asked to retroactively apply the same centralization to the
+already-duplicated CPU-swap check ("clean it up and lets do this please").
+
+`reserve_gb=1.0` mirrors the existing `RAM_RESERVE_GB` pattern already used
+by the CPU-side check, per William's confirmation this should work the same
+way "on any system and use that systms total vram minus the default reserve
+of 1gb."
+
+### Source
+
+- nvidia-smi command and field names: this project's own already-working
+  `print_vram_baseline()` (`common/telemetry.py`) — read its real console
+  output from this session's earlier short training runs on this machine,
+  not assumed from documentation.
+- WDDM shared-GPU-memory fallback as the mechanism behind `torch.cuda`
+  reserved-memory figures exceeding physical VRAM: general web research on
+  Windows Display Driver Model behavior (this explains the mechanism in
+  general; it does not "prove" the fix behaves correctly in this specific
+  codebase — that requires an actual run, see Verification below).
+- Centralization design and all specific parameter choices (`reserve_gb`
+  default, Option C, retroactive CPU-swap cleanup): direct instruction from
+  William — no external source, this is project-specific architecture.
+
+### Verification
+
+- Confirmed via `grep -rl` across all 44 training scripts that every piece
+  of the per-script change landed everywhere: the new import (44/44), the
+  nvidia-smi fetch+print line (44/44), the two new history-list appends
+  (44/44), the `check_cpu_ram_safety` call (44/44), the `check_vram_safety`
+  call (44/44) — and confirmed **zero** files still contain either the old
+  inline CPU-swap block or the old `torch.cuda`-sourced VRAM print line.
+- `python -m py_compile` on `common/telemetry.py`, `common/cli_logging.py`,
+  and all 44 training scripts — clean, no syntax errors.
+- Not verified: an actual training run confirming `get_nvsmi_vram_gb()`
+  returns correct values mid-run (not just at baseline), that
+  `check_vram_safety()` actually fires and stops training cleanly when VRAM
+  usage approaches the card's capacity, and that the two new CSV columns
+  populate correctly — that's William's to run per the project's Testing
+  rule.
+
+## 2026-08-07 — check_cpu_ram_safety() regression fixed: was firing on GPU runs, not just CPU-only runs
+
+### What changed
+
+`common/telemetry.py`: `check_cpu_ram_safety()` now takes `device` as its first
+parameter and returns `False` immediately if `device.type != "cpu"`, before
+touching `psutil` at all.
+
+All 44 training scripts: the call site changed from
+`check_cpu_ram_safety(_run_swap_baseline_gb, RAM_RESERVE_GB, epoch)` to
+`check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch)`.
+
+### Why
+
+Regression from the same night's earlier centralization of this check (see
+the "Per-epoch CSV telemetry reworked" and VRAM-safety-check entries above).
+The original per-script inline block was gated with `if device.type == "cpu"
+and HAS_PSUTIL:` — the swap/RAM check only ran on CPU-only training, since
+swap growth only means something diagnostic (training itself exhausting
+system RAM) when the model is training on CPU. When that block was pulled
+into the shared `check_cpu_ram_safety()` function, the `device.type ==
+"cpu"` gate was dropped — the function checked `HAS_PSUTIL` only, with no
+device-type condition, so it started firing unconditionally on every run,
+GPU included. This was a real, silent behavior change that was never
+separately flagged or confirmed as its own decision — it rode along inside
+the "centralize this into a shared function" framing William had approved,
+which covered moving the code, not changing when it applies.
+
+Caught from a real training log William ran: `v3_mnist_digit_soap_16.py` on
+his RTX 4080 (CUDA) was killed after epoch 1 —
+`[RAM] Page file / swap usage GREW beyond this run's 0.629 GB baseline
+(0.891 GB now) — treating as OOM, stopping training cleanly after epoch 1` —
+on a completely healthy GPU run, from a 0.26GB swap fluctuation almost
+certainly unrelated to training (normal background OS activity). The
+`check_vram_safety()` function added the same night does not have this bug:
+it's already correctly gated by construction, since its `nvsmi_total_gb`
+input is `-1` on non-CUDA devices (`get_nvsmi_vram_gb() if device.type ==
+"cuda" else (-1, -1)`), and the function no-ops on any negative value.
+
+### Source
+
+Direct evidence from William's own training run log (pasted in full,
+including the traceback from the subsequent `FileNotFoundError` when the
+script tried to load a best-checkpoint that was never written, since
+training stopped after epoch 1 before any checkpoint save). Root cause
+identified by diffing the current `check_cpu_ram_safety()` against the
+original pre-centralization per-script block (this session's own earlier
+work, both versions read directly).
+
+### Verification
+
+- Confirmed via the `Grep` tool, explicitly scoped to `E:\mnist_v3` (not a
+  bash-relative path — see note below), across all 44 training scripts:
+  44/44 now call `check_cpu_ram_safety(device, ...)`, 0/44 still call the
+  old 3-argument (device-less) form.
+- `python -m py_compile` on `common/telemetry.py` and all 44 training
+  scripts, run from `E:\mnist_v3` directly — clean, no syntax errors.
+- **Verification-process note:** an earlier `py_compile` check on this same
+  fix used a bash-relative path (no `E:\mnist_v3\` prefix); since this
+  session runs with its working directory inside the git worktree, that
+  command silently compiled the worktree's stale, unedited copies instead
+  of William's real checkout, and its "all clean" result was meaningless.
+  Caught by comparing file content directly between the two locations, and
+  the check was re-run correctly (explicit path to the real checkout) —
+  genuinely clean. The actual file edits were never affected by this, since
+  every `Edit` tool call used an explicit `E:\mnist_v3\...` path throughout;
+  only this one bash-based verification command checked the wrong location.
+- Not verified: an actual GPU training run confirming the check no longer
+  fires incorrectly, and a CPU-only run confirming it still fires
+  correctly when it should — that's William's to run per the project's
+  Testing rule. The `soap_16` run that surfaced this bug will need to be
+  re-run to get past epoch 1.
 
