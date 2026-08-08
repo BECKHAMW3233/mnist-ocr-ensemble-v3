@@ -115,7 +115,8 @@ _NVSMI_FIELDS = (
     "clocks.sm,clocks.mem,fan.speed,"
     "clocks_throttle_reasons.hw_thermal_slowdown,"
     "clocks_throttle_reasons.sw_thermal_slowdown,"
-    "clocks_throttle_reasons.hw_power_brake_slowdown"
+    "clocks_throttle_reasons.hw_power_brake_slowdown,"
+    "memory.used,memory.total"
 )
 _NVSMI_FIELD_COUNT = len(_NVSMI_FIELDS.split(","))
 
@@ -184,6 +185,8 @@ class HardwareMonitor:
             "ram_total_gb":      -1,
             "disk_read_mb_s":    -1,
             "disk_write_mb_s":   -1,
+            "nvsmi_vram_used_gb":  -1,
+            "nvsmi_vram_total_gb": -1,
         }
 
         try:
@@ -208,6 +211,10 @@ class HardwareMonitor:
                 elif all(f == 0 for f in _throttle_flags):
                     stats["gpu_throttled"] = 0
                 # else: mixed/unknown flags -> stays -1
+                _used_mb  = _parse_nvsmi_float(parts[10])
+                _total_mb = _parse_nvsmi_float(parts[11])
+                stats["nvsmi_vram_used_gb"]  = round(_used_mb / 1024, 3)  if _used_mb  != -1 else -1
+                stats["nvsmi_vram_total_gb"] = round(_total_mb / 1024, 3) if _total_mb != -1 else -1
         except Exception:
             pass
 
@@ -259,7 +266,7 @@ class HardwareMonitor:
         summary = {}
         for field in ("cuda_util_pct", "cuda_mem_util_pct", "gpu_temp_c",
                       "gpu_power_w", "cpu_pct", "ram_used_gb",
-                      "disk_read_mb_s", "disk_write_mb_s"):
+                      "disk_read_mb_s", "disk_write_mb_s", "nvsmi_vram_used_gb"):
             lo, avg, hi = _min_avg_max(field)
             summary[f"{field}_min"] = lo
             summary[f"{field}_avg"] = avg
@@ -280,59 +287,121 @@ class HardwareMonitor:
         summary["ram_total_gb"]          = samples[-1].get("ram_total_gb", -1)
         summary["vram_peak_alloc_gb"]    = samples[-1].get("vram_alloc_gb", -1)
         summary["vram_peak_reserved_gb"] = samples[-1].get("vram_reserved_gb", -1)
+        summary["nvsmi_vram_total_gb"]   = samples[-1].get("nvsmi_vram_total_gb", -1)
         return summary
 
 
-def get_nvsmi_vram_gb() -> tuple:
+def _format_vram_trend(vram_history: list, window: int = 5) -> str:
     """
-    Queries nvidia-smi directly for actual physical VRAM usage/capacity
-    (2026-08-07, per direct user follow-up) — unlike
-    torch.cuda.max_memory_reserved()/total_memory, which go through
-    CUDA's own driver-level virtual memory system and, on Windows/WDDM,
-    can report a "reserved" figure that exceeds the card's real physical
-    capacity if the allocator spilled into Windows' shared-system-RAM GPU
-    fallback (confirmed directly on this project's own machine: this
-    exact query already runs successfully via print_vram_baseline()
-    below, returning real numbers bounded by the card's actual capacity
-    — see v3_CHANGELOG.md for the full verification). Returns (used_gb,
-    total_gb), each -1 on any failure (nvidia-smi missing, timeout,
-    unparseable output) — same defensive convention as sample() above.
+    Formats the last `window` epochs' peak VRAM readings from vram_history
+    (history['nvsmi_vram_used_gb_max'], includes the current epoch as its
+    last entry) into a human-readable trend line — the raw sequence plus
+    the average epoch-over-epoch delta across the window's earlier epochs
+    versus the jump into the current (last) epoch. No sudden-vs-gradual
+    verdict — deliberately just the numbers, so whoever reads the log
+    judges the shape of the curve themselves (2026-08-08, per direct user
+    follow-up: an algorithmic label would need an invented threshold for
+    what counts as "sudden," which has no principled basis). Returns ""
+    if there isn't enough history yet to show anything meaningful.
     """
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", f"-i={_cuda_index()}",
-             "--query-gpu=memory.used,memory.total",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5,
-        )
-        parts = result.stdout.strip().split(",")
-        used_mb, total_mb = _parse_nvsmi_float(parts[0]), _parse_nvsmi_float(parts[1])
-        if used_mb == -1 or total_mb == -1:
-            return -1, -1
-        return round(used_mb / 1024, 3), round(total_mb / 1024, 3)
-    except Exception:
-        return -1, -1
+    recent = vram_history[-window:]
+    if len(recent) < 2:
+        return ""
+    sequence = " -> ".join(f"{v:.2f}" for v in recent)
+    start_epoch = len(vram_history) - len(recent) + 1
+    end_epoch = len(vram_history)
+    line = f"  [VRAM] Recent trend (epochs {start_epoch}-{end_epoch}): {sequence} GB"
+    if len(recent) >= 3:
+        prior_deltas = [recent[i] - recent[i - 1] for i in range(1, len(recent) - 1)]
+        avg_prior_delta = sum(prior_deltas) / len(prior_deltas)
+        this_epoch_delta = recent[-1] - recent[-2]
+        line += (f" (avg {avg_prior_delta:+.2f}GB/epoch over epochs "
+                 f"{start_epoch}-{end_epoch - 1}, this epoch {this_epoch_delta:+.2f}GB)")
+    return line
 
 
-def check_vram_safety(hw_summary: dict, nvsmi_total_gb: float, epoch: int,
-                       reserve_gb: float = 1.0) -> bool:
+def check_vram_safety(nvsmi_used_peak_gb: float, nvsmi_total_gb: float, epoch: int,
+                       warn_reserve_gb: float = 1.0, stop_reserve_gb: float = 0.25,
+                       vram_history: list = None) -> str:
     """
-    Returns True if training should stop — torch.cuda's own reported
-    peak-reserved VRAM for this epoch is within reserve_gb of this GPU's
-    real physical capacity (nvsmi_total_gb, from get_nvsmi_vram_gb()).
-    Prints a warning first. No-op (False) if nvsmi_total_gb is
-    unavailable (< 0) — see get_nvsmi_vram_gb()'s own docstring for why
-    nvidia-smi's number is used as the physical-capacity ground truth
-    instead of torch.cuda's own total_memory.
+    Returns "stop", "warn", or "ok" — the epoch's PEAK nvidia-smi VRAM
+    usage (nvsmi_used_peak_gb, from HardwareMonitor.epoch_summary()'s
+    nvsmi_vram_used_gb_max, itself reduced from the same interval-sampled
+    HardwareMonitor.sample() calls every other telemetry field uses — see
+    that function's field-list comment) compared against this GPU's real
+    physical capacity (nvsmi_total_gb, from epoch_summary()'s
+    nvsmi_vram_total_gb). "ok" (no-op) if either value is unavailable
+    (< 0). Prints a warning first for "warn"/"stop".
+
+    vram_history (2026-08-08, per direct user follow-up): optional list of
+    every prior epoch's peak VRAM (history['nvsmi_vram_used_gb_max'],
+    including this epoch as its last entry, since the caller's history
+    dict is updated before this function is called each epoch) — when
+    given, a "warn" or "stop" print is followed by a trend line (see
+    _format_vram_trend()) showing the last few epochs' raw readings and
+    the recent per-epoch delta versus this epoch's own jump, so it's
+    visible from the log whether this was a gradual creep or a sudden
+    single-epoch spike. No-op (omitted) if not given.
+
+    Two-tier by design (2026-08-08, per direct user follow-up): the
+    original single reserve_gb=1.0 line was being enforced as a hard
+    stop, but its actual intent was always advisory — training should
+    try to avoid eating into that buffer, and it's fine if a given epoch
+    does, since the point is to stop the GPU from being consumed so
+    completely that it bottlenecks the rest of the system, not to treat
+    1GB of headroom as a crash boundary. warn_reserve_gb keeps that
+    original 1.0 GB line as a signal the caller acts on by reactively
+    reducing batch size (see common/batch_sizing.py's
+    reduce_batch_size()) and continuing, not stopping. stop_reserve_gb
+    is the actual hard-stop trigger, moved much closer to real
+    exhaustion. Changed from a bool to a 3-state string return
+    (2026-08-08) because "warn" now needs to carry caller-actionable
+    meaning ("reduce batch size and continue") distinct from both "ok"
+    (do nothing) and "stop" (halt) — a bool could no longer represent
+    the three distinct outcomes.
+
+    2026-08-07 fix, two rounds: first, this compared torch.cuda's own
+    max_memory_reserved() figure against nvidia-smi's total — mixing two
+    measurement systems this project's own VRAM investigation showed can
+    disagree (torch.cuda's reserved figure can read higher than physical
+    capacity on Windows/WDDM). A real run then proved this concretely:
+    nvidia-smi logged 8.953 GB used against a 15.992 GB card while
+    torch.cuda's reserved figure claimed 15.012 GB, triggering a false
+    stop with ~7 GB of real headroom untouched. Fixed by switching both
+    sides of the comparison to nvidia-smi — but that first fix still took
+    only one nvidia-smi reading, right after the epoch ended, missing any
+    genuine mid-epoch spike that dropped back down before that single
+    check ran. This project's own HardwareMonitor already exists
+    specifically to avoid exactly that failure mode for every other
+    metric (see this module's docstring: a single end-of-epoch/midpoint
+    snapshot for cuda_util_pct was already shown to land on an idle spot
+    and miss the epoch's real behavior) — VRAM just wasn't wired into
+    that interval-sampled path yet. It is now: nvidia-smi's memory.used/
+    memory.total ride along on the same _NVSMI_FIELDS call every
+    HardwareMonitor.sample() already makes, so this check sees the real
+    peak across the epoch, not a single snapshot.
     """
-    if nvsmi_total_gb < 0:
-        return False
-    if hw_summary["vram_peak_reserved_gb"] > (nvsmi_total_gb - reserve_gb):
-        print(f"  [VRAM] Reserved {hw_summary['vram_peak_reserved_gb']:.2f} GB this "
-              f"epoch — within {reserve_gb:.1f} GB of this GPU's {nvsmi_total_gb:.2f} GB "
+    if nvsmi_total_gb < 0 or nvsmi_used_peak_gb < 0:
+        return "ok"
+    if nvsmi_used_peak_gb > (nvsmi_total_gb - stop_reserve_gb):
+        print(f"  [VRAM] {nvsmi_used_peak_gb:.2f} GB peak this epoch — within "
+              f"{stop_reserve_gb:.2f} GB of this GPU's {nvsmi_total_gb:.2f} GB "
               f"physical capacity — stopping training cleanly after epoch {epoch}")
-        return True
-    return False
+        if vram_history:
+            _trend = _format_vram_trend(vram_history)
+            if _trend:
+                print(_trend)
+        return "stop"
+    if nvsmi_used_peak_gb > (nvsmi_total_gb - warn_reserve_gb):
+        print(f"  [VRAM] {nvsmi_used_peak_gb:.2f} GB peak this epoch — within "
+              f"{warn_reserve_gb:.1f} GB of this GPU's {nvsmi_total_gb:.2f} GB "
+              f"physical capacity — reducing batch size and continuing")
+        if vram_history:
+            _trend = _format_vram_trend(vram_history)
+            if _trend:
+                print(_trend)
+        return "warn"
+    return "ok"
 
 
 def check_cpu_ram_safety(device: torch.device, swap_baseline_gb: float,

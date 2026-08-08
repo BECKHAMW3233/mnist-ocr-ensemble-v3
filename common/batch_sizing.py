@@ -337,3 +337,18 @@ def cap_batch_size_for_min_steps(batch_size: int, dataset_size: int, min_steps: 
     """
     max_batch_for_min_steps = max(1, dataset_size // (min_steps * world_size))
     return min(batch_size, max_batch_for_min_steps)
+
+
+def reduce_batch_size(current_batch_size: int, dataset_size: int, min_steps: int,
+                       backoff_pct: float = 0.10, world_size: int = 1) -> int:
+    """
+    Steps a batch size down by backoff_pct (rounded to a multiple of 8)
+    for reactive mid-run adjustment after a completed epoch's peak VRAM
+    crosses into check_vram_safety()'s warn_reserve_gb buffer (2026-08-08,
+    per direct user follow-up) — floored by the same min-steps-per-epoch
+    guarantee cap_batch_size_for_min_steps() already enforces at initial
+    auto-detect time, so repeated reductions can't collapse batch size
+    below what the dataset needs for a meaningful epoch.
+    """
+    reduced = max(8, round((current_batch_size * (1 - backoff_pct)) / 8) * 8)
+    return cap_batch_size_for_min_steps(reduced, dataset_size, min_steps, world_size)

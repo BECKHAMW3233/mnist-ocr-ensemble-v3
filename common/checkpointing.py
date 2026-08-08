@@ -109,3 +109,56 @@ def clear_resume_state(path) -> None:
     if resume_p.exists():
         resume_p.unlink()
         print("  [Resume] State cleared — training complete.")
+
+
+def restore_optimizer_scheduler_state(resume_state: dict, current_batch_size: int,
+                                       optimizer, scheduler=None) -> bool:
+    """
+    Restores optimizer/scheduler state from a loaded resume file ONLY if
+    its recorded batch size matches current_batch_size — batch size
+    auto-detects fresh every run (and can now also change mid-run via
+    common/batch_sizing.py's reduce_batch_size()), and optimizer/
+    scheduler state encodes a peak LR + warmup + step-count schedule
+    computed for whatever batch size was active when it was saved.
+    Loading it anyway would silently resume a wrong-for-this-run LR
+    schedule. Model weights, epoch, and patience state are batch-size-
+    independent and are the caller's responsibility to restore
+    separately, regardless of this function's result.
+
+    scheduler=None (2026-08-08, per direct user follow-up, discovered
+    while wiring this into the AdamW scripts): Schedule-Free AdamW
+    eliminates the LR scheduler entirely (iterate averaging instead — see
+    each AdamW script's own module docstring), so those scripts have no
+    scheduler object and no "scheduler_state" key in their resume state
+    at all, only "optimizer_state"/"scaler_state". Passing scheduler=None
+    restores optimizer state alone; the caller is still responsible for
+    restoring scaler state itself, same as before this function existed.
+
+    Centralized (2026-08-08, per direct user follow-up) from the
+    identical check duplicated across the router scripts
+    (v3_mnist_router_ranger_*.py) — originally added 2026-07-28 for the
+    router's own batch-size-dependent LR scaling (scaled_learning_rate())
+    — now extended to every script now that reactive mid-run batch-size
+    adjustment (common/batch_sizing.py's reduce_batch_size()) means
+    non-router scripts can ALSO resume against a stale-batch-size
+    optimizer/scheduler state, not just the router.
+
+    Returns True if state was restored, False if it was skipped (caller
+    may want this for logging/branching, though this function already
+    prints either way).
+    """
+    saved_batch_size = resume_state.get("batch_size")
+    if saved_batch_size == current_batch_size:
+        optimizer.load_state_dict(resume_state["optimizer_state"])
+        if scheduler is not None:
+            scheduler.load_state_dict(resume_state["scheduler_state"])
+        return True
+    print(f"[Resume] Batch size changed since this checkpoint was saved "
+          f"({saved_batch_size!r} -> {current_batch_size}) — the saved "
+          f"optimizer/scheduler state was computed for a different batch "
+          f"size and will NOT be restored, to avoid silently resuming a "
+          f"wrong-for-this-run LR schedule. Continuing with the fresh "
+          f"optimizer/scheduler already built above for THIS run's batch "
+          f"size — model weights, epoch, and patience state are still "
+          f"resumed normally below.")
+    return False

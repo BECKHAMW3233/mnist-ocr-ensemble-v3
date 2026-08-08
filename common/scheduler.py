@@ -41,6 +41,20 @@ class WarmupCosineScheduler:
         for pg, base in zip(self.optimizer.param_groups, self.base_lrs):
             pg["lr"] = base * scale
 
+    def rescale_total_steps(self, steps_per_epoch_old: int, steps_per_epoch_new: int) -> None:
+        """
+        Proportionally rescales the remaining step-count horizon when the
+        caller's batch size changes mid-run (2026-08-08, per direct user
+        follow-up — reactive batch-size backoff after a VRAM-reserve
+        crossing): preserves how many real EPOCHS are left until the
+        cosine curve bottoms out, re-expressed in the new batch size's
+        steps-per-epoch rate, rather than leaving total_steps fixed at
+        the step-count the OLD batch size would have taken to get there.
+        """
+        remaining_steps = self.total_steps - self.step_count
+        remaining_epochs_equiv = remaining_steps / steps_per_epoch_old
+        self.total_steps = self.step_count + round(remaining_epochs_equiv * steps_per_epoch_new)
+
     def get_lr(self):
         return [pg["lr"] for pg in self.optimizer.param_groups]
 

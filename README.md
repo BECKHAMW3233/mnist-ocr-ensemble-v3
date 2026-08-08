@@ -42,14 +42,17 @@ Full detail, reasoning, and a per-model settings table are in
   replaced — not run alongside — by a 4-verdict router (digit / UC / LC
   / `[UNK]`, Ranger optimizer) ahead of the letter-identity models (see
   below). `[UNK]` is a confidence-threshold call, not a trained class.
-- **Modularized (infrastructure only):** batch-size auto-detection,
-  checkpoint/resume, telemetry, seeding, CLI logging, ONNX export, mixed
-  precision, and LR scheduling all moved into a shared `common/` package,
-  imported by all 20 training scripts instead of each carrying its own
-  copy. Optimizer *algorithms* (Muon, Ranger) are deliberately **not**
-  shared modules — each lives inline in the training script(s) that use
-  it, per the task's own instruction and Part 2's modularization scope
-  (which never included optimizer implementations) — see `v3_CHANGELOG.md`.
+- **Modularized:** batch-size auto-detection, checkpoint/resume,
+  telemetry, seeding, CLI logging, ONNX export, mixed precision, and LR
+  scheduling moved into a shared `common/` package (Part 2 modularization),
+  imported by all 44 training scripts instead of each carrying its own
+  copy. Optimizer *construction* (SOAP, AdamW, Muon, Ranger — including
+  the Muon/RAdam/Lookahead class implementations themselves) was
+  originally kept deliberately out of that scope, per the task's own
+  instruction and Part 2's modularization scope — then centralized into
+  `common/optimizers.py` on 2026-08-08, a deliberate, informed reversal of
+  that original decision. See `v3_CHANGELOG.md`'s 2026-07-27 and
+  2026-08-08 entries for both sides of that history.
 - **Renamed:** every model file now follows
   `v3_mnist_digit_{optimizer}_{resolution}` /
   `v3_mnist_router_ranger_{resolution}`.
@@ -89,8 +92,9 @@ mnist-ocr-ensemble-v3/
 │                                         # on whether to train 128x128 at all — see the script's
 │                                         # own header
 │
-├── common/                              # shared INFRASTRUCTURE modules (Part 2 modularization —
-│   │                                     # optimizer algorithms are NOT here, see below)
+├── common/                              # shared modules (Part 2 modularization — infrastructure
+│   │                                     # originally, joined by optimizer construction on
+│   │                                     # 2026-08-08, see v3_CHANGELOG.md)
 │   ├── __init__.py
 │   ├── seeding.py                       # GLOBAL_SEED / set_all_seeds / CPU thread reservation
 │   ├── telemetry.py                     # nvidia-smi + psutil hardware stats (power/clocks/
@@ -100,15 +104,14 @@ mnist-ocr-ensemble-v3/
 │   ├── cli_logging.py                   # _Tee transcript mirror, CSV log, training-curve plot
 │   ├── onnx_export.py                   # export_onnx()
 │   ├── scheduler.py                     # WarmupCosineScheduler
+│   ├── optimizers.py                    # build_soap/build_adamw_sf/build_muon/build_ranger_optimizer
+│   │                                     # + the Muon/RAdam/Lookahead classes (2026-08-08)
 │   ├── amp.py                           # mixed-precision train step (autocast/GradScaler/clip)
 │   └── distributed.py                   # optional multi-GPU DDP support — NOT YET VALIDATED
 │                                         # against real multi-GPU hardware, see its own docstring
 │
 ├── supplementary_data.py                # shared dataset loader (extends v2's own module)
 ├── ocr_pipeline_mnist.py                # ONNX inference pipeline (router + digit + letter ensembles)
-│                                         # NOTE: Muon and Ranger have NO standalone file — each
-│                                         # optimizer is implemented directly inside the training
-│                                         # script(s) that use it, not a shared module — see v3_CHANGELOG.md.
 │
 ├── digit_models/                        # 15 scripts: SOAP/AdamW/Muon x 5 resolutions (16/28/32/64/128).
 │   │                                     # Each script's own sys.path fix finds common/ and

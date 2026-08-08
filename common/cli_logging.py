@@ -102,7 +102,8 @@ HW_TELEMETRY_FIELDS = [
     "disk_read_mb_s_min", "disk_read_mb_s_avg", "disk_read_mb_s_max",
     "disk_write_mb_s_min", "disk_write_mb_s_avg", "disk_write_mb_s_max",
     "vram_peak_alloc_gb", "vram_peak_reserved_gb",
-    "nvsmi_vram_used_gb", "nvsmi_vram_total_gb",
+    "nvsmi_vram_used_gb_min", "nvsmi_vram_used_gb_avg", "nvsmi_vram_used_gb_max",
+    "nvsmi_vram_total_gb",
     "data_wait_s", "compute_s",
 ]
 
@@ -117,6 +118,7 @@ _POINT_FIELDS = [
     "cuda_util_pct", "cuda_mem_util_pct", "gpu_temp_c", "gpu_power_w",
     "gpu_clock_sm_mhz", "gpu_clock_mem_mhz", "gpu_fan_pct", "gpu_throttled",
     "cpu_pct", "ram_used_gb", "disk_read_mb_s", "disk_write_mb_s",
+    "nvsmi_vram_used_gb",
 ]
 
 

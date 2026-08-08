@@ -1,0 +1,72 @@
+
+======================================================================
+[Session start] 2026-08-08T06:13:23
+======================================================================
+
+############################################################
+  MNIST DIGIT ENSEMBLE — MUON 16x16
+  Seed: GLOBAL_SEED=42 (override with MNIST_SEED env var)
+############################################################
+
+[CPU] 24 logical cores detected — reserving 6 (25%) for the OS, 18 usable (this machine's NUM_WORKERS = 18 DataLoader workers; also the thread count torch.set_num_threads() uses on CPU-only runs)
+[Device] GPU 0/0: NVIDIA GeForce RTX 4080  |  16.0 GB VRAM  |  CUDA 13.0  |  AMP: True
+[Startup VRAM] GPU 0: 955 MB / 16376 MB in use before this script has allocated anything
+[Startup VRAM] Something is using GPU memory, but Windows' WDDM driver mode doesn't expose which process to nvidia-smi (check Task Manager's Performance > GPU tab instead).
+[Batch] Auto-detecting batch size for 16x16 (5 real training steps per candidate, bottom-up with binary-search refinement)...
+[Batch] Batch size 64 — OK (5 real steps completed)
+[Batch] Batch size 128 — OK (5 real steps completed)
+[Batch] Batch size 256 — OK (5 real steps completed)
+[Batch] Batch size 512 — OK (5 real steps completed)
+[Batch] Batch size 1024 — OK (5 real steps completed)
+[Batch] Batch size 2048 — OK (5 real steps completed)
+[Batch] Batch size 3584 — OK (5 real steps completed)
+[Batch] Batch size 5120 — OK (5 real steps completed)
+[Batch] Batch size 6656 — OK (5 real steps completed)
+[Batch] Batch size 8192 — OK (5 real steps completed)
+[Batch] Batch size 9728 — OK (5 real steps completed)
+[Batch] Batch size 11264 — OK (5 real steps completed)
+[Batch] Batch size 12800 — OK (5 real steps completed)
+[Batch] Batch size 14336 — OK (5 real steps completed)
+[Batch] Batch size 15872 — OK (5 real steps completed)
+[Batch] Batch size 17408 — OK (5 real steps completed)
+[Batch] Batch size 18944 — OK (5 real steps completed)
+[Batch] Batch size 20480 — OK (5 real steps completed)
+[Batch] Batch size 22016 — OK (5 real steps completed)
+[Batch] Batch size 23552 — OK (5 real steps completed)
+[Batch] Batch size 25088 — OK (5 real steps completed)
+[Batch] Batch size 26624 — OK (5 real steps completed)
+[Batch] Batch size 28160 — OK (5 real steps completed)
+[Batch] Batch size 29696 — failed (RuntimeError), trying next
+[Batch] Bracket found: 28160 works, 29696 fails — refining...
+[Batch] Batch size 28928 — failed (RuntimeError), trying next
+[Batch] Batch size 28544 — OK (5 real steps completed)
+[Batch] Batch size 28736 — failed (RuntimeError), trying next
+[Batch] Batch size 28640 — OK (5 real steps completed)
+[Batch] Batch size 28688 — failed (RuntimeError), trying next
+[Batch] Batch size 28664 — failed (RuntimeError), trying next
+[Batch] Batch size 28656 — failed (RuntimeError), trying next
+[Batch] Batch size 28648 — OK (5 real steps completed)
+[Batch] Refined to batch size 28648 (largest confirmed-working, within 8 of the true VRAM ceiling)
+============================================================
+  MNIST Digit Ensemble — Muon  [16x16]
+  PyTorch 2.13.0+cu130  |  AMP: True
+  Output: E:\mnist_v3\digit_models\v3_mnist_digit_muon_16
+  Resolution: 16x16  |  Batch: 28648 (auto-detected)
+  Optimizer: Muon (Newton-Schulz orthogonalized momentum) + AdamW fallback
+  Digit sources this tier: {'use_digits': False, 'use_mnist': False, 'use_usps': False, 'use_svhn': False, 'use_ardis': False, 'use_balanced': False, 'use_kaggle': False, 'use_chars_hnd': False, 'use_chars_img': False, 'use_pghwld': False}
+  Normalization: [0,1]
+============================================================
+[Dataset] Loading USPS (via supplementary_data.load_base_usps)...
+[Dataset] Train: 6,198  |  Val: 1,093  |  Test: 2,007
+  [Supplementary] No supplementary data available — using base MNIST only
+[Batch] Capping batch size 28648 -> 413 to guarantee >= 15 steps/epoch (6,198 train samples)
+
+[Model] OCRConvNetMuon — 16x16
+  Parameters : 9,677,514  (Muon group: 9,669,696  |  AdamW-fallback group: 7,818)
+  Est. size  : 36.9 MB (float32)
+[Optimizer] Muon  lr=0.02  momentum=0.95  wd=0.01  ns_steps=5
+            AdamW fallback  lr=0.0003  betas=(0.9, 0.95)  wd=0.01
+[Schedule]  warmup_steps=300  total_steps=2,400
+
+[Train] Starting 16x16 — no epoch cap | batch: 413 | patience: 15
+[Resume] No prior checkpoint found — starting fresh

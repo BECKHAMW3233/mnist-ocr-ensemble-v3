@@ -74,7 +74,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 from torchvision import transforms
 
 from common.telemetry import (
-    HardwareMonitor, setup_device, HAS_PSUTIL, get_nvsmi_vram_gb,
+    HardwareMonitor, setup_device, HAS_PSUTIL,
     check_vram_safety, check_cpu_ram_safety,
 )
 from common.distributed import (
@@ -82,21 +82,19 @@ from common.distributed import (
     cleanup_distributed, wrap_model_ddp, unwrap_model, all_reduce_sum, get_world_size,
     DistributedWeightedRandomSampler,
 )
-from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps
-from common.checkpointing import EarlyStopping, save_resume_state, clear_resume_state
+from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps, reduce_batch_size
+from common.checkpointing import (
+    EarlyStopping, save_resume_state, clear_resume_state, restore_optimizer_scheduler_state,
+)
 from common.cli_logging import _Tee, plot_history, save_log
 from common.onnx_export import export_onnx
 from common.amp import amp_train_step
+from common.optimizers import (
+    build_adamw_sf, ADAMW_SF_LR as LEARNING_RATE, ADAMW_SF_WEIGHT_DECAY as WEIGHT_DECAY,
+)
 
 if HAS_PSUTIL:
     import psutil
-
-try:
-    import schedulefree
-except ImportError:
-    print("ERROR: schedulefree not installed. This script requires Schedule-Free "
-          "AdamW — run: pip install schedulefree")
-    sys.exit(1)
 
 try:
     from supplementary_data import (
@@ -114,8 +112,6 @@ except ImportError:
 # =============================================================================
 
 NUM_CLASSES      = 10
-LEARNING_RATE    = 1e-3
-WEIGHT_DECAY     = 1e-4
 VALIDATION_SPLIT = 0.15
 PATIENCE         = 15
 MIN_STEPS_PER_EPOCH = 15  # floor on real gradient-update steps per epoch — see
@@ -353,12 +349,6 @@ class OCRConvNetWide(nn.Module):
         return self.classifier(x)
 
 
-def build_adamw_sf(params, warmup_steps: int):
-    return schedulefree.AdamWScheduleFree(
-        params, lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, warmup_steps=warmup_steps,
-    )
-
-
 # =============================================================================
 # 4. TRAINING LOOP
 # =============================================================================
@@ -583,7 +573,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             _rs = torch.load(str(resume_path), map_location=device, weights_only=False)
             _ckpt = torch.load(cfg["checkpoint_path"], map_location=device, weights_only=False)
             unwrap_model(model).load_state_dict(_ckpt["state_dict"] if "state_dict" in _ckpt else _ckpt)
-            optimizer.load_state_dict(_rs["optimizer_state"])
+            restore_optimizer_scheduler_state(_rs, cfg["batch_size"], optimizer)
             scaler.load_state_dict(_rs["scaler_state"])
             early_stop.counter   = _rs["patience_counter"]
             early_stop.best_loss = _rs["best_val_loss"]
@@ -623,15 +613,12 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         current_lr = optimizer.param_groups[0]["lr"]
         elapsed    = time.time() - t0
-        _nvsmi_vram_used_gb, _nvsmi_vram_total_gb = (
-            get_nvsmi_vram_gb() if device.type == "cuda" else (-1, -1)
-        )
 
         print(f"[{img_size}x{img_size}] Epoch {epoch:3d}  "
               f"loss: {train_loss:.4f}  acc: {train_acc:.4f}  |  "
               f"val_loss: {val_loss:.4f}  val_acc: {val_acc:.4f}  |  "
               f"lr: {current_lr:.2e}  [{elapsed:.0f}s]  |  "
-              f"VRAM {_nvsmi_vram_used_gb:.1f}/{_nvsmi_vram_total_gb:.1f}GB  "
+              f"VRAM {hw['nvsmi_vram_used_gb_max']:.1f}/{hw['nvsmi_vram_total_gb']:.1f}GB  "
               f"CUDA {hw['cuda_util_pct_avg']:.0f}/{hw['cuda_util_pct_max']}%(avg/max)  "
               f"{hw['gpu_temp_c_avg']:.0f}/{hw['gpu_temp_c_max']}°C  {hw['gpu_power_w_avg']:.0f}W  |  "
               f"CPU {hw['cpu_pct_avg']:.0f}%  RAM {hw['ram_used_gb_avg']:.1f}/{hw['ram_total_gb']:.1f}GB  |  "
@@ -650,8 +637,6 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # can write each sample point as its own CSV row — see that
         # function's own docstring for the row layout.
         history.setdefault("_hw_raw_samples", []).append(hw_raw)
-        history.setdefault("nvsmi_vram_used_gb", []).append(_nvsmi_vram_used_gb)
-        history.setdefault("nvsmi_vram_total_gb", []).append(_nvsmi_vram_total_gb)
         for hw_key, hw_val in hw.items():
             history.setdefault(hw_key, []).append(hw_val)
         history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
@@ -664,12 +649,56 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # append logic.
         save_log(history, cfg["log_path"])
 
-        if check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch):
-            break
-        if check_vram_safety(hw, _nvsmi_vram_total_gb, epoch):
+        # Checkpoint save moved ahead of the safety-check breaks below
+        # (2026-08-08, per direct user follow-up) — early_stop() is the
+        # only thing that writes cfg["checkpoint_path"]; running it after
+        # a safety break meant a safety-triggered stop on the very first
+        # improving epoch left no checkpoint on disk at all, crashing the
+        # unconditional torch.load() after this loop. Now the current
+        # epoch's checkpoint is always saved (if it's a new best) before
+        # any stop decision is made.
+        early_stop(val_loss, model)
+
+        _ram_stop    = check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch)
+        _vram_status = check_vram_safety(
+            hw['nvsmi_vram_used_gb_max'], hw['nvsmi_vram_total_gb'], epoch,
+            vram_history=history['nvsmi_vram_used_gb_max'],
+        )
+
+        if _ram_stop or _vram_status == "stop":
+            # Resume state now also saved on a hard safety stop (2026-08-08,
+            # per direct user follow-up) — previously only a normal
+            # continuing epoch saved it, leaving a safety-triggered stop
+            # with no way to resume mid-schedule, only reload the best
+            # checkpoint from scratch.
+            save_resume_state(
+                cfg["resume_path"],
+                epoch=epoch,
+                patience_counter=early_stop.counter,
+                best_val_loss=float(early_stop.best_loss),
+                optimizer_state=optimizer.state_dict(),
+                scaler_state=scaler.state_dict(),
+                history=history,
+                batch_size=cfg["batch_size"],
+            )
             break
 
-        early_stop(val_loss, model)
+        if _vram_status == "warn":
+            # Reactive batch-size backoff (2026-08-08, per direct user
+            # follow-up): this epoch's peak crossed into the 1GB advisory
+            # buffer without threatening real exhaustion — reduce batch
+            # size for subsequent epochs and keep training, rather than
+            # stopping. DataLoader is rebuilt (PyTorch doesn't support
+            # mutating an existing one's batch_size). No LR-schedule
+            # rescale needed here — Schedule-Free AdamW has no scheduler
+            # object (iterate averaging replaces it entirely).
+            cfg["batch_size"] = reduce_batch_size(
+                cfg["batch_size"], len(train_ds), MIN_STEPS_PER_EPOCH,
+                world_size=get_world_size(),
+            )
+            train_loader = make_dataloader(train_ds, cfg["batch_size"], use_weighted_sampler=True)
+            print(f"[Batch] Reduced to {cfg['batch_size']} for subsequent epochs")
+
         if early_stop.stop:
             break
 
@@ -681,6 +710,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             optimizer_state=optimizer.state_dict(),
             scaler_state=scaler.state_dict(),
             history=history,
+            batch_size=cfg["batch_size"],
         )
 
     print(f"\n[Train] [{img_size}x{img_size}] Loading best checkpoint...")

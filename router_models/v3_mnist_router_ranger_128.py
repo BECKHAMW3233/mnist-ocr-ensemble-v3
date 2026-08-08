@@ -137,7 +137,7 @@ from torch.utils.data import (
 from torchvision import transforms
 
 from common.telemetry import (
-    HardwareMonitor, setup_device, HAS_PSUTIL, get_nvsmi_vram_gb,
+    HardwareMonitor, setup_device, HAS_PSUTIL,
     check_vram_safety, check_cpu_ram_safety,
 )
 from common.distributed import (
@@ -145,12 +145,15 @@ from common.distributed import (
     cleanup_distributed, wrap_model_ddp, unwrap_model, all_reduce_sum, get_world_size,
     DistributedWeightedRandomSampler,
 )
-from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps
-from common.checkpointing import EarlyStopping, save_resume_state, clear_resume_state
+from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps, reduce_batch_size
+from common.checkpointing import (
+    EarlyStopping, save_resume_state, clear_resume_state, restore_optimizer_scheduler_state,
+)
 from common.cli_logging import _Tee, plot_history, save_log
 from common.onnx_export import export_onnx
 from common.scheduler import WarmupCosineScheduler
 from common.amp import amp_train_step
+from common.optimizers import build_ranger_optimizer
 
 
 if HAS_PSUTIL:
@@ -242,157 +245,6 @@ def scaled_learning_rate(batch_size: int) -> float:
     """
     raw_scale = batch_size / REFERENCE_BATCH_SIZE
     return LEARNING_RATE * min(raw_scale, 4.0)
-
-
-# =============================================================================
-# 2b. RANGER OPTIMIZER (RAdam + Lookahead) — inlined, not a shared/
-#     imported module; see v3_CHANGELOG.md's naming-and-modularization-scope
-#     correction. Part 2's modularization list never included optimizer
-#     algorithms, only infrastructure (batch-sizing, checkpoint/resume,
-#     telemetry, dataset loading, mixed precision, ONNX export, seeding).
-# =============================================================================
-# Ranger = RAdam (Liu et al., 2019, "On the Variance of the Adaptive
-# Learning Rate and Beyond") + Lookahead (Zhang, Lucas, Hinton & Ba, 2019,
-# "Lookahead Optimizer: k steps forward, 1 step back"), combined per
-# Wright (2019)'s "Ranger" recipe. Replaces AdaBelief as the v3 router's
-# optimizer — see this file's own module docstring and v3_CHANGELOG.md for
-# why, and for the batch-size-scaled LR / warmup re-derivation this
-# switch required.
-#
-# RAdam rectifies Adam's early-training variance problem analytically
-# (the `rho_t` term below) instead of requiring a hand-tuned warmup,
-# falling back to plain SGD-with-momentum for the handful of steps where
-# the adaptive term isn't yet trustworthy.
-#
-# Lookahead wraps RAdam with a second, slower set of "slow" weights: RAdam
-# explores for k steps (the "fast" weights), then the slow weights take
-# one step of size alpha toward wherever the fast weights ended up, and
-# the fast weights are reset to that new slow position.
-
-from torch.optim import Optimizer
-
-
-class RAdam(Optimizer):
-    """Rectified Adam. Decoupled weight decay (applied multiplicatively
-    before the adaptive update, AdamW-style)."""
-
-    def __init__(self, params, lr: float = 1e-3, betas=(0.9, 0.999),
-                 eps: float = 1e-8, weight_decay: float = 0.0):
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        super().__init__(params, defaults)
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
-        for group in self.param_groups:
-            beta1, beta2 = group["betas"]
-            lr, eps, wd = group["lr"], group["eps"], group["weight_decay"]
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-                grad = p.grad
-                state = self.state[p]
-                if "step" not in state:
-                    state["step"] = 0
-                    state["exp_avg"] = torch.zeros_like(p)
-                    state["exp_avg_sq"] = torch.zeros_like(p)
-                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-                state["step"] += 1
-                t = state["step"]
-
-                if wd != 0.0:
-                    p.mul_(1 - lr * wd)
-
-                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
-                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
-
-                bias_c1 = 1 - beta1 ** t
-                m_hat = exp_avg / bias_c1
-
-                rho_inf = 2.0 / (1.0 - beta2) - 1.0
-                beta2_t = beta2 ** t
-                rho_t = rho_inf - 2.0 * t * beta2_t / (1.0 - beta2_t)
-
-                if rho_t > 4.0:
-                    bias_c2 = 1 - beta2_t
-                    v_hat = (exp_avg_sq / bias_c2).sqrt()
-                    r_t = math.sqrt(
-                        ((rho_t - 4.0) * (rho_t - 2.0) * rho_inf) /
-                        ((rho_inf - 4.0) * (rho_inf - 2.0) * rho_t)
-                    )
-                    p.addcdiv_(m_hat, v_hat.add_(eps), value=-lr * r_t)
-                else:
-                    p.add_(m_hat, alpha=-lr)
-        return loss
-
-
-class Lookahead(Optimizer):
-    """
-    Wraps a base optimizer (RAdam here). Shares its `state` dict with the
-    base optimizer so the "slow" weight buffer this class adds lives
-    alongside RAdam's own per-parameter state — PyTorch's default
-    Optimizer.state_dict() serializes by ordinal position within
-    param_groups, not by object identity, so this one shared dict is all
-    that's needed for both optimizers' state to round-trip correctly
-    through this project's resume/checkpoint mechanism.
-    """
-    def __init__(self, base_optimizer: Optimizer, k: int = 6, alpha: float = 0.5):
-        if not 0.0 <= alpha <= 1.0:
-            raise ValueError(f"Invalid alpha: {alpha}")
-        if k < 1:
-            raise ValueError(f"Invalid k: {k}")
-        self.base_optimizer = base_optimizer
-        self.k = k
-        self.alpha = alpha
-        self.param_groups = base_optimizer.param_groups
-        self.state = base_optimizer.state
-        self.defaults = base_optimizer.defaults
-        for group in self.param_groups:
-            group.setdefault("la_step_counter", 0)
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        loss = self.base_optimizer.step(closure)
-        for group in self.param_groups:
-            group["la_step_counter"] += 1
-            if group["la_step_counter"] % self.k == 0:
-                for fast_p in group["params"]:
-                    if fast_p.grad is None:
-                        continue
-                    state = self.state[fast_p]
-                    if "slow_buffer" not in state:
-                        state["slow_buffer"] = torch.clone(fast_p.data).detach()
-                    slow = state["slow_buffer"]
-                    slow.add_(fast_p.data - slow, alpha=self.alpha)
-                    fast_p.data.copy_(slow)
-        return loss
-
-    def state_dict(self):
-        return self.base_optimizer.state_dict()
-
-    def load_state_dict(self, state_dict):
-        self.base_optimizer.load_state_dict(state_dict)
-        self.param_groups = self.base_optimizer.param_groups
-        self.state = self.base_optimizer.state
-
-    def zero_grad(self, set_to_none: bool = True):
-        self.base_optimizer.zero_grad(set_to_none=set_to_none)
-
-    def add_param_group(self, param_group):
-        self.base_optimizer.add_param_group(param_group)
-        self.param_groups = self.base_optimizer.param_groups
-
-
-def build_ranger_optimizer(params, lr: float = 1e-3, betas=(0.9, 0.999),
-                            eps: float = 1e-8, weight_decay: float = 0.0,
-                            k: int = 6, alpha: float = 0.5) -> Lookahead:
-    """Builds a Lookahead-wrapped RAdam instance — this project's Ranger."""
-    base = RAdam(list(params), lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-    return Lookahead(base, k=k, alpha=alpha)
 
 
 def build_router_optimizer(params, lr: float):
@@ -910,19 +762,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             # world_size changed but the per-rank batch size happened to
             # auto-detect the same would otherwise pass this check while
             # actually resuming state built for a different real LR.
-            _saved_batch_size = _rs.get("batch_size")
-            if _saved_batch_size == _global_batch_size:
-                optimizer.load_state_dict(_rs["optimizer_state"])
-                scheduler.load_state_dict(_rs["scheduler_state"])
-            else:
-                print(f"[Resume] Batch size changed since this checkpoint was saved "
-                      f"({_saved_batch_size!r} -> {_global_batch_size}) — the saved "
-                      f"optimizer/scheduler state was computed for a different batch "
-                      f"size and will NOT be restored, to avoid silently resuming a "
-                      f"wrong-for-this-run LR schedule. Continuing with the fresh "
-                      f"optimizer/scheduler already built above for THIS run's batch "
-                      f"size — model weights, epoch, and patience state are still "
-                      f"resumed normally below.")
+            restore_optimizer_scheduler_state(_rs, _global_batch_size, optimizer, scheduler)
             scaler.load_state_dict(_rs["scaler_state"])
             early_stop.counter   = _rs["patience_counter"]
             early_stop.best_loss = _rs["best_val_loss"]
@@ -957,15 +797,12 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         current_lr = optimizer.param_groups[0]["lr"]
         elapsed    = time.time() - t0
-        _nvsmi_vram_used_gb, _nvsmi_vram_total_gb = (
-            get_nvsmi_vram_gb() if device.type == "cuda" else (-1, -1)
-        )
 
         print(f"[{img_size}x{img_size}] Epoch {epoch:3d}  "
               f"loss: {train_loss:.4f}  acc: {train_acc:.4f}  |  "
               f"val_loss: {val_loss:.4f}  val_acc: {val_acc:.4f}  |  "
               f"lr: {current_lr:.2e}  [{elapsed:.0f}s]  |  "
-              f"VRAM {_nvsmi_vram_used_gb:.1f}/{_nvsmi_vram_total_gb:.1f}GB  "
+              f"VRAM {hw['nvsmi_vram_used_gb_max']:.1f}/{hw['nvsmi_vram_total_gb']:.1f}GB  "
               f"CUDA {hw['cuda_util_pct_avg']:.0f}/{hw['cuda_util_pct_max']}%(avg/max)  "
               f"{hw['gpu_temp_c_avg']:.0f}/{hw['gpu_temp_c_max']}°C  {hw['gpu_power_w_avg']:.0f}W  |  "
               f"CPU {hw['cpu_pct_avg']:.0f}%  RAM {hw['ram_used_gb_avg']:.1f}/{hw['ram_total_gb']:.1f}GB  |  "
@@ -984,8 +821,6 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # can write each sample point as its own CSV row — see that
         # function's own docstring for the row layout.
         history.setdefault("_hw_raw_samples", []).append(hw_raw)
-        history.setdefault("nvsmi_vram_used_gb", []).append(_nvsmi_vram_used_gb)
-        history.setdefault("nvsmi_vram_total_gb", []).append(_nvsmi_vram_total_gb)
         for hw_key, hw_val in hw.items():
             history.setdefault(hw_key, []).append(hw_val)
         history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
@@ -998,12 +833,66 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # append logic.
         save_log(history, cfg["log_path"])
 
-        if check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch):
-            break
-        if check_vram_safety(hw, _nvsmi_vram_total_gb, epoch):
+        # Checkpoint save moved ahead of the safety-check breaks below
+        # (2026-08-08, per direct user follow-up) — early_stop() is the
+        # only thing that writes cfg["checkpoint_path"]; running it after
+        # a safety break meant a safety-triggered stop on the very first
+        # improving epoch left no checkpoint on disk at all, crashing the
+        # unconditional torch.load() after this loop. Now the current
+        # epoch's checkpoint is always saved (if it's a new best) before
+        # any stop decision is made.
+        early_stop(val_loss, model)
+
+        _ram_stop    = check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch)
+        _vram_status = check_vram_safety(
+            hw['nvsmi_vram_used_gb_max'], hw['nvsmi_vram_total_gb'], epoch,
+            vram_history=history['nvsmi_vram_used_gb_max'],
+        )
+
+        if _ram_stop or _vram_status == "stop":
+            # Resume state now also saved on a hard safety stop (2026-08-08,
+            # per direct user follow-up) — previously only a normal
+            # continuing epoch saved it, leaving a safety-triggered stop
+            # with no way to resume mid-schedule, only reload the best
+            # checkpoint from scratch.
+            save_resume_state(
+                cfg["resume_path"],
+                epoch=epoch,
+                batch_size=_global_batch_size,  # DDP: global, not per-rank — see the LR-scaling note above
+                patience_counter=early_stop.counter,
+                best_val_loss=float(early_stop.best_loss),
+                optimizer_state=optimizer.state_dict(),
+                scheduler_state=scheduler.state_dict(),
+                scaler_state=scaler.state_dict(),
+                history=history,
+            )
             break
 
-        early_stop(val_loss, model)
+        if _vram_status == "warn":
+            # Reactive batch-size backoff (2026-08-08, per direct user
+            # follow-up): this epoch's peak crossed into the 1GB advisory
+            # buffer without threatening real exhaustion — reduce batch
+            # size for subsequent epochs and keep training, rather than
+            # stopping. DataLoader is rebuilt (PyTorch doesn't support
+            # mutating an existing one's batch_size); the LR scheduler's
+            # total_steps is rescaled to match the new steps-per-epoch
+            # rate so the cosine curve still targets roughly the same
+            # real-epoch horizon. NOTE: the optimizer's LR itself is NOT
+            # re-scaled here (scaled_learning_rate() was only ever applied
+            # once, at construction) — a known limitation flagged rather
+            # than silently addressed, since re-deriving and reassigning
+            # LR mid-run for a Lookahead-wrapped optimizer was a separate
+            # judgment call this pass didn't cover.
+            _old_steps_per_epoch = len(train_loader)
+            cfg["batch_size"] = reduce_batch_size(
+                cfg["batch_size"], len(train_ds), MIN_STEPS_PER_EPOCH,
+                world_size=get_world_size(),
+            )
+            _global_batch_size = cfg["batch_size"] * get_world_size()
+            train_loader = make_train_loader(train_ds, digit_train, letters_train_subset, cfg["batch_size"])
+            scheduler.rescale_total_steps(_old_steps_per_epoch, len(train_loader))
+            print(f"[Batch] Reduced to {cfg['batch_size']} for subsequent epochs")
+
         if early_stop.stop:
             break
 

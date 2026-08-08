@@ -4008,4 +4008,524 @@ work, both versions read directly).
   correctly when it should — that's William's to run per the project's
   Testing rule. The `soap_16` run that surfaced this bug will need to be
   re-run to get past epoch 1.
+
+## 2026-08-07 — check_vram_safety() reworked to use interval-sampled nvidia-smi peak, not a single post-epoch snapshot
+
+### What changed
+
+`common/telemetry.py`:
+- `_NVSMI_FIELDS` extended with `memory.used,memory.total` (now 12 fields;
+  `_NVSMI_FIELD_COUNT` auto-derives from the string, so no separate count to
+  keep in sync).
+- `HardwareMonitor.sample()`: now also parses those two new fields into
+  `stats["nvsmi_vram_used_gb"]` / `stats["nvsmi_vram_total_gb"]` on every
+  call — i.e. at every `_SAMPLE_INTERVAL`-batch point through the epoch
+  (same interval-sampling path every other telemetry metric already uses),
+  not a separate one-off call. `-1` on parse failure, matching this
+  function's existing convention for every other field.
+- `HardwareMonitor.epoch_summary()`: `nvsmi_vram_used_gb` added to the
+  existing min/avg/max reduction tuple (alongside `cuda_util_pct`,
+  `gpu_temp_c`, etc.), so `nvsmi_vram_used_gb_min/_avg/_max` all populate.
+  `nvsmi_vram_total_gb` added as a single passthrough (last sample's value),
+  since capacity doesn't fluctuate within a run the way usage does.
+- `get_nvsmi_vram_gb()` — removed. Its one job (a single post-epoch
+  nvidia-smi read) is now superseded by the sampling above.
+- `check_vram_safety()` — new signature:
+  `check_vram_safety(nvsmi_used_peak_gb, nvsmi_total_gb, epoch, reserve_gb=1.0)`.
+  Now compares nvidia-smi's own tracked peak against nvidia-smi's own total
+  — both from the same measurement system — instead of the previous
+  `torch.cuda`-reserved-vs-nvidia-smi-total mismatch (see Why).
+
+`common/cli_logging.py`:
+- `_POINT_FIELDS` gains `nvsmi_vram_used_gb`, so each raw per-sample-point
+  CSV row now includes it, same as every other sampled metric.
+- `HW_TELEMETRY_FIELDS`: the old two-column pair (`nvsmi_vram_used_gb`,
+  `nvsmi_vram_total_gb`) replaced with `nvsmi_vram_used_gb_min`,
+  `nvsmi_vram_used_gb_avg`, `nvsmi_vram_used_gb_max`, `nvsmi_vram_total_gb`
+  — matching the min/avg/max pattern already used by every other sampled
+  field in the epoch-summary row.
+
+All 44 training scripts (`digit_models/`, `uppercase_models/`,
+`lowercase_models/`, `router_models/`), four identical edits each:
+1. `get_nvsmi_vram_gb` removed from the `common.telemetry` import (function
+   no longer exists).
+2. Per-epoch console print's VRAM figure now reads
+   `hw['nvsmi_vram_used_gb_max']` / `hw['nvsmi_vram_total_gb']` (the
+   epoch's tracked peak) instead of a separate post-epoch
+   `get_nvsmi_vram_gb()` call.
+3. The two manual `history.setdefault("nvsmi_vram_used_gb", ...)` /
+   `("nvsmi_vram_total_gb", ...)` lines removed — both fields now arrive
+   automatically through the existing generic
+   `for hw_key, hw_val in hw.items(): history.setdefault(hw_key, []).append(hw_val)`
+   loop, since they're now part of `hw` (the `epoch_summary()` dict), same
+   as every other telemetry field.
+4. `check_vram_safety()` call site changed from
+   `check_vram_safety(hw, _nvsmi_vram_total_gb, epoch)` to
+   `check_vram_safety(hw['nvsmi_vram_used_gb_max'], hw['nvsmi_vram_total_gb'], epoch)`.
+
+### Why
+
+Direct trigger: William's pasted console log from
+`v3_mnist_router_ranger_28.py` showed `check_vram_safety()` firing a false
+positive and killing training with real headroom untouched:
+`vram_peak_reserved_gb=15.012` (`torch.cuda`, allocator-pool view) compared
+against `nvsmi_vram_total_gb=15.992`, while nvidia-smi's own actual reading
+at that point was `nvsmi_vram_used_gb=8.953` — nearly 7GB of real slack the
+check never saw, because it compared the wrong measurement system's number
+(`torch.cuda` reserved) against nvidia-smi's total instead of comparing
+like-for-like.
+
+Second, deeper issue William identified past the immediate numeric bug:
+even corrected to compare nvsmi-vs-nvsmi, the original design still only
+read nvidia-smi ONCE, after the epoch had already finished — a transient
+mid-epoch spike (or a genuine high-water mark that had already subsided by
+the post-epoch snapshot) could be missed or misread either direction.
+William connected this directly to the project's own already-established
+interval-sampling rationale ("this si why i wanted multiple snap shots to
+capture any anomilies or chages to teh use duirng runs"): every other
+telemetry metric (`cuda_util_pct`, `gpu_temp_c`, etc.) is sampled at
+`_SAMPLE_INTERVAL=25`-batch points through the epoch specifically to catch
+real in-epoch behavior instead of one misleading snapshot — documented in
+`common/telemetry.py`'s own module docstring. VRAM was the one metric still
+using a single post-hoc reading, which was architecturally inconsistent
+with the rest of this project's own telemetry design, not just a numeric
+bug in isolation.
+
+### Source
+
+- Measurement-mismatch figures: read directly from William's pasted console
+  log and the run's own CSV
+  (`router_models/v3_mnist_router_ranger_28/v3_mnist_router_ranger_28_log.csv`)
+  — `vram_peak_alloc_gb=7.9`, `vram_peak_reserved_gb=15.012`,
+  `nvsmi_vram_used_gb=8.953`, `nvsmi_vram_total_gb=15.992`, read directly,
+  not estimated.
+- Interval-sampling design rationale: `common/telemetry.py`'s own module
+  docstring (already in the codebase, read directly) and this session's
+  earlier "Per-epoch CSV telemetry reworked" entry above (2026-08-07) —
+  both already establish why multi-point sampling exists in this project;
+  this change extends that existing, documented design to VRAM rather than
+  introducing a new pattern.
+- Folding VRAM's two nvidia-smi fields into the existing `_NVSMI_FIELDS`
+  query string, rather than a second subprocess call per sample point: this
+  project's own existing single-nvidia-smi-call-per-sample design (already
+  in `HardwareMonitor.sample()` before this change) — kept the same
+  per-sample-point cost profile instead of doubling nvidia-smi invocations.
+- Redesign scope (fold into `HardwareMonitor.sample()` vs. a narrower
+  nvsmi-vs-nvsmi-only fix): William's direct instruction, given after a
+  narrower fix was discussed in chat but never applied — no external
+  source, project-specific architecture decision.
+
+### Verification
+
+- Confirmed via the `Grep` tool, explicitly scoped to `E:\mnist_v3`:
+  `get_nvsmi_vram_gb` — 0/44 training scripts still reference it (only
+  remaining hits are this changelog's own historical entries describing the
+  prior design); the new
+  `check_vram_safety(hw['nvsmi_vram_used_gb_max'], hw['nvsmi_vram_total_gb'], epoch)`
+  call — present in 44/44 scripts; the old
+  `check_vram_safety(hw, _nvsmi_vram_total_gb, epoch)` call — 0/44; the old
+  per-script `_nvsmi_vram_used_gb` snapshot variable — 0/44.
+- `python -m py_compile` on `common/telemetry.py`, `common/cli_logging.py`,
+  and all 44 training scripts, run via explicit `cd /e/mnist_v3 &&` (real
+  checkout, not the worktree) — clean, no syntax errors.
+- Worktree re-synced to the real checkout via `robocopy /MIR` (excluding
+  `.git`/`.claude`/`.vscode`/`__pycache__`) and confirmed with `diff -rq` —
+  zero differences.
+- Not verified: an actual training run confirming the interval-sampled VRAM
+  peak correctly tracks real mid-epoch usage, that `check_vram_safety()` no
+  longer false-positives on the `router_ranger_28` scenario that surfaced
+  this bug, and that it still correctly fires when VRAM usage genuinely
+  approaches capacity — that's William's to run per the project's Testing
+  rule. The `router_ranger_28` run that was killed by this bug will need to
+  be re-run to get past the epoch where it previously stopped.
+
+---
+
+## 2026-08-08 — VRAM safety check split into warn/stop tiers; reactive mid-run batch-size backoff added; optimizer/scheduler resume-guard centralized
+
+### Problem / context
+
+The `v3_mnist_letter_uc_soap_28` run crashed: `check_vram_safety()` correctly
+detected epoch 1's peak VRAM (15.00GB) crossing the 1GB reserve line and
+`break`-ed the training loop, but the `break` ran before `early_stop()` (the
+only thing that writes the checkpoint file), so no checkpoint existed. The
+post-loop `torch.load(cfg["checkpoint_path"], ...)` then crashed with
+`FileNotFoundError`. Investigating this surfaced that the 1GB reserve was
+never meant to be a hard stop at all (William: "the 1 gb reserve vram is a
+suggestion not a hard stop... its ok" if a given epoch uses it — the actual
+intent is only to stop the GPU from being consumed so completely that it
+bottlenecks the rest of the system) — the existing code enforced it as an
+unconditional hard stop regardless.
+
+### What changed
+
+`common/telemetry.py` — `check_vram_safety()` rewritten:
+- Signature: `reserve_gb: float = 1.0` → `warn_reserve_gb: float = 1.0,
+  stop_reserve_gb: float = 0.25`. Return type: `bool` → `str` (`"ok"` /
+  `"warn"` / `"stop"`), since `"warn"` now needs to carry caller-actionable
+  meaning distinct from both no-op and halt.
+- `stop_reserve_gb` (0.25GB) is the new hard-stop trigger, moved much closer
+  to real exhaustion. `warn_reserve_gb` (1.0GB, unchanged value) is now
+  advisory-only — logs and returns `"warn"`, no longer stops training itself.
+
+`common/batch_sizing.py` — new `reduce_batch_size()`: steps a batch size
+down by `backoff_pct` (default 0.10, rounded to a multiple of 8), floored via
+the existing `cap_batch_size_for_min_steps()`. Called by each script's
+training loop when `check_vram_safety()` returns `"warn"`, so a completed
+epoch that dipped into the 1GB buffer reduces batch size for subsequent
+epochs instead of stopping.
+
+`common/scheduler.py` — new `WarmupCosineScheduler.rescale_total_steps()`:
+when a mid-run batch-size reduction changes the DataLoader's steps-per-epoch,
+this proportionally rescales the remaining `total_steps` horizon so the
+cosine-decay curve still targets roughly the same real-epoch count, instead
+of decaying early against the OLD batch size's step-count assumption.
+
+`common/checkpointing.py` — new `restore_optimizer_scheduler_state()`:
+centralizes the batch-size-match resume guard that previously existed only
+in the router scripts (`v3_mnist_router_ranger_*.py`, added 2026-07-28 for
+the router's own batch-size-dependent LR scaling) — only restores saved
+optimizer/scheduler state if the resume file's recorded `batch_size` matches
+the current run's, otherwise skips it (model weights/epoch/patience still
+restore normally) rather than silently applying state tuned for a different
+batch size. Extended to every script, not just the router, because reactive
+mid-run batch-size adjustment (above) means non-router scripts can now also
+resume against a stale-batch-size optimizer/scheduler state.
+
+Not yet done (separate changelog entries to follow): wiring these four
+functions into each of the 44 scripts' training loops (checkpoint-save now
+has to happen before either safety check, and a hard stop now also saves
+resume state, not just the checkpoint), and centralizing optimizer
+construction (`build_soap`/`build_adamw_sf`/`build_muon`/
+`build_ranger_optimizer` — confirmed byte-identical across all 37 files
+checked, no resolution-specific variation) into a shared module.
+
+### Why
+
+- Two-tier VRAM check, `warn_reserve_gb` semantics: per William's direct
+  instruction (the 1GB line's actual intent) — no external source.
+- `stop_reserve_gb = 0.25` and `backoff_pct = 0.10`: both explicitly flagged
+  as judgment calls with no derivation, proposed and then explicitly
+  confirmed by William — no external source.
+- `rescale_total_steps()` recomputing proportionally rather than left as-is:
+  William's explicit choice between the two options presented — no external
+  source. The specific formula (preserve remaining-epochs-equivalent,
+  re-expressed at the new steps-per-epoch rate) is this session's own
+  derivation from reading `common/scheduler.py`'s existing `step()` /
+  `total_steps` mechanics directly, not from any external reference.
+- Centralizing the resume guard (vs. duplicating the router's pattern into
+  the other 43 scripts): William's explicit choice. The guard's own logic is
+  taken from the router scripts' existing, working implementation (read
+  directly, e.g. `v3_mnist_router_ranger_16.py` lines 896-925), not
+  reinvented.
+- DataLoader must be reconstructed rather than mutated in place to change
+  batch size mid-run: confirmed via PyTorch Forums / GitHub discussion (not
+  from memory) — https://discuss.pytorch.org/t/is-it-possible-to-change-the-batch_size-of-a-dataloader-after-it-was-created/55912
+- `torch.cuda.memory_reserved()` / `max_memory_reserved()` /
+  `reset_peak_memory_stats()` semantics, underlying the existing VRAM
+  telemetry this change builds on: confirmed against current PyTorch docs
+  (not from memory) — https://docs.pytorch.org/docs/stable/generated/torch.cuda.memory.max_memory_reserved.html
+- nvidia-smi's `memory.used`/`memory.total` aggregate fields (queried by
+  this project's existing telemetry) remain accurate under Windows WDDM —
+  only *per-process* breakdown is unavailable under WDDM, not the aggregate
+  totals this project actually reads. Confirmed against NVIDIA's own
+  nvidia-smi documentation and NVIDIA Developer Forums (not from memory),
+  after an initial fetch summary appeared to contradict this project's own
+  observed working telemetry and needed reconciling rather than being taken
+  at face value — https://docs.nvidia.com/deploy/nvidia-smi/index.html ,
+  https://forums.developer.nvidia.com/t/unable-to-view-memory-usage-with-nvidia-smi-not-available-in-wddm-driver-model/244700
+- SOAP's Kronecker-factored preconditioner state (`GG`/`Q` matrices) is
+  allocated from optimizer step 1 onward, sized by parameter/gradient shape
+  only, not by gradient values — confirmed by reading the actual installed
+  `pytorch_optimizer` package source directly
+  (`pytorch_optimizer/optimizer/soap.py`, `init_pre_conditioner()` /
+  `update_pre_conditioner()`), not from memory. This informed (by ruling
+  out "dummy vs. real probe data" as the explanation) the decision to
+  pursue reactive post-epoch batch-size backoff rather than switching the
+  batch-size probe to real training data.
+
+### Verification
+
+- `python -m py_compile` on all four changed `common/` files — clean, no
+  syntax errors.
+- Not yet verified: the 44 training scripts still import/call
+  `check_vram_safety()` with its OLD two-argument-plus-bool-return contract
+  at this point in time — those call sites are the next piece of this work
+  and will break until updated. Not yet verified: an actual training run
+  exercising the warn tier, the tightened stop tier, or the reactive
+  batch-size backoff — that's William's to run per the project's Testing
+  rule once the 44-script wiring lands.
+
+---
+
+## 2026-08-08 — 44-script wiring for the above (checkpoint-order fix, resume-on-hard-stop, reactive batch backoff) + AdamW-specific scheduler-less adaptation
+
+### What changed
+
+All 44 training scripts (`digit_models/`, `uppercase_models/`, `lowercase_models/`,
+`router_models/` — every SOAP, AdamW, Muon, and Ranger script at every resolution
+tier), consuming the four `common/` functions from the previous entry:
+
+1. **Checkpoint-save-ordering fix**: `early_stop(val_loss, model)` (the only thing
+   that writes `cfg["checkpoint_path"]`) now runs before both safety checks, not
+   after — this is the actual fix for the `v3_mnist_letter_uc_soap_28` crash that
+   started this session's work. `check_cpu_ram_safety()`/`check_vram_safety()` are
+   captured into `_ram_stop`/`_vram_status` and branched on afterward.
+2. **Hard stop now also saves resume state**: previously only a normally-continuing
+   epoch called `save_resume_state()`; a safety-triggered stop now does too (with
+   `batch_size` included), so it can be resumed mid-schedule rather than only
+   reloading the best checkpoint from scratch.
+3. **Reactive batch-size backoff**: on `_vram_status == "warn"`, calls
+   `reduce_batch_size()`, rebuilds `train_loader` (each script's own existing
+   `make_dataloader()`/`make_train_loader()` call, reused verbatim with the new
+   batch size — signatures genuinely differ per family: digit-SOAP/Muon take
+   `(train_ds, train_targets, batch_size)` or `(train_ds, train_targets, supp_ds,
+   batch_size)`; digit-AdamW takes `(train_ds, batch_size,
+   use_weighted_sampler=True)`; letter-AdamW/SOAP/Muon take `(train_ds, batch_size,
+   train_targets=train_targets)` or the 3-arg positional form; the router takes
+   `(train_ds, digit_train, letters_train_subset, batch_size)`), and calls
+   `scheduler.rescale_total_steps()` — except AdamW, which has no scheduler
+   (Schedule-Free eliminates it), so that line is omitted for all 13 AdamW scripts.
+4. **Resume block**: replaced with `restore_optimizer_scheduler_state(_rs,
+   cfg["batch_size"], optimizer, scheduler)` — `scheduler` omitted (defaults to
+   `None`) for AdamW's 13 scripts, which resume `optimizer_state`/`scaler_state`
+   only. The 5 router scripts pass `_global_batch_size` (DDP-aware) instead of
+   `cfg["batch_size"]`, replacing their own pre-existing inline version of this
+   same guard with a call into the now-centralized one.
+
+`common/checkpointing.py` — `restore_optimizer_scheduler_state()`'s `scheduler`
+parameter changed from required to `scheduler=None`, discovered necessary while
+wiring AdamW (Schedule-Free has no scheduler object or `"scheduler_state"` resume
+key at all — this wasn't apparent until actually reading an AdamW script's resume
+block directly, not assumed from the SOAP/Muon/Ranger shape).
+
+**Known limitation, flagged not silently handled**: the router's optimizer LR is
+computed once at construction via `scaled_learning_rate(_global_batch_size)`
+(linear scaling relative to `REFERENCE_BATCH_SIZE`). Reactive batch-size backoff
+updates `_global_batch_size` and rescales the LR *schedule's* `total_steps`, but
+does not re-derive and reassign the optimizer's actual `lr` for the new batch
+size — left as a follow-up decision, not addressed in this pass.
+
+### Why
+
+- The checkpoint-order fix, hard-stop resume save, and reactive backoff mechanism
+  itself: per William's direct instruction (see the 2026-08-08 entry above for the
+  full design conversation) — no external source.
+- Reusing each script's own existing `make_dataloader()`/`make_train_loader()` call
+  verbatim in the backoff branch, rather than assuming one universal signature:
+  this session's own direct verification — grepped every `train_loader =
+  make_dataloader(...)` call site across all 44 scripts and found the signature
+  genuinely varies by family (confirmed via `Grep`, not assumed), so the
+  reconstruction line for each family was built from what that family's scripts
+  actually call, not a guessed common shape.
+- `restore_optimizer_scheduler_state(scheduler=None)`: discovered by reading
+  `v3_mnist_digit_adamw_16.py`'s actual resume block directly (line 587:
+  `scaler.load_state_dict(_rs["scaler_state"])`, no `scheduler.load_state_dict`
+  call anywhere in the file) — not assumed from the SOAP/Muon/router shape.
+
+### Verification
+
+- `python -m py_compile` on all 44 training scripts plus all five changed/new
+  `common/` files (including `common/optimizers.py` from the entry below) —
+  clean, no syntax errors.
+- Grep sweep confirming, across all 44 scripts: zero remaining `if
+  check_vram_safety(...):` (old bool-style) call sites; `restore_optimizer_scheduler_state`
+  imported in all 44; zero remaining unconditional `optimizer.load_state_dict(_rs[...])`
+  calls outside the new guarded helper.
+- **Every one of the 44 scripts' import block, resume block, and epoch loop was
+  then individually read in full (not sampled, not grep-only)** — per direct user
+  follow-up after the grep sweep above was (correctly) challenged as insufficient
+  verification on its own. This caught one real issue the grep/compile checks had
+  missed: see the "Muon docstring staleness" note below.
+- **Muon docstring staleness (found, not fixed)**: all 13 Muon scripts' module
+  docstrings still describe the optimizer as "implemented directly here... see
+  section 2b below" and retain a full section-header comment block ("2b. MUON
+  OPTIMIZER (inlined — not a shared/imported module...)") that now describes code
+  no longer present in the file (moved to `common/optimizers.py` by the entry
+  below). SOAP and AdamW have no equivalent stale text. The router scripts'
+  analogous header comment was correctly removed as part of that transformation.
+  Left as-is pending William's direction — not fixed silently.
+- Not yet verified: an actual training run exercising any of the three fixes —
+  that's William's to run per the project's Testing rule.
+
+---
+
+## 2026-08-08 — Optimizer construction centralized into common/optimizers.py (knowingly reverses the 2026-07-27 modularization-scope decision)
+
+### What changed
+
+New file `common/optimizers.py`: `build_soap()` + `SOAP_LR`/`SOAP_BETAS`/
+`SOAP_WEIGHT_DECAY`/`SOAP_PRECOND_FREQ`; `build_adamw_sf()` +
+`ADAMW_SF_LR`/`ADAMW_SF_WEIGHT_DECAY` (package import moved inside the function,
+lazy, so scripts that don't need `schedulefree` aren't forced to have it
+installed just to import this module — same for `pytorch_optimizer`/`SOAP`);
+`zeropower_via_newtonschulz5()` + `Muon` class + `build_muon()` +
+`MUON_LR`/`MUON_MOMENTUM`/`MUON_WD`/`NS_STEPS`/`MUON_ADAMW_LR`/`MUON_ADAMW_BETAS`/
+`MUON_ADAMW_EPS`/`MUON_ADAMW_WD`; `RAdam` class + `Lookahead` class +
+`build_ranger_optimizer()`. Each script's local copy of these (constants,
+functions, and for Muon/Ranger the full class definitions) was deleted and
+replaced with an import from this module. `build_router_optimizer()` (router-
+specific: composes `build_ranger_optimizer()` with `WEIGHT_DECAY`/`LOOKAHEAD_K`/
+`LOOKAHEAD_ALPHA` and a dynamically LR-scaled `lr`) stays local to each router
+script, not centralized — it's router-specific composition, not generic
+optimizer construction.
+
+### Why
+
+- Doing this at all: William's explicit, informed choice, made after being shown
+  that it reverses `v3_CHANGELOG.md`'s 2026-07-27 "Naming and modularization-
+  scope correction" entry, which had reverted an earlier attempt at exactly this
+  and documented why (task text: Muon's AdamW fallback belongs "within the Muon
+  training script"; optimizer algorithms were never in Part 2's modularization
+  scope) — no external source, a knowing override of a prior project decision.
+- Confirmed byte-for-byte identical across all resolutions/model categories
+  before centralizing: SOAP constants across 13/13 files, `build_soap()` body
+  across 5/5 digit files (grepped, not sampled); AdamW `LEARNING_RATE`/
+  `WEIGHT_DECAY`/`build_adamw_sf()` across all 13/13 files; Muon constants across
+  14 grep hits and the full `zeropower_via_newtonschulz5()`/`Muon` class/
+  `build_muon()` body diffed character-for-character across digit vs. letter-case
+  files (found and reconciled one docstring-only difference, no code difference);
+  Ranger's `RAdam`/`Lookahead`/`build_ranger_optimizer()` body diffed
+  character-for-character across all 5 router files (byte-identical, 5861 chars
+  each) — all via this session's own direct file reads/diffs, not assumed from
+  one sample.
+- Lazy (in-function) package imports for SOAP/AdamW rather than module-level:
+  this session's own reasoning about the consequence of centralizing — a
+  module-level `from pytorch_optimizer import SOAP` in `common/optimizers.py`
+  would force every script importing anything from this module (including
+  Muon-only or Ranger-only scripts) to have `pytorch_optimizer` installed, which
+  the original per-script design never required. No external source.
+
+### Verification
+
+- `python -m py_compile` on `common/optimizers.py` and all 44 training scripts —
+  clean.
+- Grep sweep confirming, across all 44 scripts: zero remaining `def build_soap`,
+  `def build_adamw_sf`, `class Muon(Optimizer)`, `def build_muon`, `class RAdam`,
+  `class Lookahead`, or `def build_ranger_optimizer` definitions; all 44 import
+  from `common.optimizers`.
+- All 44 scripts' relevant sections then read in full manually (see the entry
+  above for why) — code confirmed correct in every file; documentation staleness
+  found in the 13 Muon scripts only, reported above, not fixed.
+- Not yet verified: an actual training run using any of the four centralized
+  optimizers — that's William's to run per the project's Testing rule.
+
+---
+
+## 2026-08-08 — VRAM trend reporting: show whether a warn/stop was a gradual creep or a sudden jump
+
+### What changed
+
+`common/telemetry.py`:
+- New `_format_vram_trend(vram_history, window=5)` — formats the last `window`
+  epochs' peak VRAM readings (from `history['nvsmi_vram_used_gb_max']`, which
+  already includes the current epoch as its last entry by the time
+  `check_vram_safety()` runs each epoch) into a line showing the raw sequence
+  plus the average epoch-over-epoch delta across the window's earlier epochs
+  versus the jump into the current epoch. Deliberately prints only the numbers
+  — no algorithmic "sudden" vs. "gradual" verdict. Returns `""` if fewer than 2
+  epochs of history exist yet.
+- `check_vram_safety()` gains a new optional trailing parameter,
+  `vram_history: list = None`. When given and a `"warn"` or `"stop"` fires, the
+  existing `[VRAM] ...` print is immediately followed by
+  `_format_vram_trend()`'s output (skipped if it returns `""`).
+
+All 44 training scripts: the `check_vram_safety(...)` call site now also passes
+`vram_history=history['nvsmi_vram_used_gb_max']` — identical addition across
+all 44 files (unlike the batch-size-backoff wiring two entries above, this call
+site has no per-family variation).
+
+### Why
+
+- Doing this at all, and the specific "print the numbers, no verdict" approach
+  (over an alternative that was also on the table: an algorithmic
+  SUDDEN/GRADUAL label): William's direct instruction and explicit choice
+  between the two — no external source. The rejected alternative would have
+  needed an invented threshold multiplier (how many times the recent average
+  rate counts as "sudden") and window size, both judgment calls with no more
+  principled basis than `stop_reserve_gb`/`backoff_pct` earlier — reporting the
+  raw numbers avoids that specific invented threshold.
+- `window=5` default: this session's own pick, explicitly flagged as
+  arbitrary — no external or derived basis, open to a different number.
+- Reusing `history['nvsmi_vram_used_gb_max']` rather than building new state:
+  confirmed directly by reading `common/telemetry.py`'s `epoch_summary()`
+  (the `nvsmi_vram_used_gb` field's `_min_avg_max` reduction produces exactly
+  this key) and each training script's own `history.setdefault(hw_key,
+  []).append(hw_val)` loop, which already accumulates every epoch's value
+  before `check_vram_safety()` is called — not assumed, read directly.
+
+### Verification
+
+- `python -m py_compile` on `common/telemetry.py` and all 44 training scripts
+  — clean.
+- Grep confirms `vram_history=history` present in all 44 scripts (44/44,
+  cross-checked against `Found 44 files`).
+- One file read directly per optimizer family (digit SOAP, digit AdamW, digit
+  Muon, router Ranger) to confirm the call site renders correctly in context —
+  not a full 44-file read this time, since this was a single byte-identical
+  exact-match replacement with a hard per-file assertion (count-must-equal-1)
+  gating every application, unlike the earlier multi-variant change where a
+  full read was the only way to catch family-specific differences.
+- Not yet verified: an actual training run showing this trend line fire for
+  real — that's William's to run per the project's Testing rule.
+
+---
+
+## 2026-08-08 — Stale documentation fixed: README.md and all 13 Muon scripts' docstrings
+
+### What changed
+
+`README.md`:
+- The "Modularized (infrastructure only)" bullet (previously claiming optimizer
+  algorithms are deliberately never shared) rewritten to describe both sides of
+  the actual history — infrastructure modularized in Part 2, optimizer
+  construction later centralized into `common/optimizers.py` on 2026-08-08,
+  reversing that original scope decision. Also fixed "imported by all 20
+  training scripts" → "44" in the same sentence, a separate pre-existing
+  staleness noticed while rewriting this bullet for the reason above (not
+  separately approved before being changed — flagged here rather than left
+  unmentioned).
+- The `common/` directory tree's annotation ("optimizer algorithms are NOT
+  here, see below") rewritten, and `optimizers.py` added to the tree listing
+  itself (was missing entirely).
+- The stale `NOTE: Muon and Ranger have NO standalone file` comment removed
+  from next to `ocr_pipeline_mnist.py` — no longer true, and the tree already
+  shows `optimizers.py` directly now.
+
+All 13 Muon scripts (`digit_models`/`uppercase_models`/`lowercase_models`):
+- Module docstring's "OPTIMIZER — Muon (see section 2b below... implemented
+  directly here..." paragraph rewritten to point at `common/optimizers.py`
+  instead, on both the digit-family wording and the (differently-worded)
+  letter-family wording — these were two distinct strings, not one, discovered
+  by diffing rather than assumed identical to the digit version.
+- The `# 2b. MUON OPTIMIZER (inlined — not a shared/imported module...)`
+  section-header block replaced with a short pointer to
+  `common/optimizers.py`. Same discovery: the digit-family version (~17 lines,
+  full algorithm description) and letter-family version (~5 lines,
+  cross-referencing the digit file) were different block text, not one
+  universal string — the first fix attempt found 0 matches on the 8
+  letter-family files because of this, caught immediately by checking the
+  script's own reported count rather than assuming success.
+
+### Why
+
+- Doing this at all: William's direct instruction ("yes why wodu i not wnat
+  the files updated") — no external source.
+- Content of the README/docstring rewrites: this session's own record of what
+  actually happened tonight (the 2026-07-27 and 2026-08-08 changelog entries
+  above), not an external source.
+
+### Verification
+
+- `python -m py_compile` on all 13 Muon scripts — clean.
+- Grep confirms zero remaining `"section 2b below"`, `"not a shared/imported
+  module"` matches across all 44 scripts. A third grep for `"implemented
+  directly here"` initially returned 26 (not 0) — investigated rather than
+  assumed correct or assumed a bug: all 26 are the NEW text's own deliberate
+  quoted reference to the old phrase (e.g. "reversing this file's original
+  'implemented directly here' design"), confirmed by reading one instance
+  directly, not a leftover of the actual stale claim.
+- One digit-family and one letter-family file read in full after the fix to
+  confirm the rewritten text reads correctly in context.
+- README.md changes read back in full after writing.
 

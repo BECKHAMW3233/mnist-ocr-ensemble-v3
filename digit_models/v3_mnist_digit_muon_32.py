@@ -19,17 +19,17 @@ Architecture — OCRConvNetMuon (new for v3):
   ~9.7M parameters (~36.9 MB float32) — see v3_CHANGELOG.md's standard
   settings table for the exact count.
 
-OPTIMIZER — Muon (see section 2b below, in this same file, for the full
-algorithm/rationale — implemented directly here, not in a separate
-shared module, per the task's own instruction to keep the AdamW
-fallback "within the Muon training script"):
+OPTIMIZER — Muon (see common/optimizers.py for the full algorithm/
+implementation — centralized there 2026-08-08, reversing this file's
+original "implemented directly here" design; see v3_CHANGELOG.md's
+2026-07-27 and 2026-08-08 entries for both sides of that history):
   Orthogonalizes the momentum-accumulated gradient of every Conv2d/Linear
   .weight tensor (ndim >= 2) via a Newton-Schulz quintic iteration before
   applying it. Muon has no defined update for 1D parameters (biases,
   BatchNorm weight/bias) — those fall back to a standard decoupled-
   weight-decay AdamW update within the SAME optimizer object (this
-  project's own required Muon+AdamW-fallback split — implemented
-  directly in this file, see section 2b below).
+  project's own required Muon+AdamW-fallback split — see
+  common/optimizers.py's build_muon()).
     Muon group   : lr=0.02, momentum=0.95, nesterov=True, ns_steps=5, weight_decay=0.01
     AdamW fallback group: lr=3e-4, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.01
   300-step linear warmup before cosine decay (common/scheduler.py,
@@ -86,7 +86,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler, ConcatDataset
 from torchvision import transforms
 
 from common.telemetry import (
-    HardwareMonitor, setup_device, HAS_PSUTIL, get_nvsmi_vram_gb,
+    HardwareMonitor, setup_device, HAS_PSUTIL,
     check_vram_safety, check_cpu_ram_safety,
 )
 from common.distributed import (
@@ -94,12 +94,19 @@ from common.distributed import (
     cleanup_distributed, wrap_model_ddp, unwrap_model, all_reduce_sum, get_world_size,
     DistributedWeightedRandomSampler,
 )
-from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps
-from common.checkpointing import EarlyStopping, save_resume_state, clear_resume_state
+from common.batch_sizing import determine_batch_size, cap_batch_size_for_min_steps, reduce_batch_size
+from common.checkpointing import (
+    EarlyStopping, save_resume_state, clear_resume_state, restore_optimizer_scheduler_state,
+)
 from common.cli_logging import _Tee, plot_history, save_log
 from common.onnx_export import export_onnx
 from common.scheduler import WarmupCosineScheduler
 from common.amp import amp_train_step
+from common.optimizers import (
+    build_muon, MUON_LR, MUON_MOMENTUM, MUON_WD, NS_STEPS,
+    MUON_ADAMW_LR as ADAMW_LR, MUON_ADAMW_BETAS as ADAMW_BETAS,
+    MUON_ADAMW_EPS as ADAMW_EPS, MUON_ADAMW_WD as ADAMW_WD,
+)
 
 
 if HAS_PSUTIL:
@@ -130,14 +137,6 @@ MIN_STEPS_PER_EPOCH = 15  # floor on real gradient-update steps per epoch — se
                           # cap_batch_size_for_min_steps() in common/batch_sizing.py
 USE_AMP       = True
 
-MUON_LR         = 0.02
-MUON_MOMENTUM   = 0.95
-MUON_WD         = 0.01
-NS_STEPS        = 5
-ADAMW_LR        = 3e-4
-ADAMW_BETAS     = (0.9, 0.95)
-ADAMW_EPS       = 1e-8
-ADAMW_WD        = 0.01
 
 WARMUP_STEPS  = 300
 LABEL_SMOOTH  = 0.05
@@ -306,169 +305,10 @@ class OCRConvNetMuon(nn.Module):
 
 
 # =============================================================================
-# 2b. MUON OPTIMIZER (inlined — not a shared/imported module; see
-#     v3_CHANGELOG.md's naming-and-modularization-scope correction. The
-#     original task text said explicitly: "Use AdamW as that fallback
-#     WITHIN the Muon training script" — the optimizer implementation
-#     belongs in this file, not factored out into a project-wide module.
-#     Part 2's modularization list never included optimizer algorithms;
-#     only infrastructure (batch-sizing, checkpoint/resume, telemetry,
-#     dataset loading, mixed precision, ONNX export, seeding) is shared.
+# 2b. MUON OPTIMIZER — see common/optimizers.py (centralized 2026-08-08;
+#     was previously implemented directly in this file — see
+#     v3_CHANGELOG.md's 2026-07-27 and 2026-08-08 entries for why).
 # =============================================================================
-# Muon (MomentUm Orthogonalized by Newton-Schulz) — Jordan et al.'s public
-# 2024/2025 research release, "Muon: An optimizer for the hidden layers of
-# neural networks." Orthogonalizes the momentum-accumulated gradient of
-# each 2D+ weight matrix via a Newton-Schulz quintic iteration (a fast,
-# matrix-multiply-only approximation of the "UV^T" term of that
-# gradient's SVD, i.e. its zeroth power) before applying it.
-#
-# Muon is defined only for 2D+ parameters (weight matrices) — it has no
-# principled generalization to the 1D parameters that make up the rest
-# of this network (biases, BatchNorm scale/shift). Muon below is the
-# standard pattern used by every public Muon reference: one
-# torch.optim.Optimizer whose param_groups are each tagged `use_muon`,
-# running the Muon update on the True group and a plain AdamW update on
-# the False group within the same .step() call.
-
-from torch.optim import Optimizer
-
-
-def zeropower_via_newtonschulz5(G: torch.Tensor, steps: int = 5, eps: float = 1e-7) -> torch.Tensor:
-    """
-    Quintic Newton-Schulz iteration approximating G's orthogonalized
-    "UV^T" term without computing an actual SVD. The coefficients
-    (3.4445, -4.7750, 2.0315) are the published quintic coefficients
-    (Jordan et al.) chosen so the iteration converges in ~5 steps from a
-    spectrally-normalized start. Runs in float32 throughout (not
-    bfloat16, unlike some reference implementations) so behavior is
-    identical whether this project falls back to CPU or not.
-    """
-    assert G.ndim == 2
-    a, b, c = 3.4445, -4.7750, 2.0315
-    X = G / (G.norm() + eps)
-    transposed = G.size(0) > G.size(1)
-    if transposed:
-        X = X.T
-    for _ in range(steps):
-        A = X @ X.T
-        B = b * A + c * A @ A
-        X = a * X + B @ X
-    if transposed:
-        X = X.T
-    return X
-
-
-class Muon(Optimizer):
-    """
-    One Optimizer over two kinds of param_groups, distinguished by the
-    `use_muon` key each group dict must carry:
-
-      use_muon=True  — Muon update: SGD-style Nesterov momentum, the
-        momentum-combined gradient orthogonalized via Newton-Schulz
-        before being applied, scaled by sqrt(max(1, rows/cols)) to keep
-        the update's RMS roughly shape-independent (matches the
-        published recipe). A 4D Conv2d weight (out_ch, in_ch, kh, kw) is
-        reshaped to 2D (out_ch, in_ch*kh*kw) for orthogonalization and
-        reshaped back before the update is applied.
-      use_muon=False — standard decoupled-weight-decay AdamW update, for
-        the parameters Muon isn't designed for.
-
-    Both branches maintain per-parameter state via the base Optimizer's
-    own `self.state` dict, so state_dict()/load_state_dict() (needed for
-    this project's checkpoint/resume) work with no extra code.
-    """
-    def __init__(self, param_groups):
-        for g in param_groups:
-            g.setdefault("lr", 0.02 if g.get("use_muon") else 3e-4)
-            g.setdefault("momentum", 0.95)
-            g.setdefault("nesterov", True)
-            g.setdefault("ns_steps", 5)
-            g.setdefault("weight_decay", 0.0)
-            g.setdefault("betas", (0.9, 0.95))
-            g.setdefault("eps", 1e-8)
-        super().__init__(param_groups, dict())
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
-        for group in self.param_groups:
-            if group["use_muon"]:
-                self._step_muon(group)
-            else:
-                self._step_adamw(group)
-        return loss
-
-    def _step_muon(self, group):
-        momentum = group["momentum"]
-        for p in group["params"]:
-            if p.grad is None:
-                continue
-            g = p.grad
-            state = self.state[p]
-            if "momentum_buffer" not in state:
-                state["momentum_buffer"] = torch.zeros_like(g)
-            buf = state["momentum_buffer"]
-            buf.mul_(momentum).add_(g)
-            update = g.add(buf, alpha=momentum) if group["nesterov"] else buf
-
-            orig_shape = update.shape
-            mat = update.reshape(orig_shape[0], -1) if update.ndim > 2 else update
-            rows, cols = mat.shape
-            ortho = zeropower_via_newtonschulz5(mat, steps=group["ns_steps"])
-            ortho = ortho.reshape(orig_shape)
-
-            scale = max(1.0, rows / cols) ** 0.5
-            if group["weight_decay"] != 0.0:
-                p.mul_(1 - group["lr"] * group["weight_decay"])
-            p.add_(ortho, alpha=-group["lr"] * scale)
-
-    def _step_adamw(self, group):
-        beta1, beta2 = group["betas"]
-        for p in group["params"]:
-            if p.grad is None:
-                continue
-            g = p.grad
-            state = self.state[p]
-            if "step" not in state:
-                state["step"] = 0
-                state["exp_avg"] = torch.zeros_like(p)
-                state["exp_avg_sq"] = torch.zeros_like(p)
-            state["step"] += 1
-            exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
-            exp_avg.mul_(beta1).add_(g, alpha=1 - beta1)
-            exp_avg_sq.mul_(beta2).addcmul_(g, g, value=1 - beta2)
-            bias_c1 = 1 - beta1 ** state["step"]
-            bias_c2 = 1 - beta2 ** state["step"]
-            denom = (exp_avg_sq.sqrt() / (bias_c2 ** 0.5)).add_(group["eps"])
-            step_size = group["lr"] / bias_c1
-            if group["weight_decay"] != 0.0:
-                p.mul_(1 - group["lr"] * group["weight_decay"])
-            p.addcdiv_(exp_avg, denom, value=-step_size)
-
-
-def build_muon(params) -> Muon:
-    """
-    Splits a flat parameter iterable (not a model — this is the contract
-    common/batch_sizing.py's determine_batch_size() calls build_optimizer
-    with) into the Muon group (ndim >= 2) and the AdamW-fallback group
-    (ndim < 2). Used both by the batch-size probe (via this function) and
-    the real, non-probe optimizer construction below in run_training().
-    """
-    params = list(params)
-    muon_params  = [p for p in params if p.requires_grad and p.ndim >= 2]
-    other_params = [p for p in params if p.requires_grad and p.ndim < 2]
-    param_groups = [
-        dict(params=muon_params, use_muon=True, lr=MUON_LR, momentum=MUON_MOMENTUM,
-             nesterov=True, ns_steps=NS_STEPS, weight_decay=MUON_WD),
-        dict(params=other_params, use_muon=False, lr=ADAMW_LR, betas=ADAMW_BETAS,
-             eps=ADAMW_EPS, weight_decay=ADAMW_WD),
-    ]
-    return Muon(param_groups)
-
 
 # =============================================================================
 # 4. TRAINING / EVALUATION
@@ -688,8 +528,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             _rs = torch.load(str(resume_path), map_location=device, weights_only=False)
             _ckpt = torch.load(cfg["checkpoint_path"], map_location=device, weights_only=False)
             unwrap_model(model).load_state_dict(_ckpt["state_dict"] if "state_dict" in _ckpt else _ckpt)
-            optimizer.load_state_dict(_rs["optimizer_state"])
-            scheduler.load_state_dict(_rs["scheduler_state"])
+            restore_optimizer_scheduler_state(_rs, cfg["batch_size"], optimizer, scheduler)
             scaler.load_state_dict(_rs["scaler_state"])
             early_stop.counter   = _rs["patience_counter"]
             early_stop.best_loss = _rs["best_val_loss"]
@@ -728,15 +567,12 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         val_loss, val_acc = evaluate(model, val_loader, criterion, device)
         current_lr = scheduler.get_lr()[0]
         elapsed    = time.time() - t0
-        _nvsmi_vram_used_gb, _nvsmi_vram_total_gb = (
-            get_nvsmi_vram_gb() if device.type == "cuda" else (-1, -1)
-        )
 
         print(f"[{img_size}x{img_size}] Epoch {epoch:3d}  "
               f"loss: {train_loss:.4f}  acc: {train_acc:.4f}  |  "
               f"val_loss: {val_loss:.4f}  val_acc: {val_acc:.4f}  |  "
               f"lr: {current_lr:.2e}  [{elapsed:.0f}s]  |  "
-              f"VRAM {_nvsmi_vram_used_gb:.1f}/{_nvsmi_vram_total_gb:.1f}GB  "
+              f"VRAM {hw['nvsmi_vram_used_gb_max']:.1f}/{hw['nvsmi_vram_total_gb']:.1f}GB  "
               f"CUDA {hw['cuda_util_pct_avg']:.0f}/{hw['cuda_util_pct_max']}%(avg/max)  "
               f"{hw['gpu_temp_c_avg']:.0f}/{hw['gpu_temp_c_max']}°C  {hw['gpu_power_w_avg']:.0f}W  |  "
               f"CPU {hw['cpu_pct_avg']:.0f}%  RAM {hw['ram_used_gb_avg']:.1f}/{hw['ram_total_gb']:.1f}GB  |  "
@@ -755,8 +591,6 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # can write each sample point as its own CSV row — see that
         # function's own docstring for the row layout.
         history.setdefault("_hw_raw_samples", []).append(hw_raw)
-        history.setdefault("nvsmi_vram_used_gb", []).append(_nvsmi_vram_used_gb)
-        history.setdefault("nvsmi_vram_total_gb", []).append(_nvsmi_vram_total_gb)
         for hw_key, hw_val in hw.items():
             history.setdefault(hw_key, []).append(hw_val)
         history.setdefault("epoch_time_s", []).append(round(elapsed, 1))
@@ -769,12 +603,60 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
         # append logic.
         save_log(history, cfg["log_path"])
 
-        if check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch):
-            break
-        if check_vram_safety(hw, _nvsmi_vram_total_gb, epoch):
+        # Checkpoint save moved ahead of the safety-check breaks below
+        # (2026-08-08, per direct user follow-up) — early_stop() is the
+        # only thing that writes cfg["checkpoint_path"]; running it after
+        # a safety break meant a safety-triggered stop on the very first
+        # improving epoch left no checkpoint on disk at all, crashing the
+        # unconditional torch.load() after this loop. Now the current
+        # epoch's checkpoint is always saved (if it's a new best) before
+        # any stop decision is made.
+        early_stop(val_loss, model)
+
+        _ram_stop    = check_cpu_ram_safety(device, _run_swap_baseline_gb, RAM_RESERVE_GB, epoch)
+        _vram_status = check_vram_safety(
+            hw['nvsmi_vram_used_gb_max'], hw['nvsmi_vram_total_gb'], epoch,
+            vram_history=history['nvsmi_vram_used_gb_max'],
+        )
+
+        if _ram_stop or _vram_status == "stop":
+            # Resume state now also saved on a hard safety stop (2026-08-08,
+            # per direct user follow-up) — previously only a normal
+            # continuing epoch saved it, leaving a safety-triggered stop
+            # with no way to resume mid-schedule, only reload the best
+            # checkpoint from scratch.
+            save_resume_state(
+                cfg["resume_path"],
+                epoch=epoch,
+                patience_counter=early_stop.counter,
+                best_val_loss=float(early_stop.best_loss),
+                optimizer_state=optimizer.state_dict(),
+                scheduler_state=scheduler.state_dict(),
+                scaler_state=scaler.state_dict(),
+                history=history,
+                batch_size=cfg["batch_size"],
+            )
             break
 
-        early_stop(val_loss, model)
+        if _vram_status == "warn":
+            # Reactive batch-size backoff (2026-08-08, per direct user
+            # follow-up): this epoch's peak crossed into the 1GB advisory
+            # buffer without threatening real exhaustion — reduce batch
+            # size for subsequent epochs and keep training, rather than
+            # stopping. DataLoader is rebuilt (PyTorch doesn't support
+            # mutating an existing one's batch_size); the LR scheduler's
+            # total_steps is rescaled to match the new steps-per-epoch
+            # rate so the cosine curve still targets roughly the same
+            # real-epoch horizon.
+            _old_steps_per_epoch = len(train_loader)
+            cfg["batch_size"] = reduce_batch_size(
+                cfg["batch_size"], len(train_ds), MIN_STEPS_PER_EPOCH,
+                world_size=get_world_size(),
+            )
+            train_loader = make_dataloader(train_ds, train_targets, supp_ds, cfg["batch_size"])
+            scheduler.rescale_total_steps(_old_steps_per_epoch, len(train_loader))
+            print(f"[Batch] Reduced to {cfg['batch_size']} for subsequent epochs")
+
         if early_stop.stop:
             break
 
@@ -787,6 +669,7 @@ def run_training(img_size: int, batch_override: int = None, gpu_id: int = None):
             scheduler_state=scheduler.state_dict(),
             scaler_state=scaler.state_dict(),
             history=history,
+            batch_size=cfg["batch_size"],
         )
 
     print(f"\n[Train] [{img_size}x{img_size}] Loading best checkpoint...")
